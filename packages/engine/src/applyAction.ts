@@ -1,0 +1,198 @@
+import { produce, setAutoFreeze } from 'immer';
+import type { GameEvent } from './events.js';
+import {
+  applyDeclareAttack,
+  applyDeclareBlock,
+  applyPass,
+  applyPlayCounter,
+  validateDeclareAttack,
+  validateDeclareBlock,
+  validatePlayCounter,
+} from './reducer/battle.js';
+import { applyConcede } from './reducer/concede.js';
+import { REASONS } from './reducer/errors.js';
+import {
+  applyAttachDon,
+  applyPlayCard,
+  validateAttachDon,
+  validatePlayCard,
+} from './reducer/main.js';
+import { applyMulligan } from './reducer/mulligan.js';
+import { applyEndTurn } from './reducer/turn.js';
+import type { Action, ApplyResult, GameState } from './types.js';
+
+// Engine-returned states are always deeply frozen.
+setAutoFreeze(true);
+
+const ACTION_TYPES: ReadonlySet<string> = new Set([
+  'MULLIGAN',
+  'PLAY_CARD',
+  'ATTACH_DON',
+  'DECLARE_ATTACK',
+  'DECLARE_BLOCK',
+  'PLAY_COUNTER',
+  'PASS',
+  'END_TURN',
+  'CONCEDE',
+]);
+
+// Actions may arrive as untrusted JSON: verify the shape before trusting the
+// declared type. Semantic checks come later and have their own codes.
+function structuralReason(action: Action): string | null {
+  const raw = action as unknown as Record<string, unknown>;
+  if (typeof raw !== 'object' || raw === null || !ACTION_TYPES.has(raw['type'] as string)) {
+    return REASONS.malformedAction;
+  }
+  if (raw['player'] !== 'p1' && raw['player'] !== 'p2') {
+    return REASONS.unknownPlayer;
+  }
+  switch (action.type) {
+    case 'MULLIGAN':
+      return typeof raw['accept'] === 'boolean' ? null : REASONS.malformedAction;
+    case 'PLAY_CARD':
+      if (typeof raw['instanceId'] !== 'string') {
+        return REASONS.malformedAction;
+      }
+      if ('trashCharacter' in raw && typeof raw['trashCharacter'] !== 'string') {
+        return REASONS.malformedAction;
+      }
+      return null;
+    case 'ATTACH_DON':
+      return typeof raw['to'] === 'string' && typeof raw['count'] === 'number'
+        ? null
+        : REASONS.malformedAction;
+    case 'DECLARE_ATTACK':
+      return typeof raw['attacker'] === 'string' && typeof raw['target'] === 'string'
+        ? null
+        : REASONS.malformedAction;
+    case 'DECLARE_BLOCK':
+      return typeof raw['blocker'] === 'string' ? null : REASONS.malformedAction;
+    case 'PLAY_COUNTER':
+      return typeof raw['instanceId'] === 'string' && typeof raw['target'] === 'string'
+        ? null
+        : REASONS.malformedAction;
+    case 'PASS':
+    case 'END_TURN':
+    case 'CONCEDE':
+      return null;
+  }
+}
+
+// Full validation happens here, before produce: apply never bails mid-mutation.
+function validateAction(state: GameState, action: Action): string | null {
+  if (state.status === 'finished') {
+    return REASONS.gameFinished;
+  }
+  const structural = structuralReason(action);
+  if (structural !== null) {
+    return structural;
+  }
+  if (action.type === 'CONCEDE') {
+    return null;
+  }
+  if (action.player !== state.priority) {
+    return REASONS.notYourPriority;
+  }
+  if (state.status === 'mulligan') {
+    return action.type === 'MULLIGAN' ? null : REASONS.wrongStatus;
+  }
+  if (action.type === 'MULLIGAN') {
+    return REASONS.wrongStatus;
+  }
+
+  // Battle gate. Priority already restricts battle actions to the defender.
+  switch (action.type) {
+    case 'PLAY_CARD':
+    case 'ATTACH_DON':
+    case 'DECLARE_ATTACK':
+    case 'END_TURN':
+      if (state.battle !== null) {
+        return REASONS.battleInProgress;
+      }
+      break;
+    case 'DECLARE_BLOCK':
+      if (state.battle === null) {
+        return REASONS.noBattle;
+      }
+      if (state.battle.step !== 'block') {
+        return REASONS.wrongBattleStep;
+      }
+      break;
+    case 'PLAY_COUNTER':
+      if (state.battle === null) {
+        return REASONS.noBattle;
+      }
+      if (state.battle.step !== 'counter') {
+        return REASONS.wrongBattleStep;
+      }
+      break;
+    case 'PASS':
+      if (state.battle === null) {
+        return REASONS.noBattle;
+      }
+      if (state.battle.step !== 'block' && state.battle.step !== 'counter') {
+        return REASONS.wrongBattleStep;
+      }
+      break;
+  }
+
+  switch (action.type) {
+    case 'END_TURN':
+    case 'PASS':
+      return null;
+    case 'PLAY_CARD':
+      return validatePlayCard(state, action);
+    case 'ATTACH_DON':
+      return validateAttachDon(state, action);
+    case 'DECLARE_ATTACK':
+      return validateDeclareAttack(state, action);
+    case 'DECLARE_BLOCK':
+      return validateDeclareBlock(state, action);
+    case 'PLAY_COUNTER':
+      return validatePlayCounter(state, action);
+  }
+}
+
+function applyValidated(draft: GameState, action: Action, events: GameEvent[]): void {
+  switch (action.type) {
+    case 'CONCEDE':
+      applyConcede(draft, action, events);
+      return;
+    case 'MULLIGAN':
+      applyMulligan(draft, action, events);
+      return;
+    case 'END_TURN':
+      applyEndTurn(draft, action, events);
+      return;
+    case 'PLAY_CARD':
+      applyPlayCard(draft, action, events);
+      return;
+    case 'ATTACH_DON':
+      applyAttachDon(draft, action, events);
+      return;
+    case 'DECLARE_ATTACK':
+      applyDeclareAttack(draft, action, events);
+      return;
+    case 'DECLARE_BLOCK':
+      applyDeclareBlock(draft, action, events);
+      return;
+    case 'PLAY_COUNTER':
+      applyPlayCounter(draft, action, events);
+      return;
+    case 'PASS':
+      applyPass(draft, action, events);
+      return;
+  }
+}
+
+export function applyAction(state: GameState, action: Action): ApplyResult {
+  const reason = validateAction(state, action);
+  if (reason !== null) {
+    return { ok: false, reason };
+  }
+  const events: GameEvent[] = [];
+  const nextState = produce(state, (draft) => {
+    applyValidated(draft, action, events);
+  });
+  return { ok: true, state: nextState, events };
+}

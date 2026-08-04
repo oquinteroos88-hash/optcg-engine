@@ -1,0 +1,14 @@
+{
+  "name": "optcg-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm --filter @optcg/engine build",
+    "test": "pnpm --filter @optcg/engine test",
+    "typecheck": "pnpm --filter @optcg/engine typecheck",
+    "sim": "pnpm --filter @optcg/engine sim"
+  }
+}

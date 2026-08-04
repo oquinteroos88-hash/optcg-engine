@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Locally generated tooling metadata: contains absolute machine-specific paths.
+.atl/

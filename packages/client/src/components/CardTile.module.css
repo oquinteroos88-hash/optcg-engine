@@ -30,6 +30,12 @@
   transform: translateY(-4px);
 }
 
+/* Rested cards must keep their rotation while lifting, same collision as
+   .rested.animating below. */
+.rested.selectable:hover {
+  transform: rotate(90deg) translateY(-4px);
+}
+
 .selected {
   cursor: pointer;
   border-color: var(--color-text);

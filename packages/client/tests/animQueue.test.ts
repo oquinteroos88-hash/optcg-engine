@@ -42,7 +42,7 @@ describe('groupEvents', () => {
     expect(groups.map((g) => g.kind)).toEqual(['draw', 'draw']);
   });
 
-  it('merges a donReturned/donGained run into one refreshDon group', () => {
+  it('merges a donReturned/donGained run into one donMoved group', () => {
     const groups = groupEvents([
       { type: 'donReturned', player: 'p1', count: 2, rested: true },
       { type: 'donReturned', player: 'p1', count: 1, rested: false },
@@ -50,7 +50,7 @@ describe('groupEvents', () => {
       { type: 'donGained', player: 'p1', count: 2 },
     ]);
     expect(groups).toHaveLength(1);
-    expect(groups[0]?.kind).toBe('refreshDon');
+    expect(groups[0]?.kind).toBe('donMoved');
     expect(groups[0]?.durationMs).toBe(300);
     expect(groups[0]?.events).toHaveLength(4);
   });

@@ -2,7 +2,12 @@ import type { GameEvent, InstanceId } from '@optcg/engine';
 
 export interface AnimGroup {
   id: number;
-  kind: 'draw' | 'refreshDon' | 'turn' | 'battle' | 'single';
+  /**
+   * `donMoved` covers every DON!! relocation burst — the refresh phase, but also
+   * DON!! returning rested from a card that left the field — so it must not
+   * claim to be the refresh phase.
+   */
+  kind: 'draw' | 'donMoved' | 'turn' | 'battle' | 'single';
   events: readonly GameEvent[];
   durationMs: number;
   cardIds: readonly InstanceId[];
@@ -13,7 +18,7 @@ export interface AnimGroup {
 const ZERO_VISUAL = new Set<GameEvent['type']>(['gameStarted', 'lifeSet', 'mulliganTaken']);
 
 const DRAW_MS = 300;
-const REFRESH_DON_MS = 300;
+const DON_MOVED_MS = 300;
 const TURN_MS = 200;
 const COUNTER_MS = 150;
 const BATTLE_MS = 300;
@@ -108,7 +113,7 @@ export function groupEvents(events: readonly GameEvent[]): AnimGroup[] {
         slice.push(next);
         j += 1;
       }
-      push('refreshDon', slice, REFRESH_DON_MS);
+      push('donMoved', slice, DON_MOVED_MS);
       i = j;
       continue;
     }

@@ -1,6 +1,6 @@
 // View-model layer: besides game/, the only place allowed to import engine
 // VALUES. Components consume these hooks and stay rule-blind.
-import { getCardDef, getPower, isOnField } from '@optcg/engine';
+import { getCardDef, getPower } from '@optcg/engine';
 import type { GameEvent, GameState, InstanceId, PlayerId } from '@optcg/engine';
 import { getAffordances } from '../game/affordances';
 import type { Affordances } from '../game/affordances';
@@ -48,9 +48,9 @@ function cardViewOf(state: GameState, id: InstanceId): CardView | null {
     name: def.name,
     // Leaders are printed without a cost; the engine stores 0 for them.
     cost: def.category === 'leader' ? null : def.cost,
-    // Field cards show live power (DON + modifiers); hand cards preview the
-    // printed value.
-    power: isOnField(state, id) ? getPower(state, id) : def.power,
+    // Single source of truth for power, everywhere: getPower already returns the
+    // printed value when nothing modifies the card.
+    power: getPower(state, id),
     counter: def.counter,
     colorClass: def.color,
     rested: card.orientation === 'rested',
@@ -149,7 +149,14 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
     case 'donPaid':
       return { player: event.player, text: `paga ${event.count} DON!!` };
     case 'donReturned':
-      return { player: event.player, text: `recupera ${event.count} DON!!` };
+      // DON!! coming back from a card that left the field return rested, so they
+      // cannot be spent this turn; refresh-phase returns come back active.
+      return {
+        player: event.player,
+        text: event.rested
+          ? `recupera ${event.count} DON!! agotados (no usables este turno)`
+          : `recupera ${event.count} DON!! activos`,
+      };
     case 'cardPlayed':
       return { player: event.player, text: `juega ${nameOf(state, event.instanceId)}` };
     case 'characterTrashedForRoom':

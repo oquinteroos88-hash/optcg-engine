@@ -1,0 +1,40 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-muted);
+  max-width: 40ch;
+}
+
+.ready {
+  background: var(--color-accent);
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-5);
+  cursor: pointer;
+}

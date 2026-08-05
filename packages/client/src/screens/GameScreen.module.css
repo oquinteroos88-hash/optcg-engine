@@ -1,0 +1,16 @@
+.screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
+/* Input is blocked while the animation queue drains. */
+.blocked {
+  pointer-events: none;
+}

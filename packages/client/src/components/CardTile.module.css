@@ -1,0 +1,140 @@
+.card {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+  flex: 0 0 auto;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+/* Click states — driven by affordances, never by rule checks in components. */
+.selectable {
+  cursor: pointer;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.selectable:hover {
+  transform: translateY(-4px);
+}
+
+.selected {
+  cursor: pointer;
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-text);
+}
+
+.targetable {
+  cursor: pointer;
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 2px var(--color-danger);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.inert {
+  cursor: default;
+}
+
+/* Dim non-participants while a targeting mode is active. CSS Modules scope
+   class names per file, so this cannot be a descendant rule off the Table. */
+.dimmed {
+  opacity: 0.4;
+}
+
+/* Head animation group: subtle, transition-based, no layout shift. */
+.animating {
+  box-shadow: 0 0 0 3px var(--color-accent);
+  transform: translateY(-3px);
+}
+
+.rested.animating {
+  transform: rotate(90deg) translateY(-3px);
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 4px var(--color-danger);
+  }
+}
+
+.back {
+  background: var(--color-card-back);
+  border-color: var(--color-border);
+}
+
+.red {
+  background: linear-gradient(160deg, var(--color-card-red), var(--color-surface));
+}
+
+.green {
+  background: linear-gradient(160deg, var(--color-card-green), var(--color-surface));
+}
+
+.rested {
+  transform: rotate(90deg);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.cost {
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.name {
+  font-size: 11px;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 12px;
+}
+
+.power {
+  font-weight: 700;
+}
+
+.counter {
+  color: var(--color-muted);
+}
+
+.donBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--color-accent);
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}

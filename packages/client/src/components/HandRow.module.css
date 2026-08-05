@@ -1,0 +1,19 @@
+.hand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+.cards {
+  display: flex;
+  gap: clamp(var(--space-1), 0.5vw, var(--space-2));
+  justify-content: center;
+  flex-wrap: wrap;
+}

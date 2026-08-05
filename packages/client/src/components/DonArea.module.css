@@ -1,0 +1,57 @@
+.donArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  flex: 0 0 auto;
+}
+
+.donArea:disabled {
+  cursor: default;
+}
+
+.clickable {
+  cursor: pointer;
+  border-color: var(--color-accent);
+}
+
+.clickable:hover {
+  background: var(--color-surface-2);
+}
+
+.attaching {
+  cursor: pointer;
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-text);
+}
+
+.label {
+  font-size: 11px;
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.counts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.active {
+  color: var(--color-text);
+}
+
+.rested {
+  color: var(--color-muted);
+}
+
+.deck {
+  color: var(--color-muted);
+}

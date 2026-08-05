@@ -1,0 +1,29 @@
+:root {
+  --color-bg: #0f1520;
+  --color-surface: #1c2536;
+  --color-surface-2: #253048;
+  --color-border: #33415c;
+  --color-text: #e8edf5;
+  --color-muted: #93a1b8;
+  --color-accent: #f0b429;
+  --color-danger: #e05b4f;
+  --color-card-red: #8f2d26;
+  --color-card-green: #2e7d4f;
+  --color-card-back: #3a2f63;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+
+  /* Cards shrink with the viewport so the acting player's half always fits. */
+  --card-w: clamp(56px, 6.2vw, 92px);
+  --card-h: clamp(78px, 8.5vw, 126px);
+  --log-w: clamp(180px, 19vw, 280px);
+
+  --font-body: 'Segoe UI', system-ui, sans-serif;
+}

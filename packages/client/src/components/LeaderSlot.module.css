@@ -1,0 +1,12 @@
+.leaderSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 11px;
+  color: var(--color-accent);
+  text-transform: uppercase;
+}

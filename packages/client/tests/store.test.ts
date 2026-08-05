@@ -101,7 +101,7 @@ describe('store.uiEvent', () => {
     expect(getAffordances(state).byCard[leader]?.canReceiveDon).toBe(true);
 
     useStore.getState().uiEvent({ kind: 'clickDonArea' });
-    expect(useStore.getState().ui.mode).toEqual({ kind: 'attachingDon' });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'attachingDon', owner: 'p1' });
 
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: leader, mine: true });
     expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
@@ -112,7 +112,7 @@ describe('store.uiEvent', () => {
   it('escape returns to idle without dispatching anything', () => {
     reachMainPhase();
     useStore.getState().uiEvent({ kind: 'clickDonArea' });
-    expect(useStore.getState().ui.mode).toEqual({ kind: 'attachingDon' });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'attachingDon', owner: 'p1' });
 
     const before = mustGameState();
     useStore.getState().uiEvent({ kind: 'escape' });
@@ -125,6 +125,45 @@ describe('store.uiEvent', () => {
     reachMainPhase();
     const before = mustGameState();
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: 'nope', mine: true });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+    expect(useStore.getState().gameState).toBe(before);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('mode ownership across a turn change', () => {
+  function reachMainPhase(): void {
+    useStore.getState().answerMulligan(false);
+    useStore.getState().answerMulligan(false);
+    drainQueue();
+  }
+
+  // Regression: attachingDon carries no instance id, so before mode ownership
+  // existed it survived END_TURN and the next player arrived with their own
+  // cards already pulsing as DON!! targets.
+  it('drops attachingDon when the turn passes to the other player', () => {
+    reachMainPhase();
+    const first = mustGameState().priority;
+
+    useStore.getState().uiEvent({ kind: 'clickDonArea' });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'attachingDon', owner: first });
+
+    useStore.getState().endTurn();
+
+    const after = mustGameState();
+    expect(after.priority).not.toBe(first);
+    // The new player must start from a clean board, not in DON-targeting mode.
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('lets the DON area click cancel attachingDon', () => {
+    reachMainPhase();
+    useStore.getState().uiEvent({ kind: 'clickDonArea' });
+    expect(useStore.getState().ui.mode.kind).toBe('attachingDon');
+
+    const before = mustGameState();
+    useStore.getState().uiEvent({ kind: 'clickDonArea' });
     expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
     expect(useStore.getState().gameState).toBe(before);
     expect(errorSpy).not.toHaveBeenCalled();
@@ -150,6 +189,32 @@ describe('store global actions', () => {
     const state = mustGameState();
     expect(state.status).toBe('finished');
     expect(state.endReason).toBe('concede');
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('refuses a global action whose affordance flag is false', () => {
+    // PASS is battle-only, so it is illegal in the main phase.
+    useStore.getState().answerMulligan(false);
+    useStore.getState().answerMulligan(false);
+    drainQueue();
+    expect(getAffordances(mustGameState()).global.canPass).toBe(false);
+
+    const before = mustGameState();
+    useStore.getState().pass();
+    // Guarded in the store: nothing dispatched, so no illegal action was logged.
+    expect(useStore.getState().gameState).toBe(before);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('refuses answerMulligan once the mulligan is over', () => {
+    useStore.getState().answerMulligan(false);
+    useStore.getState().answerMulligan(false);
+    drainQueue();
+    expect(getAffordances(mustGameState()).global.mustAnswerMulligan).toBe(false);
+
+    const before = mustGameState();
+    useStore.getState().answerMulligan(true);
+    expect(useStore.getState().gameState).toBe(before);
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
@@ -212,7 +277,7 @@ describe('battle interaction through the store', () => {
 
     // Defender picks a counter card, then its target.
     useStore.getState().uiEvent({ kind: 'clickHandCard', instanceId: counterCard });
-    expect(useStore.getState().ui.mode).toEqual({ kind: 'countering', counterCard });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'countering', owner: 'p2', counterCard });
 
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: targetId, mine: true });
     expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
@@ -239,12 +304,12 @@ describe('battle interaction through the store', () => {
     const attacker = characterAt(main, 'p1', 0);
 
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: attacker, mine: true });
-    expect(useStore.getState().ui.mode).toEqual({ kind: 'attacking', attacker });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'attacking', owner: 'p1', attacker });
 
     // An id outside attackTargets must not produce an intent or leave the mode.
     const before = mustGameState();
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: 'nope', mine: false });
-    expect(useStore.getState().ui.mode).toEqual({ kind: 'attacking', attacker });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'attacking', owner: 'p1', attacker });
     expect(useStore.getState().gameState).toBe(before);
     expect(errorSpy).not.toHaveBeenCalled();
   });
@@ -257,7 +322,7 @@ describe('battle interaction through the store', () => {
     expect(getAffordances(main).byCard[attacker]?.attackTargets).toContain(target);
 
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: attacker, mine: true });
-    expect(useStore.getState().ui.mode).toEqual({ kind: 'attacking', attacker });
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'attacking', owner: 'p1', attacker });
 
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: target, mine: false });
     expect(mustGameState().battle?.attacker).toBe(attacker);

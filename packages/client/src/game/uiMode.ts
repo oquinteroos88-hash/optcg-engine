@@ -1,15 +1,20 @@
-import type { GameState, InstanceId } from '@optcg/engine';
+import type { GameState, InstanceId, PlayerId } from '@optcg/engine';
 import { cardAffordance, getAffordances } from './affordances';
 import type { Affordances } from './affordances';
 import type { ActionIntent } from './driver-types';
 
+/**
+ * Every non-idle mode records the player it was opened for. Without that stamp
+ * `attachingDon` — the only mode carrying no instance id — survived a turn
+ * change, handing the next player a board already in DON-targeting mode.
+ */
 export type UiMode =
   | { kind: 'idle' }
-  | { kind: 'cardSelected'; card: InstanceId }
-  | { kind: 'attacking'; attacker: InstanceId }
-  | { kind: 'attachingDon' }
-  | { kind: 'choosingTrash'; cardToPlay: InstanceId }
-  | { kind: 'countering'; counterCard: InstanceId };
+  | { kind: 'cardSelected'; owner: PlayerId; card: InstanceId }
+  | { kind: 'attacking'; owner: PlayerId; attacker: InstanceId }
+  | { kind: 'attachingDon'; owner: PlayerId }
+  | { kind: 'choosingTrash'; owner: PlayerId; cardToPlay: InstanceId }
+  | { kind: 'countering'; owner: PlayerId; counterCard: InstanceId };
 
 export type UiEvent =
   | { kind: 'clickHandCard'; instanceId: InstanceId }
@@ -33,7 +38,7 @@ function anyCanReceiveDon(aff: Affordances): boolean {
 function playOutcome(instanceId: InstanceId, aff: Affordances): UiModeResult {
   const card = cardAffordance(aff, instanceId);
   if (card.playRequiresTrash) {
-    return { mode: { kind: 'choosingTrash', cardToPlay: instanceId } };
+    return { mode: { kind: 'choosingTrash', owner: aff.whoActs, cardToPlay: instanceId } };
   }
   return { mode: IDLE, intent: { type: 'PLAY_CARD', instanceId } };
 }
@@ -55,7 +60,7 @@ export function reduceUiMode(mode: UiMode, ev: UiEvent, aff: Affordances): UiMod
         if (ev.action === 'play') {
           return playOutcome(mode.card, aff);
         }
-        return { mode: { kind: 'attacking', attacker: mode.card } };
+        return { mode: { kind: 'attacking', owner: aff.whoActs, attacker: mode.card } };
       }
       return { mode };
     }
@@ -74,6 +79,10 @@ export function reduceUiMode(mode: UiMode, ev: UiEvent, aff: Affordances): UiMod
     case 'attachingDon': {
       if (ev.kind === 'clickFieldCard' && ev.mine && cardAffordance(aff, ev.instanceId).canReceiveDon) {
         return { mode: IDLE, intent: { type: 'ATTACH_DON', to: ev.instanceId, count: 1 } };
+      }
+      // Clicking the DON area again toggles the mode off instead of dead-ending.
+      if (ev.kind === 'clickDonArea') {
+        return { mode: IDLE };
       }
       return { mode };
     }
@@ -109,10 +118,10 @@ function reduceIdle(mode: UiMode, ev: UiEvent, aff: Affordances): UiModeResult {
     case 'clickHandCard': {
       const card = cardAffordance(aff, ev.instanceId);
       if (card.canCounter) {
-        return { mode: { kind: 'countering', counterCard: ev.instanceId } };
+        return { mode: { kind: 'countering', owner: aff.whoActs, counterCard: ev.instanceId } };
       }
       if (card.canPlay && card.canAttack) {
-        return { mode: { kind: 'cardSelected', card: ev.instanceId } };
+        return { mode: { kind: 'cardSelected', owner: aff.whoActs, card: ev.instanceId } };
       }
       if (card.canPlay) {
         return playOutcome(ev.instanceId, aff);
@@ -125,10 +134,10 @@ function reduceIdle(mode: UiMode, ev: UiEvent, aff: Affordances): UiModeResult {
       }
       const card = cardAffordance(aff, ev.instanceId);
       if (card.canAttack && card.canPlay) {
-        return { mode: { kind: 'cardSelected', card: ev.instanceId } };
+        return { mode: { kind: 'cardSelected', owner: aff.whoActs, card: ev.instanceId } };
       }
       if (card.canAttack) {
-        return { mode: { kind: 'attacking', attacker: ev.instanceId } };
+        return { mode: { kind: 'attacking', owner: aff.whoActs, attacker: ev.instanceId } };
       }
       if (card.canBlock) {
         return { mode: IDLE, intent: { type: 'DECLARE_BLOCK', blocker: ev.instanceId } };
@@ -137,7 +146,7 @@ function reduceIdle(mode: UiMode, ev: UiEvent, aff: Affordances): UiModeResult {
     }
     case 'clickDonArea': {
       if (anyCanReceiveDon(aff)) {
-        return { mode: { kind: 'attachingDon' } };
+        return { mode: { kind: 'attachingDon', owner: aff.whoActs } };
       }
       return { mode };
     }
@@ -147,11 +156,15 @@ function reduceIdle(mode: UiMode, ev: UiEvent, aff: Affordances): UiModeResult {
 }
 
 /**
- * Re-validate a mode against a (new) state: if the referenced card no longer
- * carries the corresponding affordance, fall back to idle.
+ * Re-validate a mode against a (new) state: a mode opened by a player who no
+ * longer holds priority is dropped outright, and otherwise the referenced card
+ * must still carry the corresponding affordance.
  */
 export function ensureModeValid(mode: UiMode, state: GameState): UiMode {
   const aff = getAffordances(state);
+  if (mode.kind !== 'idle' && mode.owner !== state.priority) {
+    return IDLE;
+  }
   switch (mode.kind) {
     case 'idle':
       return mode;

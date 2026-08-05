@@ -51,6 +51,13 @@ function idleUi(): UiState {
 
 export const useStore = create<StoreState>()((set, get) => {
   // Global affordances become store actions so components never build Actions.
+  // The legality gate lives here, not in the JSX that renders each button.
+  const GLOBAL_FLAGS = {
+    PASS: 'canPass',
+    END_TURN: 'canEndTurn',
+    CONCEDE: 'canConcede',
+  } as const;
+
   const globalAction =
     (type: 'PASS' | 'END_TURN' | 'CONCEDE') =>
     (): void => {
@@ -58,7 +65,11 @@ export const useStore = create<StoreState>()((set, get) => {
       if (gameState === null || animQueue.length > 0) {
         return;
       }
-      dispatch(toAction({ type }, getAffordances(gameState).whoActs));
+      const aff = getAffordances(gameState);
+      if (!aff.global[GLOBAL_FLAGS[type]]) {
+        return;
+      }
+      dispatch(toAction({ type }, aff.whoActs));
     };
 
   return {
@@ -149,7 +160,11 @@ export const useStore = create<StoreState>()((set, get) => {
       if (gameState === null || animQueue.length > 0) {
         return;
       }
-      dispatch(toAction({ type: 'MULLIGAN', accept }, getAffordances(gameState).whoActs));
+      const aff = getAffordances(gameState);
+      if (!aff.global.mustAnswerMulligan) {
+        return;
+      }
+      dispatch(toAction({ type: 'MULLIGAN', accept }, aff.whoActs));
     },
 
     toggleVeil: () => {

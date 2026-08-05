@@ -129,7 +129,9 @@ export function validatePlayCounter(state: GameState, action: PlayCounterAction)
   if (card === undefined) {
     return REASONS.cardNotInHand;
   }
-  if (getCardDef(card.cardId).counter <= 0) {
+  // A card with no printed Counter value cannot be played in the Counter Step
+  // at all; this is not the same as one that would add zero.
+  if (getCardDef(card.cardId).counter === null) {
     return REASONS.noCounterValue;
   }
   // Counters may boost any own leader or on-field character, battling or not.
@@ -146,6 +148,9 @@ export function applyPlayCounter(
 ): void {
   const card = mustGetCard(draft, action.instanceId);
   const value = getCardDef(card.cardId).counter;
+  if (value === null) {
+    throw new Error('Engine bug: counter-less card passed PLAY_COUNTER validation');
+  }
   const ps = draft.players[action.player];
   mark('counter.played');
   const battle = mustGetBattle(draft);

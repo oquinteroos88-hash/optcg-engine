@@ -23,7 +23,7 @@ function counterSetup(): {
   bystander: string;
   counter1000: string;
   counter2000: string;
-  counter0: string;
+  counterless: string;
 } {
   const main = advanceToMain(buildGame());
   const ids = {} as Record<string, string>;
@@ -36,7 +36,7 @@ function counterSetup(): {
     ids['bystander'] = draftPutCharacter(draft, 'p2', 'TEST-103', { orientation: 'active' });
     ids['counter1000'] = draftHandCard(draft, 'p2', 'TEST-101'); // counter 1000
     ids['counter2000'] = draftHandCard(draft, 'p2', 'TEST-104'); // counter 2000
-    ids['counter0'] = draftHandCard(draft, 'p2', 'TEST-108'); // counter 0
+    ids['counterless'] = draftHandCard(draft, 'p2', 'TEST-108'); // counter: null
   });
   return {
     state,
@@ -47,7 +47,7 @@ function counterSetup(): {
     bystander: ids['bystander']!,
     counter1000: ids['counter1000']!,
     counter2000: ids['counter2000']!,
-    counter0: ids['counter0']!,
+    counterless: ids['counterless']!,
   };
 }
 
@@ -213,7 +213,7 @@ describe('counters', () => {
       applyFail(step, {
         type: 'PLAY_COUNTER',
         player: 'p2',
-        instanceId: setup.counter0,
+        instanceId: setup.counterless,
         target: setup.defenderChar,
       }),
     ).toBe('noCounterValue');

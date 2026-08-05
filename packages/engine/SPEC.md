@@ -85,7 +85,9 @@ Critical details:
 3. **Counter**: the defender discards cards **from hand** for their printed
    Counter value, adding that power to any own Leader/Character on the field —
    even one not in the battle — until the end of the battle. Multiple counters
-   allowed. No counters from the field.
+   allowed. No counters from the field. A card with no printed Counter value
+   (`counter: null`, the printed dash) cannot be played in this step at all —
+   that is distinct from a card adding zero, and the type reflects it.
 4. **Damage**: compare powers. **The attacker wins ties** (`>=`).
    - Attacker wins vs a Character: that Character is KO'd (goes to trash).
    - Attacker wins vs the Leader: the top life card goes to the defender's
@@ -212,11 +214,18 @@ type Action =
   | { type: 'CONCEDE'; player: PlayerId };
 ```
 
-**Approved extension** (user decision, the ONLY deviation from the original
-union): `PLAY_CARD.trashCharacter?: InstanceId`. Required **iff** the board has
-5 Characters and the played card is a Character: absent when full →
-`trashChoiceRequired`; present when not full → `trashChoiceNotAllowed`; not one
-of your on-board Characters → `invalidTrashChoice`.
+**Extension, not part of the original specification.** The specified union had
+`PLAY_CARD` carrying only `player` and `instanceId`, leaving the 6th-Character
+discard to a later phase. `PLAY_CARD.trashCharacter?: InstanceId` was added and
+subsequently accepted, and is the ONLY deviation from the specified union.
+Required **iff** the board has 5 Characters and the played card is a Character:
+absent when full → `trashChoiceRequired`; present when not full →
+`trashChoiceNotAllowed`; not one of your on-board Characters →
+`invalidTrashChoice`.
+
+Note for consumers: on a full board `legalActions` emits one variant per
+sacrificeable Character, so an affordance layer must collapse them into a single
+play affordance plus a selector rather than mapping actions to buttons one-to-one.
 
 ## Public API (exact signatures)
 
@@ -245,7 +254,7 @@ action sequence ⇒ byte-identical state.
 ## Test data
 
 No real cards. Synthetic `TEST-xxx` vanilla set (no effects): costs 1–10, power
-0–12000, counter 0/1000/2000, and 2 Leaders with Life 4 and Life 5 (both power
+0–12000, counter `null`/1000/2000, and 2 Leaders with Life 4 and Life 5 (both power
 5000 so leader-vs-leader ties exist). Two 50-card monocolor decklists, mirrored
 stat lines so equal-power matchups are guaranteed. All in
 `packages/engine/src/testdata/`. No 0-cost cards (bot termination relies on it).

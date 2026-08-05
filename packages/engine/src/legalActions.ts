@@ -112,7 +112,7 @@ function pushCounterActions(state: GameState, player: PlayerId, actions: Action[
   const targets = [ps.leader, ...ps.characters];
   for (const instanceId of ps.hand) {
     const card = state.cards[instanceId];
-    if (card === undefined || getCardDef(card.cardId).counter <= 0) {
+    if (card === undefined || getCardDef(card.cardId).counter === null) {
       continue;
     }
     for (const target of targets) {

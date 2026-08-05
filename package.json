@@ -6,9 +6,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "pnpm --filter @optcg/engine build",
-    "test": "pnpm --filter @optcg/engine test",
-    "typecheck": "pnpm --filter @optcg/engine typecheck",
+    "build": "pnpm -r build",
+    "build:engine": "pnpm --filter @optcg/engine build",
+    "dev": "pnpm --filter @optcg/engine build && pnpm --filter @optcg/client dev",
+    "test": "pnpm --filter @optcg/engine build && pnpm -r test",
+    "typecheck": "pnpm --filter @optcg/engine build && pnpm -r typecheck",
     "sim": "pnpm --filter @optcg/engine sim"
   }
 }

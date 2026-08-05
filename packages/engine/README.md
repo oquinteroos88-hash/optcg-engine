@@ -176,6 +176,9 @@ DECLARE_ATTACK ──> [block] ──PASS──> [counter] ──PASS──> (da
 - **Counter** — the defender discards cards from hand for their printed Counter
   value, adding that power to any own Leader or Character, including one not
   involved in the battle. Repeatable. Counters cannot come from the field.
+  A card whose printed Counter is the dash — modelled as `counter: null`, not
+  `0` — cannot be played in this step at all. The absence of a value is not a
+  value worth zero, and encoding it as `0` invites exactly that misreading.
 - **Damage** — powers are compared and **the attacker wins ties** (`>=`). Beating
   a Character KOs it; beating the Leader moves the top life card to the
   defender's **hand**; losing does nothing. Damage is never bidirectional.
@@ -192,6 +195,21 @@ All `endOfBattle` modifiers expire when the battle resolves — including on a
 Maximum 5 Characters and 1 Stage. Playing a 6th Character requires naming which
 of your Characters goes to the trash; that discard is **not** a KO and emits no
 `koed` event, which matters for Phase 1 on-KO triggers.
+
+**Who chooses the discarded Character.** The engine does not pick — the player
+does, by naming it in `PLAY_CARD.trashCharacter`. The field is required exactly
+when the board is full and rejected otherwise, and `legalActions` enumerates one
+variant per Character that could leave, so the choice is visible to any caller
+rather than buried in engine policy. There is no oldest-first or index-0
+fallback: an action that omits the choice on a full board is rejected with
+`trashChoiceRequired`.
+
+`TODO phase 2: convert into a PendingChoice.` Card effects will need general
+targeting — "choose a Character", "choose an opponent's Character" — which means
+a real pending-choice sub-state where the engine asks and waits for an answer.
+The optional field is deliberately the smallest thing that keeps the decision
+with the player until that machinery exists; it becomes sugar over the general
+mechanism rather than something to unpick.
 
 Every exit from the field — KO, discard for room, Stage replacement — goes
 through one shared helper, so the DON!!-return-rested rule, modifier cleanup,
@@ -253,12 +271,12 @@ power 5000 so Leader-versus-Leader ties exist.
 | `TEST-005` / `TEST-105` | character | 3 | 4000 | 2000 |
 | `TEST-006` / `TEST-106` | character | 4 | 5000 | 1000 |
 | `TEST-007` / `TEST-107` | character | 5 | 6000 | 1000 |
-| `TEST-008` / `TEST-108` | character | 6 | 7000 | 0 |
-| `TEST-009` / `TEST-109` | character | 8 | 9000 | 0 |
-| `TEST-010` / `TEST-110` | character | 10 | 12000 | 0 |
-| `TEST-011` / `TEST-111` | event | 1 | — | — |
-| `TEST-012` / `TEST-112` | event | 3 | — | — |
-| `TEST-013` / `TEST-113` | stage | 2 | — | — |
+| `TEST-008` / `TEST-108` | character | 6 | 7000 | — (`null`) |
+| `TEST-009` / `TEST-109` | character | 8 | 9000 | — (`null`) |
+| `TEST-010` / `TEST-110` | character | 10 | 12000 | — (`null`) |
+| `TEST-011` / `TEST-111` | event | 1 | — | — (`null`) |
+| `TEST-012` / `TEST-112` | event | 3 | — | — (`null`) |
+| `TEST-013` / `TEST-113` | stage | 2 | — | — (`null`) |
 
 Each 50-card deck is 4 copies of each of the 10 Characters, 4 of each Event, and
 2 of the Stage. There are no 0-cost cards, which is part of why bot games are
@@ -296,7 +314,7 @@ therefore rests on unit tests, not on the simulation.
 
 ## Test suite
 
-112 tests across 15 files. The nine explicitly mandated cases live in:
+125 tests across 17 files. The nine explicitly mandated cases live in:
 
 | Mandated case | File |
 | ------------- | ---- |
@@ -323,6 +341,84 @@ resting, `originalTarget` preservation, damage landing on the blocker instead of
 the declared target, and countering a blocker. Vitest isolates the module graph
 per file, so the extra card cannot leak into any other test.
 
+## What the random simulation covers, and what it cannot
+
+A green 1000-game run means no crash, no illegal action, and no broken
+invariant. It does **not** mean the rules are covered. Two separate measurements
+say why.
+
+### Line coverage of the simulation
+
+`pnpm coverage:sim` runs the sweep under the v8 provider using
+`vitest.coverage.config.ts`, deliberately separate from the unit-test config: a
+combined report would blend what the bots reach with what the tests reach and
+hide exactly the gap being measured. The engine sits around 73% of lines, and
+most of what is uncovered falls into two groups that are uncovered **by design**:
+
+- **Validation rejections.** Every `return REASONS.*` is unreached, because the
+  bot only submits actions it got from `legalActions`. Those branches being dead
+  is the acceptance criterion working, not a hole. The unit tests cover them.
+- **Engine-bug throws.** `mustGetCard`, the payment shortfall, "not on the
+  field". If one of these ever executes, there is a bug; they should stay at
+  zero forever.
+
+### Semantic branch marks
+
+Line coverage cannot answer the question that matters here. `attackPower >=
+defensePower` is one line covering two different rules — winning by margin and
+winning a tie — and calling that line "covered" hides the case most likely to be
+implemented wrong.
+
+So `src/instrument.ts` declares named rule branches and the decision points call
+`mark()`. Run `pnpm sim --games 1000 --marks`. The flag sets `OPTCG_MARKS=1`
+before the engine loads, since the instrument reads it once at module load; a
+half-instrumented run would be worse than no data. Counts live in a module-level
+map, never in `GameState`, and without the env var `mark()` is a single boolean
+check.
+
+Read the counts as reached / not reached, not as frequencies: the harness
+applies every action twice for the purity check and replays each finished game
+once, so counts are inflated by exactly 3.
+
+Measured over 1000 games, three marks are **never reached**:
+
+| Dead mark | Why |
+| --------- | --- |
+| `battle.blocked` | No Phase 0 card has Blocker, so the redirect is unreachable from the shipped set. Pinned instead by `blocker.test.ts`, which registers a Blocker card of its own. |
+| `deckOut` | Games end by life-out around turn 19, long before a 41-card deck runs out. Pinned by `winConditions.test.ts`. |
+| `concede` | The bot excludes it on purpose; left in a uniform pool it ends nearly every game at random. Pinned by `winConditions.test.ts`. |
+
+And one mark is technically alive but statistically absent:
+
+- **`field.sixthCharacter` fired 3 times across 1000 games — one real
+  occurrence.** Bots attach DON!! far more often than they play Characters
+  (`don.attached` outnumbers `play.character` roughly six to one), so the board
+  rarely fills. A branch reached once in a thousand games is not tested by the
+  simulation in any meaningful sense; `sixthCharacter.test.ts` covers it
+  directly.
+
+One more thing the marks exposed: `don.gainCappedByCostArea` and
+`don.gainCappedByDonDeck` have **identical** counts. After refresh,
+`costAreaCount === 10 - donDeckRemaining` always holds, so the 10-DON!! cap
+never binds independently of the DON!! deck term. That branch is only nominally
+covered — the cap has never been the thing doing the limiting.
+
+`TODO phase 2: targeted test for the 10-DON!! cap.` The cap only starts to
+matter in long games, and specifically where it meets Refresh: attached DON!!
+returning to a cost area that is already full. That interaction cannot arise
+from the current card set and game lengths, so it needs a built position rather
+than a simulated one.
+
+### Which branches need targeted tests
+
+Anything in the table above, plus anything whose *inputs* the bots cannot be
+steered toward: specific power totals, exact ties, a counter that lands on a
+non-battling card, a full board. Those tests build the position directly with
+the helpers in `src/testdata/scenarios.ts` instead of playing toward it. The
+builders move instances between zones of the same player, so conservation holds
+and the engine's own invariant checks stay meaningful while the position is
+staged.
+
 ## Documented ambiguities and judgement calls
 
 **`rules.firstPlayerCannotAttackTurnOne` (default `true`).** Public sources
@@ -340,12 +436,20 @@ table convention. Nothing in Phase 0 can observe the difference, but the choice
 is a replay-compatibility commitment: changing it later invalidates recorded
 games.
 
-**`PLAY_CARD.trashCharacter`.** The action union gained one optional field so
-that playing a 6th Character can name the Character being trashed. It is
-required exactly when the board is full and forbidden otherwise. The alternative
-— having the engine pick — would delete a real player decision, and Phase 1's
-effect targeting will need a general pending-choice mechanism into which this
-migrates cleanly.
+**`PLAY_CARD.trashCharacter` is an extension, not part of the original spec.**
+The specified action union had `PLAY_CARD` carrying only `player` and
+`instanceId`, leaving the 6th-Character discard for a later phase. The field was
+added because the alternatives were worse: having the engine pick deletes a real
+player decision, and building a general targeting system was out of scope. It is
+required exactly when the board is full and rejected otherwise. Recorded here as
+a deliberate divergence so nobody mistakes it for something the spec asked for.
+
+*Consequence for the affordance layer, worth knowing before building UI:* on a
+full board `legalActions` returns **up to five variants of the same play**, one
+per Character that could be sacrificed. A layer that maps actions to buttons
+one-to-one will render five identical buttons on the same card. The correct
+treatment is to collapse them into a single "play this card" affordance that,
+once activated, opens a selector for which Character to sacrifice.
 
 **`CardDefinition.keywords`.** Added (empty on every Phase 0 card) so that
 Blocker validation checks something real instead of being hardcoded to reject.

@@ -4,3 +4,6 @@ dist/
 
 # Locally generated tooling metadata: contains absolute machine-specific paths.
 .atl/
+
+# Coverage output
+coverage-report/

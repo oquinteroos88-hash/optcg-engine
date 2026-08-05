@@ -1,4 +1,5 @@
 import type { GameEvent } from '../events.js';
+import { mark } from '../instrument.js';
 import type { CardInstance, GameState, InstanceId, PlayerId } from '../types.js';
 
 // Handlers run on an immer draft; the shapes are identical to GameState.
@@ -81,6 +82,7 @@ export function leaveField(
     returned += 1;
   }
   if (returned > 0) {
+    mark('don.returnedRestedOnLeave');
     emit(draft, events, { type: 'donReturned', player: controller, count: returned, rested: true });
   }
 

@@ -1,4 +1,5 @@
 import type { GameEvent } from '../events.js';
+import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
 import { getActiveCostDon, isOwnLeaderOrCharacter } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId } from '../types.js';
@@ -64,7 +65,9 @@ export function applyPlayCard(
 
   switch (def.category) {
     case 'character': {
+      mark('play.character');
       if (action.trashCharacter !== undefined) {
+        mark('field.sixthCharacter');
         leaveField(draft, action.trashCharacter, 'trashedForRoom', events);
       }
       ps.characters.push(action.instanceId);
@@ -79,8 +82,10 @@ export function applyPlayCard(
       return;
     }
     case 'stage': {
+      mark('play.stage');
       const oldStage = ps.stage;
       if (oldStage !== null) {
+        mark('field.stageReplaced');
         leaveField(draft, oldStage, 'stageReplaced', events);
         emit(draft, events, {
           type: 'stageReplaced',
@@ -101,6 +106,7 @@ export function applyPlayCard(
       return;
     }
     case 'event': {
+      mark('play.event');
       // No effects in Phase 0: the event resolves to nothing and is trashed.
       emit(draft, events, {
         type: 'cardPlayed',
@@ -149,6 +155,7 @@ export function applyAttachDon(
   if (remaining > 0) {
     throw new Error('Engine bug: not enough active DON at attach time');
   }
+  mark('don.attached');
   emit(draft, events, {
     type: 'donAttached',
     player: action.player,

@@ -1,4 +1,5 @@
 import type { GameEvent } from '../events.js';
+import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
 import { getOpponent, getPower, isOwnLeaderOrCharacter } from '../selectors.js';
 import type { Battle, GameState, InstanceId, PlayerId } from '../types.js';
@@ -112,6 +113,7 @@ export function applyDeclareBlock(
   events: GameEvent[],
 ): void {
   const battle = mustGetBattle(draft);
+  mark('battle.blocked');
   mustGetCard(draft, action.blocker).orientation = 'rested';
   battle.target = action.blocker;
   battle.wasBlocked = true;
@@ -145,6 +147,14 @@ export function applyPlayCounter(
   const card = mustGetCard(draft, action.instanceId);
   const value = getCardDef(card.cardId).counter;
   const ps = draft.players[action.player];
+  mark('counter.played');
+  const battle = mustGetBattle(draft);
+  if (action.target !== battle.target && action.target !== battle.attacker) {
+    mark('counter.onNonBattlingCard');
+  }
+  if (draft.modifiers.some((modifier) => modifier.duration === 'endOfBattle')) {
+    mark('counter.stacked');
+  }
   ps.hand = ps.hand.filter((id) => id !== action.instanceId);
   ps.trash.unshift(action.instanceId);
   draft.modifiers.push({
@@ -184,7 +194,16 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
   const defensePower = getPower(draft, battle.target);
   const defender = targetCard.controller;
 
-  // The attacker wins ties.
+  // The attacker wins ties. Line coverage cannot tell the tie apart from a
+  // margin win, so the two are marked separately.
+  if (attackPower === defensePower) {
+    mark('battle.tie');
+  } else if (attackPower > defensePower) {
+    mark('battle.attackerWinsByMargin');
+  } else {
+    mark('battle.attackerLoses');
+  }
+
   if (attackPower >= defensePower) {
     const defenderState = draft.players[defender];
     if (defenderState.leader === battle.target) {
@@ -195,8 +214,10 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
         outcome: 'lifeDamage',
       });
       if (defenderState.life.length === 0) {
+        mark('lifeOut');
         finishGame(draft, attackerCard.controller, 'lifeOut', events);
       } else {
+        mark('battle.leaderDamageToHand');
         const lifeCard = defenderState.life.shift();
         if (lifeCard === undefined) {
           throw new Error('Engine bug: life card missing after length check');
@@ -217,6 +238,7 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
         target: battle.target,
         outcome: 'ko',
       });
+      mark('battle.characterKo');
       leaveField(draft, battle.target, 'ko', events);
     }
   } else {

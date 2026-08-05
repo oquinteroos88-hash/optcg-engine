@@ -1,4 +1,5 @@
 import type { GameEvent } from '../events.js';
+import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
 import { shuffle } from '../rng.js';
 import { getOpponent } from '../selectors.js';
@@ -17,6 +18,7 @@ export function applyMulligan(
 ): void {
   const player = action.player;
   const ps = draft.players[player];
+  mark(action.accept ? 'mulligan.accepted' : 'mulligan.declined');
   if (action.accept) {
     ps.deck.push(...ps.hand);
     ps.hand = [];

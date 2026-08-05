@@ -10,13 +10,15 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
-    "sim": "tsc -p tsconfig.build.json && node dist/sim/main.js"
+    "sim": "tsc -p tsconfig.build.json && node dist/sim/main.js",
+    "coverage:sim": "vitest run --config vitest.coverage.config.ts --coverage"
   },
   "dependencies": {
     "immer": "^10.1.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "typescript": "^5.6.0",
     "vitest": "^3.2.0"
   }

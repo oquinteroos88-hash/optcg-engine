@@ -1,4 +1,5 @@
 import type { GameEvent } from '../events.js';
+import { mark } from '../instrument.js';
 import { getOpponent } from '../selectors.js';
 import type { GameState, PlayerId } from '../types.js';
 import { emit, expireEndOfTurnModifiers, finishGame, mustGetCard } from './helpers.js';
@@ -9,6 +10,7 @@ export function applyEndTurn(
   events: GameEvent[],
 ): void {
   expireEndOfTurnModifiers(draft);
+  mark('turn.ended');
   emit(draft, events, { type: 'turnEnded', turn: draft.turn, player: action.player });
   startTurn(draft, getOpponent(action.player), events);
 }
@@ -43,14 +45,18 @@ export function startTurn(draft: GameState, player: PlayerId, events: GameEvent[
     }
   }
   if (returned > 0) {
+    mark('don.returnedActiveOnRefresh');
     emit(draft, events, { type: 'donReturned', player, count: returned, rested: false });
   }
 
   // Draw: the firstPlayer skips it on turn 1.
   const isFirstTurnOfFirstPlayer = draft.turn === 1 && player === draft.firstPlayer;
-  if (!isFirstTurnOfFirstPlayer) {
+  if (isFirstTurnOfFirstPlayer) {
+    mark('turn.firstPlayerSkipsDraw');
+  } else {
     const top = ps.deck.shift();
     if (top === undefined) {
+      mark('deckOut');
       finishGame(draft, getOpponent(player), 'deckOut', events);
       return;
     }
@@ -64,6 +70,14 @@ export function startTurn(draft: GameState, player: PlayerId, events: GameEvent[
   const inDonDeck = ps.don.filter((don) => don.location.kind === 'donDeck');
   const costCount = ps.don.filter((don) => don.location.kind === 'cost').length;
   const actual = Math.min(gain, inDonDeck.length, 10 - costCount);
+  // Which of the three terms bound the gain is a rule distinction line
+  // coverage cannot see: the Math.min is always one covered line.
+  if (actual < gain && 10 - costCount === actual) {
+    mark('don.gainCappedByCostArea');
+  }
+  if (actual < gain && inDonDeck.length === actual) {
+    mark('don.gainCappedByDonDeck');
+  }
   for (let i = 0; i < actual; i += 1) {
     const don = inDonDeck[i];
     if (don === undefined) {

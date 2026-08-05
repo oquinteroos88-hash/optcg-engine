@@ -1,4 +1,5 @@
 import type { GameEvent } from '../events.js';
+import { mark } from '../instrument.js';
 import { getOpponent } from '../selectors.js';
 import type { GameState, PlayerId } from '../types.js';
 import { finishGame } from './helpers.js';
@@ -11,5 +12,6 @@ export function applyConcede(
   action: { player: PlayerId },
   events: GameEvent[],
 ): void {
+  mark('concede');
   finishGame(draft, getOpponent(action.player), 'concede', events);
 }

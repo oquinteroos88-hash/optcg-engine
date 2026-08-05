@@ -1,14 +1,15 @@
-import { runGame } from './runGame.js';
+import type { MarkCount } from '../instrument.js';
 import type { GameFailure, GameStats } from './runGame.js';
 
 interface CliOptions {
   games: number;
   seedBase: number;
   fast: boolean;
+  marks: boolean;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
-  const options: CliOptions = { games: 1000, seedBase: 1, fast: false };
+  const options: CliOptions = { games: 1000, seedBase: 1, fast: false, marks: false };
   // pnpm forwards a bare "--" separator; accept it either way.
   const args = argv.filter((arg) => arg !== '--');
   for (let i = 0; i < args.length; i += 1) {
@@ -28,6 +29,8 @@ function parseArgs(argv: readonly string[]): CliOptions {
       options.seedBase = readNumber('--seed-base');
     } else if (arg === '--fast') {
       options.fast = true;
+    } else if (arg === '--marks') {
+      options.marks = true;
     } else if (arg !== undefined) {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -43,7 +46,38 @@ function percentile(sorted: readonly number[], fraction: number): number {
   return sorted[index] ?? 0;
 }
 
-function report(stats: GameStats[], failures: GameFailure[], options: CliOptions, ms: number): void {
+function reportMarks(counts: readonly MarkCount[]): void {
+  const dead = counts.filter((entry) => entry.hits === 0);
+  const live = counts.filter((entry) => entry.hits > 0);
+  const width = Math.max(...counts.map((entry) => entry.name.length));
+
+  console.log('');
+  console.log('=== semantic branch marks ===');
+  console.log('Counts are inflated by the harness: every action is applied twice for the');
+  console.log('purity check and each finished game is replayed once. Read them as');
+  console.log('reached/not reached, not as exact frequencies.');
+  console.log('');
+  console.log(`reached (${live.length}/${counts.length})`);
+  for (const entry of live) {
+    console.log(`  ${entry.name.padEnd(width)}  ${String(entry.hits).padStart(9)}`);
+  }
+  console.log('');
+  if (dead.length === 0) {
+    console.log('DEAD MARKS: none — every declared rule branch was reached.');
+    return;
+  }
+  console.log(`DEAD MARKS (${dead.length}/${counts.length}) — never reached by the bots:`);
+  for (const entry of dead) {
+    console.log(`  ${entry.name}`);
+  }
+}
+
+function report(
+  stats: GameStats[],
+  failures: GameFailure[],
+  options: CliOptions,
+  ms: number,
+): void {
   const turns = stats.map((s) => s.turns).sort((a, b) => a - b);
   const totalTurns = turns.reduce((sum, t) => sum + t, 0);
   const totalActions = stats.reduce((sum, s) => sum + s.actions, 0);
@@ -59,14 +93,18 @@ function report(stats: GameStats[], failures: GameFailure[], options: CliOptions
 
   console.log('');
   console.log('=== OPTCG engine simulation ===');
-  console.log(`mode              ${options.fast ? 'fast (sampled round-trip)' : 'full (spec-compliant)'}`);
+  console.log(
+    `mode              ${options.fast ? 'fast (sampled round-trip)' : 'full (spec-compliant)'}`,
+  );
   console.log(`games requested   ${options.games}`);
   console.log(`games completed   ${stats.length}`);
   console.log(`failures          ${failures.length}`);
   console.log(`wall time         ${(ms / 1000).toFixed(1)}s`);
   console.log('');
   if (stats.length > 0) {
-    console.log(`turns  avg ${(totalTurns / stats.length).toFixed(2)}  min ${turns[0]}  p50 ${percentile(turns, 0.5)}  p95 ${percentile(turns, 0.95)}  max ${turns[turns.length - 1]}`);
+    console.log(
+      `turns  avg ${(totalTurns / stats.length).toFixed(2)}  min ${turns[0]}  p50 ${percentile(turns, 0.5)}  p95 ${percentile(turns, 0.95)}  max ${turns[turns.length - 1]}`,
+    );
     console.log(`actions avg ${(totalActions / stats.length).toFixed(1)}  total ${totalActions}`);
     console.log('');
     console.log('endReason distribution');
@@ -94,13 +132,23 @@ function report(stats: GameStats[], failures: GameFailure[], options: CliOptions
     }
     if (failures.length > 5) {
       console.log('');
-      console.log(`... and ${failures.length - 5} more failing seeds: ${failures.slice(5).map((f) => f.seed).join(', ')}`);
+      console.log(
+        `... and ${failures.length - 5} more failing seeds: ${failures.slice(5).map((f) => f.seed).join(', ')}`,
+      );
     }
   }
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  if (options.marks) {
+    // Must be set before the engine loads: the instrument reads the flag once,
+    // at module load, so a half-instrumented run is impossible.
+    process.env['OPTCG_MARKS'] = '1';
+  }
+  const { runGame } = await import('./runGame.js');
+  const { markCounts, marksEnabled } = await import('../instrument.js');
+
   const stats: GameStats[] = [];
   const failures: GameFailure[] = [];
   const started = Date.now();
@@ -116,7 +164,10 @@ function main(): void {
   }
 
   report(stats, failures, options, Date.now() - started);
+  if (marksEnabled()) {
+    reportMarks(markCounts());
+  }
   process.exitCode = failures.length === 0 ? 0 : 1;
 }
 
-main();
+await main();

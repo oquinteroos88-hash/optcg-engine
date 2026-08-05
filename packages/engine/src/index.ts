@@ -16,6 +16,8 @@ export {
   isOnField,
   isOwnLeaderOrCharacter,
 } from './selectors.js';
+export { deadMarks, mark, markCounts, marksEnabled, MARK_NAMES, resetMarks } from './instrument.js';
+export type { MarkCount, MarkName } from './instrument.js';
 export { next, nextInt, shuffle } from './rng.js';
 export type { RngState } from './rng.js';
 export { getCardDef, registerCardSet } from './registry.js';

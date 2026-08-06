@@ -45,6 +45,7 @@ function makeInstance(instanceId: InstanceId, cardId: string, owner: PlayerId): 
     orientation: 'active',
     attachedDon: [],
     playedOnTurn: null,
+    usedThisTurn: [],
   };
 }
 
@@ -118,9 +119,12 @@ export function createGame(opts: {
     cards,
     battle: null,
     modifiers: [],
+    stack: [],
+    pending: null,
+    resume: [],
     rng,
     log: [started],
-    rules: { firstPlayerCannotAttackTurnOne: true },
+    rules: { firstPlayerCannotAttackTurnOne: true, doubleAttackCanWinFromOneLife: false },
   };
   return freeze(state, true);
 }

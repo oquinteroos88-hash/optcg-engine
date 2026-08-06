@@ -1,6 +1,6 @@
 // View-model layer: besides game/, the only place allowed to import engine
 // VALUES. Components consume these hooks and stay rule-blind.
-import { getCardDef, getPower } from '@optcg/engine';
+import { getCardDef, getPower, PRINTED_KEYWORD } from '@optcg/engine';
 import type { GameEvent, GameState, InstanceId, PlayerId } from '@optcg/engine';
 import { getAffordances } from '../game/affordances';
 import type { Affordances } from '../game/affordances';
@@ -127,6 +127,19 @@ function nameOf(state: GameState, id: InstanceId): string {
   return card === undefined ? id : getCardDef(card.cardId).name;
 }
 
+function zoneLabel(zone: 'hand' | 'deck' | 'trash' | 'life'): string {
+  switch (zone) {
+    case 'hand':
+      return 'la mano';
+    case 'deck':
+      return 'el mazo';
+    case 'trash':
+      return 'el descarte';
+    case 'life':
+      return 'la vida';
+  }
+}
+
 function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | null; text: string } {
   switch (event.type) {
     case 'gameStarted':
@@ -197,6 +210,61 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
       return { player: event.player, text: `pierde una carta de vida (quedan ${event.remaining})` };
     case 'koed':
       return { player: event.player, text: `${nameOf(state, event.instanceId)} queda KO` };
+    // Efectos de carta. El log es exhaustivo a proposito (no hay `default`),
+    // asi que estos casos existen para que el switch siga cerrado. Con los
+    // mazos por defecto ninguno de estos eventos llega a ocurrir: esas cartas
+    // no tienen habilidades.
+    case 'abilityTriggered':
+      return {
+        player: event.player,
+        text: `activa la habilidad de ${nameOf(state, event.source)}`,
+      };
+    case 'abilityDeclined':
+      return {
+        player: event.player,
+        text: `no activa la habilidad de ${nameOf(state, event.source)}`,
+      };
+    case 'choiceOpened':
+      return { player: event.player, text: `debe elegir: ${event.prompt}` };
+    case 'choiceAnswered':
+      return { player: event.player, text: 'responde la eleccion' };
+    case 'powerGranted':
+      return {
+        player: state.cards[event.target]?.controller ?? null,
+        text: `${nameOf(state, event.target)} gana ${event.value} de poder`,
+      };
+    case 'keywordGranted':
+      return {
+        player: state.cards[event.target]?.controller ?? null,
+        text: `${nameOf(state, event.target)} gana ${PRINTED_KEYWORD[event.keyword]}`,
+      };
+    case 'orientationChanged':
+      return {
+        player: state.cards[event.instanceId]?.controller ?? null,
+        text:
+          event.orientation === 'rested'
+            ? `${nameOf(state, event.instanceId)} queda agotada`
+            : `${nameOf(state, event.instanceId)} se activa`,
+      };
+    case 'cardMoved':
+      return {
+        player: event.player,
+        text: `mueve ${nameOf(state, event.instanceId)} a ${zoneLabel(event.to)}`,
+      };
+    case 'cardDiscarded':
+      return { player: event.player, text: `descarta ${nameOf(state, event.instanceId)}` };
+    case 'cardsRevealed':
+      return {
+        player: event.player,
+        text: `revela ${event.instanceIds.map((id) => nameOf(state, id)).join(', ')}`,
+      };
+    case 'donReturnedToDeck':
+      return { player: event.player, text: `devuelve ${event.count} DON!! al mazo de DON!!` };
+    case 'lifeBanished':
+      return {
+        player: event.player,
+        text: `pierde una carta de vida al descarte (quedan ${event.remaining})`,
+      };
     case 'turnEnded':
       return { player: event.player, text: `termina el turno ${event.turn}` };
     case 'gameEnded': {

@@ -1,10 +1,11 @@
+import { fireTriggers, ownedFieldSources } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
-import { getOpponent, getPower, isOwnLeaderOrCharacter } from '../selectors.js';
+import { getOpponent, getPower, hasKeyword, isOwnLeaderOrCharacter } from '../selectors.js';
 import type { Battle, GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
-import { emit, finishGame, leaveField, mustGetCard } from './helpers.js';
+import { emit, leaveField, mustGetCard } from './helpers.js';
 
 interface DeclareAttackAction {
   player: PlayerId;
@@ -41,7 +42,8 @@ export function validateDeclareAttack(state: GameState, action: DeclareAttackAct
   if (attacker.orientation !== 'active') {
     return REASONS.attackerNotActive;
   }
-  if (attacker.playedOnTurn === state.turn) {
+  // Rush lifts exactly this restriction and nothing else.
+  if (attacker.playedOnTurn === state.turn && !hasKeyword(state, action.attacker, 'rush')) {
     return REASONS.cannotAttackYet;
   }
   if (
@@ -71,7 +73,11 @@ export function applyDeclareAttack(
   action: DeclareAttackAction,
   events: GameEvent[],
 ): void {
-  mustGetCard(draft, action.attacker).orientation = 'rested';
+  const attacker = mustGetCard(draft, action.attacker);
+  if (attacker.playedOnTurn === draft.turn) {
+    mark('keyword.rushAttack');
+  }
+  attacker.orientation = 'rested';
   draft.battle = {
     step: 'block',
     attacker: action.attacker,
@@ -86,6 +92,9 @@ export function applyDeclareAttack(
     attacker: action.attacker,
     target: action.target,
   });
+  // The attacker's own [When Attacking] first, then the defender's watchers.
+  fireTriggers(draft, 'whenAttacking', [action.attacker]);
+  fireTriggers(draft, 'whenOpponentAttacks', ownedFieldSources(draft, getOpponent(action.player)));
 }
 
 export function validateDeclareBlock(state: GameState, action: DeclareBlockAction): string | null {
@@ -96,9 +105,7 @@ export function validateDeclareBlock(state: GameState, action: DeclareBlockActio
   if (blocker === undefined) {
     return REASONS.invalidBlocker;
   }
-  // No Phase 0 card has Blocker, so this always fires today; the step and the
-  // checks below stay real so Phase 1 only has to add the keyword.
-  if (!getCardDef(blocker.cardId).keywords.includes('Blocker')) {
+  if (!hasKeyword(state, action.blocker, 'blocker')) {
     return REASONS.notABlocker;
   }
   if (blocker.orientation !== 'active') {
@@ -114,11 +121,13 @@ export function applyDeclareBlock(
 ): void {
   const battle = mustGetBattle(draft);
   mark('battle.blocked');
+  mark('keyword.blockerUsed');
   mustGetCard(draft, action.blocker).orientation = 'rested';
   battle.target = action.blocker;
   battle.wasBlocked = true;
   battle.step = 'counter';
   emit(draft, events, { type: 'blockDeclared', player: action.player, blocker: action.blocker });
+  fireTriggers(draft, 'onBlock', [action.blocker]);
 }
 
 export function validatePlayCounter(state: GameState, action: PlayCounterAction): string | null {
@@ -178,6 +187,9 @@ export function applyPlayCounter(
     target: action.target,
     value,
   });
+  // A Counter card with an effect resolves it from the trash, where the card
+  // now is. Only the printed Counter value gates the play itself.
+  fireTriggers(draft, 'counterEvent', [action.instanceId]);
 }
 
 export function applyPass(draft: GameState, _action: { player: PlayerId }, events: GameEvent[]): void {
@@ -189,15 +201,26 @@ export function applyPass(draft: GameState, _action: { player: PlayerId }, event
   resolveBattle(draft, events);
 }
 
-// Damage step. Transient: it runs inside the defender's final PASS, so 'damage'
-// is never a resting battle step.
+/**
+ * Damage step.
+ *
+ * Powers are compared, the battle is closed, and only then is the outcome
+ * applied. Closing first matters now that an outcome can suspend: a life card's
+ * `[Trigger]` or an `[On K.O.]` ability can open a choice, and leaving the
+ * battle half-open across that pause would mean a state where the battle
+ * invariants describe a battle nobody is fighting. Nothing observable moves,
+ * because closing emits no events and nothing between the comparison and the
+ * outcome can change a power.
+ */
 function resolveBattle(draft: GameState, events: GameEvent[]): void {
   const battle = mustGetBattle(draft);
-  const attackerCard = mustGetCard(draft, battle.attacker);
   const targetCard = mustGetCard(draft, battle.target);
   const attackPower = getPower(draft, battle.attacker);
   const defensePower = getPower(draft, battle.target);
   const defender = targetCard.controller;
+  const targetIsLeader = draft.players[defender].leader === battle.target;
+  const attacker = battle.attacker;
+  const target = battle.target;
 
   // The attacker wins ties. Line coverage cannot tell the tie apart from a
   // margin win, so the two are marked separately.
@@ -209,55 +232,46 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
     mark('battle.attackerLoses');
   }
 
-  if (attackPower >= defensePower) {
-    const defenderState = draft.players[defender];
-    if (defenderState.leader === battle.target) {
-      emit(draft, events, {
-        type: 'battleResolved',
-        attacker: battle.attacker,
-        target: battle.target,
-        outcome: 'lifeDamage',
-      });
-      if (defenderState.life.length === 0) {
-        mark('lifeOut');
-        finishGame(draft, attackerCard.controller, 'lifeOut', events);
-      } else {
-        mark('battle.leaderDamageToHand');
-        const lifeCard = defenderState.life.shift();
-        if (lifeCard === undefined) {
-          throw new Error('Engine bug: life card missing after length check');
-        }
-        // Triggers are out of scope: the card simply joins the hand.
-        defenderState.hand.push(lifeCard);
-        emit(draft, events, {
-          type: 'lifeTaken',
-          player: defender,
-          instanceId: lifeCard,
-          remaining: defenderState.life.length,
-        });
-      }
-    } else {
-      emit(draft, events, {
-        type: 'battleResolved',
-        attacker: battle.attacker,
-        target: battle.target,
-        outcome: 'ko',
-      });
-      mark('battle.characterKo');
-      leaveField(draft, battle.target, 'ko', events);
-    }
-  } else {
-    emit(draft, events, {
-      type: 'battleResolved',
-      attacker: battle.attacker,
-      target: battle.target,
-      outcome: 'noEffect',
-    });
-  }
+  const wins = attackPower >= defensePower;
+  emit(draft, events, {
+    type: 'battleResolved',
+    attacker,
+    target,
+    outcome: wins ? (targetIsLeader ? 'lifeDamage' : 'ko') : 'noEffect',
+  });
 
-  // Cleanup always runs, even on noEffect or after a lifeOut finish: every
-  // endOfBattle modifier expires, including ones parked on non-battle cards.
+  // Cleanup always runs, even on noEffect: every endOfBattle modifier expires,
+  // including ones parked on cards that never fought.
   draft.modifiers = draft.modifiers.filter((modifier) => modifier.duration !== 'endOfBattle');
   draft.battle = null;
   draft.priority = draft.activePlayer;
+
+  if (!wins) {
+    return;
+  }
+
+  if (!targetIsLeader) {
+    mark('battle.characterKo');
+    leaveField(draft, target, 'ko', events);
+    return;
+  }
+
+  // Double Attack deals two damage; Banish sends the life cards to the trash
+  // without their [Trigger] ever being offered. Both are read through
+  // hasKeyword, so a granted keyword counts exactly like a printed one.
+  const doubleAttack = hasKeyword(draft, attacker, 'doubleAttack');
+  const banish = hasKeyword(draft, attacker, 'banish');
+  if (doubleAttack) {
+    mark('keyword.doubleAttack');
+  }
+  if (banish) {
+    mark('keyword.banish');
+  }
+  draft.resume.push({
+    kind: 'damage',
+    player: defender,
+    remaining: doubleAttack ? 2 : 1,
+    banish,
+    first: true,
+  });
 }

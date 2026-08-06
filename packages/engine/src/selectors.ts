@@ -1,4 +1,8 @@
-import { getCardDef } from './registry.js';
+import type { AbilityContext, Keyword } from './abilities/dsl.js';
+import { PRINTED_KEYWORD } from './abilities/dsl.js';
+import { evalCondition, fieldIds, resolveSelector } from './abilities/query.js';
+import { mark } from './instrument.js';
+import { getAbilities, getCardDef } from './registry.js';
 import type { GameState, InstanceId, PlayerId } from './types.js';
 import { PLAYER_IDS } from './types.js';
 
@@ -6,8 +10,17 @@ export function getOpponent(player: PlayerId): PlayerId {
   return player === 'p1' ? 'p2' : 'p1';
 }
 
-// Power is never stored: printed power + 1000 per attached DON + modifiers.
-export function getPower(state: GameState, id: InstanceId): number {
+/**
+ * Power from everything written into the state: printed value, attached DON!!,
+ * and power modifiers.
+ *
+ * Exported because continuous effects are evaluated against it rather than
+ * against `getPower`. A `static` ability whose `affects` selector filtered on
+ * effective power would ask `getPower` for a card whose effective power that
+ * very ability is contributing to, and the two would call each other forever.
+ * Base power is the fixed point that breaks it.
+ */
+export function getBasePower(state: GameState, id: InstanceId): number {
   const card = state.cards[id];
   if (card === undefined) {
     throw new Error(`Unknown instance id: ${id}`);
@@ -19,6 +32,98 @@ export function getPower(state: GameState, id: InstanceId): number {
     }
   }
   return power;
+}
+
+/**
+ * Walks every `static` ability whose source is on the field and whose condition
+ * holds, calling `visit` for each one that applies to `id`.
+ *
+ * This is the whole of the continuous-effect machinery: nothing is written to
+ * the state when a card with a static enters or leaves, so nothing has to be
+ * cleaned up, recalculated, or kept in sync when it does.
+ */
+function forEachStatic(
+  state: GameState,
+  id: InstanceId,
+  visit: (grants: { power?: number; keyword?: Keyword }) => void,
+): void {
+  for (const player of PLAYER_IDS) {
+    for (const sourceId of fieldIds(state, player)) {
+      const source = state.cards[sourceId];
+      if (source === undefined) {
+        continue;
+      }
+      for (const ability of getAbilities(source.cardId)) {
+        if (ability.trigger !== 'static' || ability.grants === undefined) {
+          continue;
+        }
+        const ctx: AbilityContext = {
+          source: sourceId,
+          controller: source.controller,
+          vars: {},
+        };
+        if (
+          ability.condition !== undefined &&
+          !evalCondition(state, ctx, ability.condition, getBasePower)
+        ) {
+          continue;
+        }
+        if (ability.affects === undefined) {
+          continue;
+        }
+        if (!resolveSelector(state, ctx, ability.affects, getBasePower).includes(id)) {
+          continue;
+        }
+        visit(ability.grants);
+      }
+    }
+  }
+}
+
+/**
+ * Effective power. Never stored:
+ *
+ *   printed + attached DON!! x 1000 + power modifiers + applicable statics
+ */
+export function getPower(state: GameState, id: InstanceId): number {
+  let power = getBasePower(state, id);
+  forEachStatic(state, id, (grants) => {
+    if (grants.power !== undefined) {
+      mark('static.powerApplied');
+      power += grants.power;
+    }
+  });
+  return power;
+}
+
+/**
+ * The single question the engine asks about keywords. Printed keywords, plus
+ * ones granted by continuous abilities, plus ones granted by live modifiers.
+ *
+ * Nothing else may read `CardDefinition.keywords` directly — a granted Blocker
+ * has to block, and a check against the printed list alone would not see it.
+ */
+export function hasKeyword(state: GameState, id: InstanceId, keyword: Keyword): boolean {
+  const card = state.cards[id];
+  if (card === undefined) {
+    return false;
+  }
+  if (getCardDef(card.cardId).keywords.includes(PRINTED_KEYWORD[keyword])) {
+    return true;
+  }
+  for (const modifier of state.modifiers) {
+    if (modifier.kind === 'grantKeyword' && modifier.target === id && modifier.keyword === keyword) {
+      return true;
+    }
+  }
+  let granted = false;
+  forEachStatic(state, id, (grants) => {
+    if (grants.keyword === keyword) {
+      mark('static.keywordApplied');
+      granted = true;
+    }
+  });
+  return granted;
 }
 
 export function getActiveCostDon(state: GameState, player: PlayerId): InstanceId[] {

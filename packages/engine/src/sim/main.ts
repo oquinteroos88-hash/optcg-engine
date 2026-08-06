@@ -6,10 +6,17 @@ interface CliOptions {
   seedBase: number;
   fast: boolean;
   marks: boolean;
+  decks: 'vanilla' | 'abilities';
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
-  const options: CliOptions = { games: 1000, seedBase: 1, fast: false, marks: false };
+  const options: CliOptions = {
+    games: 1000,
+    seedBase: 1,
+    fast: false,
+    marks: false,
+    decks: 'vanilla',
+  };
   // pnpm forwards a bare "--" separator; accept it either way.
   const args = argv.filter((arg) => arg !== '--');
   for (let i = 0; i < args.length; i += 1) {
@@ -31,6 +38,8 @@ function parseArgs(argv: readonly string[]): CliOptions {
       options.fast = true;
     } else if (arg === '--marks') {
       options.marks = true;
+    } else if (arg === '--abilities') {
+      options.decks = 'abilities';
     } else if (arg !== undefined) {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -96,6 +105,7 @@ function report(
   console.log(
     `mode              ${options.fast ? 'fast (sampled round-trip)' : 'full (spec-compliant)'}`,
   );
+  console.log(`decks             ${options.decks}`);
   console.log(`games requested   ${options.games}`);
   console.log(`games completed   ${stats.length}`);
   console.log(`failures          ${failures.length}`);
@@ -105,7 +115,11 @@ function report(
     console.log(
       `turns  avg ${(totalTurns / stats.length).toFixed(2)}  min ${turns[0]}  p50 ${percentile(turns, 0.5)}  p95 ${percentile(turns, 0.95)}  max ${turns[turns.length - 1]}`,
     );
+    const totalChoices = stats.reduce((sum, s) => sum + s.choices, 0);
     console.log(`actions avg ${(totalActions / stats.length).toFixed(1)}  total ${totalActions}`);
+    console.log(
+      `choices avg ${(totalChoices / stats.length).toFixed(1)}  total ${totalChoices}`,
+    );
     console.log('');
     console.log('endReason distribution');
     for (const [reason, count] of [...byReason].sort((a, b) => b[1] - a[1])) {
@@ -155,7 +169,7 @@ async function main(): Promise<void> {
 
   for (let i = 0; i < options.games; i += 1) {
     const seed = options.seedBase + i;
-    const outcome = runGame(seed, { fast: options.fast });
+    const outcome = runGame(seed, { fast: options.fast, decks: options.decks });
     if (outcome.ok) {
       stats.push(outcome.stats);
     } else {

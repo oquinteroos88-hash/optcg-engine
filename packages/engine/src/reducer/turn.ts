@@ -1,93 +1,40 @@
+import { fireTriggers, orderedFieldSources } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getOpponent } from '../selectors.js';
 import type { GameState, PlayerId } from '../types.js';
-import { emit, expireEndOfTurnModifiers, finishGame, mustGetCard } from './helpers.js';
+import { emit, expireEndOfTurnModifiers } from './helpers.js';
+import { startTurn } from './startTurn.js';
 
+/**
+ * End Turn queues rather than executes.
+ *
+ * An `endOfTurn` ability may ask the player a question, and the turn must not
+ * change hands until that is answered — so the rest of the transition is pushed
+ * as a resume step and the interpreter runs it once the effects are done. With
+ * no abilities in play the whole thing still happens inside this one action,
+ * and the event order is unchanged from Phase 0.
+ */
 export function applyEndTurn(
   draft: GameState,
   action: { player: PlayerId },
-  events: GameEvent[],
+  _events: GameEvent[],
 ): void {
+  draft.resume.push({ kind: 'startTurn', player: action.player });
+  fireTriggers(draft, 'endOfTurn', orderedFieldSources(draft));
+}
+
+/** The End Phase proper, run by the interpreter's `startTurn` continuation. */
+export function finishTurn(draft: GameState, player: PlayerId, events: GameEvent[]): void {
   expireEndOfTurnModifiers(draft);
+  for (const card of Object.values(draft.cards)) {
+    if (card.usedThisTurn.length > 0) {
+      card.usedThisTurn = [];
+    }
+  }
   mark('turn.ended');
-  emit(draft, events, { type: 'turnEnded', turn: draft.turn, player: action.player });
-  startTurn(draft, getOpponent(action.player), events);
+  emit(draft, events, { type: 'turnEnded', turn: draft.turn, player });
+  startTurn(draft, getOpponent(player), events);
 }
 
-// Refresh, Draw, and DON!! are automatic: they run inside the turn transition,
-// so every resting 'playing' state has phase === 'main'. Deck-out is detected
-// here, at the would-be draw.
-export function startTurn(draft: GameState, player: PlayerId, events: GameEvent[]): void {
-  draft.activePlayer = player;
-  draft.priority = player;
-  draft.turn += 1;
-  emit(draft, events, { type: 'turnStarted', turn: draft.turn, player });
-
-  // Refresh: field cards active; attached DON return to cost active; cost DON active.
-  const ps = draft.players[player];
-  const fieldIds = [ps.leader, ...ps.characters];
-  if (ps.stage !== null) {
-    fieldIds.push(ps.stage);
-  }
-  for (const id of fieldIds) {
-    mustGetCard(draft, id).orientation = 'active';
-  }
-  let returned = 0;
-  for (const don of ps.don) {
-    if (don.location.kind === 'attached') {
-      const carrier = mustGetCard(draft, don.location.to);
-      carrier.attachedDon = carrier.attachedDon.filter((id) => id !== don.instanceId);
-      don.location = { kind: 'cost', orientation: 'active' };
-      returned += 1;
-    } else if (don.location.kind === 'cost' && don.location.orientation === 'rested') {
-      don.location = { kind: 'cost', orientation: 'active' };
-    }
-  }
-  if (returned > 0) {
-    mark('don.returnedActiveOnRefresh');
-    emit(draft, events, { type: 'donReturned', player, count: returned, rested: false });
-  }
-
-  // Draw: the firstPlayer skips it on turn 1.
-  const isFirstTurnOfFirstPlayer = draft.turn === 1 && player === draft.firstPlayer;
-  if (isFirstTurnOfFirstPlayer) {
-    mark('turn.firstPlayerSkipsDraw');
-  } else {
-    const top = ps.deck.shift();
-    if (top === undefined) {
-      mark('deckOut');
-      finishGame(draft, getOpponent(player), 'deckOut', events);
-      return;
-    }
-    ps.hand.push(top);
-    emit(draft, events, { type: 'cardDrawn', player, instanceId: top });
-  }
-
-  // DON!!: 2 per turn (1 for the firstPlayer on turn 1), bounded by the DON
-  // deck and the 10-slot cost area.
-  const gain = isFirstTurnOfFirstPlayer ? 1 : 2;
-  const inDonDeck = ps.don.filter((don) => don.location.kind === 'donDeck');
-  const costCount = ps.don.filter((don) => don.location.kind === 'cost').length;
-  const actual = Math.min(gain, inDonDeck.length, 10 - costCount);
-  // Which of the three terms bound the gain is a rule distinction line
-  // coverage cannot see: the Math.min is always one covered line.
-  if (actual < gain && 10 - costCount === actual) {
-    mark('don.gainCappedByCostArea');
-  }
-  if (actual < gain && inDonDeck.length === actual) {
-    mark('don.gainCappedByDonDeck');
-  }
-  for (let i = 0; i < actual; i += 1) {
-    const don = inDonDeck[i];
-    if (don === undefined) {
-      throw new Error('Engine bug: DON deck shorter than computed gain');
-    }
-    don.location = { kind: 'cost', orientation: 'active' };
-  }
-  if (actual > 0) {
-    emit(draft, events, { type: 'donGained', player, count: actual });
-  }
-
-  draft.phase = 'main';
-}
+export { startTurn };

@@ -29,6 +29,27 @@ export const REASONS = {
   blockerNotActive: 'blockerNotActive',
   noCounterValue: 'noCounterValue',
   invalidCounterTarget: 'invalidCounterTarget',
+
+  // ACTIVATE_ABILITY
+  unknownAbility: 'unknownAbility',
+  abilityNotActivatable: 'abilityNotActivatable',
+  abilitySourceNotOnField: 'abilitySourceNotOnField',
+  abilityConditionUnmet: 'abilityConditionUnmet',
+  abilityCostUnpayable: 'abilityCostUnpayable',
+  abilityAlreadyUsed: 'abilityAlreadyUsed',
+
+  // ANSWER_CHOICE. One code per way an answer can be wrong: a caller that gets
+  // a rejection has to be able to tell which rule it broke.
+  choicePending: 'choicePending',
+  noPendingChoice: 'noPendingChoice',
+  missingAnswer: 'missingAnswer',
+  wrongChoiceId: 'wrongChoiceId',
+  notYourChoice: 'notYourChoice',
+  choiceKindMismatch: 'choiceKindMismatch',
+  choiceCardinality: 'choiceCardinality',
+  choiceCandidateUnknown: 'choiceCandidateUnknown',
+  choiceDuplicateSelection: 'choiceDuplicateSelection',
+  choiceOptionOutOfRange: 'choiceOptionOutOfRange',
 } as const;
 
 export type ReasonCode = (typeof REASONS)[keyof typeof REASONS];

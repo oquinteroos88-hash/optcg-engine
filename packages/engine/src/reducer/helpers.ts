@@ -1,3 +1,4 @@
+import { fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import type { CardInstance, GameState, InstanceId, PlayerId } from '../types.js';
@@ -59,15 +60,14 @@ export function payDonCost(
   emit(draft, events, { type: 'donPaid', player, count: cost });
 }
 
-// Shared exit path for any card leaving the field. Attached DON return to the
-// cost area RESTED. Only a real KO emits the koed event; the stageReplaced
-// event is emitted by the caller, which knows the incoming stage.
-export function leaveField(
-  draft: GameState,
-  id: InstanceId,
-  cause: 'ko' | 'trashedForRoom' | 'stageReplaced',
-  events: GameEvent[],
-): void {
+/**
+ * Takes a card off the field without deciding where it goes.
+ *
+ * Split out of `leaveField` so that a `moveCard` effect can send a character to
+ * the hand or the deck through the same DON!!-return and normalization rules a
+ * KO uses. Every field exit in the engine still goes through exactly this code.
+ */
+export function detachFromField(draft: GameState, id: InstanceId, events: GameEvent[]): void {
   const card = mustGetCard(draft, id);
   const controller = card.controller;
   const ps = draft.players[controller];
@@ -91,6 +91,7 @@ export function leaveField(
   card.orientation = 'active';
   card.attachedDon = [];
   card.playedOnTurn = null;
+  card.usedThisTurn = [];
 
   const characterIndex = ps.characters.indexOf(id);
   if (characterIndex !== -1) {
@@ -100,12 +101,54 @@ export function leaveField(
   } else {
     throw new Error(`Engine bug: ${id} is not on ${controller}'s field`);
   }
+}
 
+/**
+ * Shared exit path for a card leaving the field *to the trash*. Attached DON!!
+ * return to the cost area RESTED. Only a real KO emits the koed event and wakes
+ * an [On K.O.] ability; the stageReplaced event is emitted by the caller, which
+ * knows the incoming stage.
+ */
+export function leaveField(
+  draft: GameState,
+  id: InstanceId,
+  cause: 'ko' | 'trashedForRoom' | 'stageReplaced' | 'cost',
+  events: GameEvent[],
+): void {
+  const card = mustGetCard(draft, id);
+  const controller = card.controller;
+  detachFromField(draft, id, events);
   draft.players[card.owner].trash.unshift(id);
 
   if (cause === 'ko') {
     emit(draft, events, { type: 'koed', player: controller, instanceId: id });
+    // A KO wakes the card's own [On K.O.] ability. It is queued, not run: the
+    // effect that caused the KO finishes its script first.
+    fireTriggers(draft, 'onKO', [id]);
   } else if (cause === 'trashedForRoom') {
+    // Deliberately not a KO, and deliberately no onKO trigger: making room for
+    // a 6th character is a discard, which is a different rule.
     emit(draft, events, { type: 'characterTrashedForRoom', player: controller, instanceId: id });
   }
+}
+
+/**
+ * Pulls a card out of whichever off-field zone holds it. Returns false when it
+ * was in none of them, which for a `moveCard` target simply means "no longer
+ * where the effect expected it" and is not an error.
+ */
+export function removeFromNonFieldZone(draft: GameState, id: InstanceId): boolean {
+  const card = draft.cards[id];
+  if (card === undefined) {
+    return false;
+  }
+  const ps = draft.players[card.owner];
+  for (const zone of ['hand', 'deck', 'trash', 'life'] as const) {
+    const index = ps[zone].indexOf(id);
+    if (index !== -1) {
+      ps[zone].splice(index, 1);
+      return true;
+    }
+  }
+  return false;
 }

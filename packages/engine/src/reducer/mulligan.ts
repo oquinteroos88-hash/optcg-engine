@@ -5,7 +5,7 @@ import { shuffle } from '../rng.js';
 import { getOpponent } from '../selectors.js';
 import type { GameState, PlayerId } from '../types.js';
 import { emit, mustGetCard } from './helpers.js';
-import { startTurn } from './turn.js';
+import { startTurn } from './startTurn.js';
 
 // Decisions are sequential and tracked by priority: firstPlayer decides first,
 // then the opponent; the second decision completes setup. Once-only is

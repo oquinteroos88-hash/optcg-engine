@@ -1,9 +1,14 @@
-# @optcg/engine — One Piece Card Game rules engine (Phase 0)
+# @optcg/engine — One Piece Card Game rules engine (Phase 0 + Phase 2A)
 
 A pure, deterministic, fully serializable rules core for an OPTCG simulator.
-No card effects, no UI, no server. `SPEC.md` in this package is the binding
-contract; this README explains the model, what is implemented, what is not, and
-the judgement calls made where the rules are ambiguous.
+No UI, no server. `SPEC.md` in this package is the binding contract; this README
+explains the model, what is implemented, what is not, and the judgement calls
+made where the rules are ambiguous.
+
+Phase 0 built the rules core with every card vanilla. **Phase 2A adds the card
+effect system**: a declarative DSL, a resumable interpreter, player choices,
+continuous effects, and the four keywords. Real card data (2B), UI for answering
+choices (2C), networking and hidden information are still out of scope.
 
 ## Quick start
 
@@ -19,8 +24,10 @@ pnpm --filter @optcg/engine test
 pnpm --filter @optcg/engine sim -- --games 1000
 ```
 
-The simulation accepts `--games N`, `--seed-base N`, and `--fast`. A bare `--`
-separator is tolerated, so `pnpm sim --games 50` works too.
+The simulation accepts `--games N`, `--seed-base N`, `--fast`, `--marks`, and
+`--abilities`. A bare `--` separator is tolerated, so `pnpm sim --games 50`
+works too. **`--abilities` is the one that exercises the effect system**: the
+default decks are vanilla and can never open a choice.
 
 ## Public API
 
@@ -29,6 +36,7 @@ createGame({ seed, decks, firstPlayer }): GameState
 applyAction(state, action): { ok: true; state; events } | { ok: false; reason }
 legalActions(state, player): Action[]
 getPower(state, instanceId): number
+hasKeyword(state, instanceId, keyword): boolean
 ```
 
 - `applyAction` is a pure reducer. It never mutates its input, never performs
@@ -39,6 +47,8 @@ getPower(state, instanceId): number
 - `legalActions` is pure and exhaustive: every legal action appears, and every
   action it emits validates successfully. A unit test pins that property in both
   directions, which is what keeps the two functions from drifting apart.
+  **`ANSWER_CHOICE` is the single documented exception** — see
+  "Choices are data, not enumeration" below.
 
 Exceptions are reserved for programming errors, not game moves: `createGame`
 throws on a malformed decklist, and the reducer throws if it reaches a state
@@ -59,9 +69,12 @@ GameState
 ├── cards: Record<InstanceId, CardInstance>
 ├── battle: Battle | null
 ├── modifiers: Modifier[]
+├── stack: StackItem[]          ← effects resolving, LIFO
+├── pending: PendingChoice | null ← the question the engine is waiting on
+├── resume: ResumeStep[]        ← rules paused mid-way, LIFO
 ├── rng: { seed, cursor }
 ├── log: GameEvent[]
-└── rules: { firstPlayerCannotAttackTurnOne }
+└── rules: { firstPlayerCannotAttackTurnOne, doubleAttackCanWinFromOneLife }
 ```
 
 Ordering conventions, all load-bearing for replay compatibility:
@@ -78,6 +91,7 @@ Ordering conventions, all load-bearing for replay compatibility:
 getPower(state, id) = printed power
                     + attachedDon.length * 1000
                     + sum of power modifiers targeting the card
+                    + sum of applicable continuous ('static') abilities
 ```
 
 `CardDefinition` (name, cost, power, counter, life, color, category, keywords)
@@ -100,6 +114,173 @@ at every step. Two rules make that hold in practice:
 The engine uses immer with auto-freezing on, and `createGame` freezes its
 result, so accidental mutation of an engine-returned state throws immediately
 rather than corrupting a later comparison.
+
+## Card effects (Phase 2A)
+
+An ability is data. It lives in the card registry next to the printed stat line
+and never enters `GameState`; what enters the state is only *where in a script
+the engine stopped*.
+
+```ts
+interface Ability {
+  id: string;
+  trigger: Trigger;          // onPlay, whenAttacking, onKO, static, ...
+  condition?: Condition;     // checked, never paid
+  cost?: Cost[];             // paid, can fail
+  optional?: boolean;        // "you may" rather than "you must"
+  oncePerTurn?: boolean;
+  script: Instruction[];     // empty for trigger: 'static'
+  affects?: Selector;        // static only
+  grants?: { power?: number; keyword?: Keyword };  // static only
+}
+```
+
+### Three distinctions that are types, not fields
+
+**A script runs once; a continuous effect is simply true.** "When this is
+played, K.O. a character" mutates the state through instructions. "Your
+characters have +1000" mutates nothing at all — it is evaluated at lookup time
+inside `getPower` and `hasKeyword`. Continuous abilities never touch the stack
+and never create a `Modifier`. That is the whole point: implemented as a script
+that writes a modifier when the card enters play, the engine would then owe a
+removal when it leaves, a recalculation on every board change, and a
+reconciliation for every path in between. Evaluating on read has no such debt,
+and `continuous.test.ts` asserts the buff is visible *while* `state.modifiers`
+stays empty.
+
+**`[DON!! ×N]` is a condition; `DON!! −N` is a cost.** The first asks how many
+DON!! are attached and is never paid. The second returns DON!! from the cost
+area to the DON!! deck and can fail. They are `Condition.donAttached` and
+`Cost.returnDon`, and they share no field anywhere.
+
+**A condition that fails means the ability does not fire. A cost that cannot be
+paid means the same thing.** Costs are checked before the ability triggers at
+all, re-checked at the moment of payment, and never paid halfway. An
+`activateMain` ability whose cost cannot be met does not appear in
+`legalActions`.
+
+### The interpreter is a program counter
+
+An effect that needs an answer has to stop *without the engine holding a live
+function*. So a script is a list of instructions and the state records the
+position:
+
+```ts
+interface StackItem {
+  abilityId: string;
+  source: InstanceId;
+  controller: PlayerId;
+  status: 'optIn' | 'ready' | 'running';
+  cursor: Frame[];                          // innermost frame last
+  vars: Record<string, string | number | boolean | InstanceId[]>;
+}
+
+interface Frame {
+  path: { i: number; branch: 'then' | 'else' | 'do' }[];
+  index: number;                            // next instruction in that block
+  loop: { items: InstanceId[]; at: number } | null;
+}
+```
+
+`if` and `forEach` nest, so a single integer program counter is not enough.
+`cursor` is a **stack of frames**: `path` locates an instruction list inside the
+ability's script (`[]` is the root), `index` is the next instruction in it, and
+a `forEach` body frame carries its own iteration state. Entering a nested block
+pushes a frame; running off the end of one pops it. Everything is numbers and
+strings, which is exactly what makes a suspended effect survive
+`JSON.parse(JSON.stringify(state))`.
+
+When a `select` or `confirm` is reached, the interpreter writes a
+`PendingChoice`, **does not advance the cursor**, and returns. When the answer
+arrives it is written into `vars` and *then* the cursor advances — so "resume at
+pc + 1" holds identically whether the state stayed in memory or came back from
+JSON. `interpreter.test.ts` pins both: the round trip with a choice open and a
+non-empty stack, and answering a rehydrated state producing a byte-identical
+result to answering the live one.
+
+`vars` holds instance ids and scalars only. Never a `CardInstance`, never an
+object — a rich value there would round-trip into a stale copy.
+
+`forEach` binds the reserved variable **`it`** on each iteration. Nested loops
+shadow it, and it keeps the last item after the loop ends; the DSL's `forEach`
+has no `as` field to bind anything else.
+
+### Resolution order
+
+The stack is LIFO, but a trigger raised *by* a running script does not cut in
+front of it. New items are inserted directly **underneath** the running one, so
+the current script finishes, pops, and the newly triggered effect is next. A
+`ko` that wakes an `[On K.O.]` therefore completes the KO — and the rest of its
+own script — before the woken ability starts.
+
+Simultaneous triggers resolve in a fixed order: the **turn player's** cards
+first, then by board position (leader, characters in board order, stage).
+
+> `TODO phase 2B: player-chosen trigger order.` The official rules let the turn
+> player order simultaneous triggers. A fixed order is used here so replays stay
+> stable until there is a way to ask.
+
+### Targets are ignored, not revalidated
+
+If the character a script meant to K.O. has already left the field, that
+instruction is a silent no-op and **the next instruction still runs**. No
+instruction can abort its script. The same rule covers a mandatory "K.O. 2
+characters" with one character on the board: the requirement shrinks to what
+exists rather than cancelling — `min` is clamped to the number of candidates.
+
+`staleTargets.test.ts` builds that position directly, because the random sweep
+essentially never produces it and "abort the whole effect" is the natural wrong
+implementation.
+
+### Choices are data, not enumeration
+
+When `pending !== null`, `legalActions` returns exactly **one** `ANSWER_CHOICE`
+marker carrying the `choiceId` and no answer payload, plus `CONCEDE`.
+
+It does not enumerate the valid answers, and that is deliberate: a "select 2 of
+7" has 21 valid subsets before ordering, and the space explodes from there. A
+list nobody can render or search is worse than no list. So the shape of a legal
+answer is **data in `state.pending`** — `candidates`, `min`, `max`, `kind` — and
+whoever answers reads it from there. The random bot does exactly this, and so
+would a UI.
+
+The consequence is the **single exception** to `legalActions` being exhaustive:
+the marker it emits does not itself validate. `applyAction` checks the answer
+against `pending` and returns a distinct reason for each way of getting it
+wrong — `wrongChoiceId`, `notYourChoice`, `missingAnswer`, `choiceKindMismatch`,
+`choiceCardinality`, `choiceCandidateUnknown`, `choiceDuplicateSelection`,
+`choiceOptionOutOfRange` — because a caller that guesses is entitled to know
+which rule it broke. `choiceValidation.test.ts` checks both directions over
+every choice a few hundred bot games actually open.
+
+**Priority follows `pending.player`** for as long as the choice is open, and
+goes back to being derived the moment it is answered. Outside a suspended
+effect, priority is not remembered at all: it is the defender while a battle is
+open and the active player otherwise, so there is nothing to save and nothing to
+restore incorrectly. The Phase 1 invariant survives untouched — the player who
+does not hold priority sees exactly `[CONCEDE]`, including mid-choice.
+
+### `resume`: rules that pause, not just scripts
+
+`stack` and `pending` were the two fields the Phase 2A brief called for.
+`resume` is a third, and it is there because an effect can suspend in the middle
+of a **rule** rather than in the middle of a script. A life card's `[Trigger]`
+question opens between the two damage instances of a Double Attack; an
+`endOfTurn` ability can suspend before the next turn has started. The rest of
+that rule has to survive the pause.
+
+It is stored the same way a script position is — a LIFO of tagged, serializable
+records (`damage`, `startTurn`), resolved by a switch. Never a closure. Card
+effects on the `stack` drain before engine continuations on `resume`, which is
+what puts a life card's `[Trigger]` ahead of the damage instance that follows
+it.
+
+Between actions the interpreter has always run to completion, so:
+
+- `pending === null` ⟹ `stack` and `resume` are both empty, and
+- a finished game has nothing queued at all.
+
+Both are checked by `checkInvariants` after every action in the sweep.
 
 ## Determinism and RNG
 
@@ -167,12 +348,12 @@ DECLARE_ATTACK ──> [block] ──PASS──> [counter] ──PASS──> (da
 
 - **Attack** — rest an active own Leader or Character and declare a target.
   Valid targets: the enemy Leader, or an enemy Character that is **rested**.
-  Never an active Character. A Character cannot attack on the turn it was played.
+  Never an active Character. A Character cannot attack on the turn it was played
+  **unless it has Rush**.
 - **Block** — the defender may rest a Character with Blocker to redirect the
-  attack. No Phase 0 card has Blocker, so in practice the defender always passes,
-  but the step is a real resting state and the validation is real. It is **not**
-  auto-skipped: skipping it would change every recorded action log the moment a
-  Blocker card is added in Phase 1.
+  attack. Blocker is asked of `hasKeyword`, so a Blocker granted by a continuous
+  effect or a modifier blocks exactly like a printed one. The step is never
+  auto-skipped.
 - **Counter** — the defender discards cards from hand for their printed Counter
   value, adding that power to any own Leader or Character, including one not
   involved in the battle. Repeatable. Counters cannot come from the field.
@@ -180,15 +361,89 @@ DECLARE_ATTACK ──> [block] ──PASS──> [counter] ──PASS──> (da
   `0` — cannot be played in this step at all. The absence of a value is not a
   value worth zero, and encoding it as `0` invites exactly that misreading.
 - **Damage** — powers are compared and **the attacker wins ties** (`>=`). Beating
-  a Character KOs it; beating the Leader moves the top life card to the
-  defender's **hand**; losing does nothing. Damage is never bidirectional.
+  a Character KOs it; beating the Leader takes life cards; losing does nothing.
+  Damage is never bidirectional.
 
 The damage step is transient: it resolves inside the defender's final `PASS`, so
 `battle.step === 'damage'` is never observable between actions. The only resting
 battle steps are `block` and `counter`.
 
+**The battle closes before its outcome is applied.** Powers are compared, the
+`battleResolved` event is emitted, `endOfBattle` modifiers expire and
+`battle` becomes `null` — and only then does the K.O. or the life damage happen.
+This changed in Phase 2A because an outcome can now suspend: an `[On K.O.]` or a
+life card's `[Trigger]` opens a choice, and a battle left half-open across that
+pause would be a resting state describing a fight nobody is having. Nothing
+observable moved — closing emits no events, and nothing between the comparison
+and the outcome can change a power.
+
 All `endOfBattle` modifiers expire when the battle resolves — including on a
-`noEffect` outcome and including counters parked on cards that never fought.
+`noEffect` outcome and including counters parked on cards that never fought. A
+script that tries to create an `endOfBattle` modifier with no battle open does
+not create one; its lifetime would be zero either way.
+
+### Keywords
+
+| Keyword | Effect |
+| ------- | ------ |
+| **Rush** | Exempt from summoning sickness: may attack the turn it was played. |
+| **Blocker** | May be rested during the Block Step to redirect the attack to itself. |
+| **Double Attack** | Deals 2 damage to a Leader instead of 1. |
+| **Banish** | Life cards it takes go straight to the trash, and their `[Trigger]` is never offered. |
+
+Every keyword check in the engine goes through `hasKeyword(state, id, keyword)`,
+which is printed keywords ∪ continuous grants ∪ live modifiers. Nothing reads
+`CardDefinition.keywords` directly, because a granted Blocker has to block and a
+granted Rush has to attack.
+
+`CardDefinition.keywords` stores the *printed* spelling (`'Blocker'`,
+`'Double Attack'`) that Phase 0 shipped and `blocker.test.ts` depends on; the
+DSL speaks in lowercase identifiers (`'blocker'`, `'doubleAttack'`).
+`PRINTED_KEYWORD` in `abilities/dsl.ts` is the only bridge between the two
+spellings, and `hasKeyword` is the only thing allowed to cross it.
+
+### Double Attack against a player on 1 life — resolved against the source
+
+The brief flagged this as uncertain and suspected that taking the last life card
+and then landing a second damage on an empty life area should be a loss. **It is
+not.** The official Q&A is direct about it:
+
+> **Q36.** *If my opponent has 1 Life card, can I win the game by using a
+> [Double Attack] to deal 2 damage?* — "No, you cannot."
+
+and about the ordering:
+
+> **Q51.** *…If the card from the first damage has a [Trigger], do I activate
+> this [Trigger] effect before the second damage is dealt?* — "Yes, the
+> [Trigger] is activated before the second damage is dealt. If you still have 1
+> or more Life cards left after you have activated the [Trigger] effect from the
+> first damage, check a Life card according to the second damage."
+
+Read together, the second damage instance only checks a life card **if one is
+left**; finding an empty life area it does nothing. A lone damage instance
+against an empty life area is still a loss, which is how a player on 0 life dies
+to an ordinary attack.
+
+So the implemented rule is: the **first** damage instance of an attack behaves
+as it always did (empty life area ⟹ `lifeOut`), and every subsequent instance of
+the same attack is absorbed silently. Against a player already on 0 life a
+Double Attack still wins on the first instance.
+
+The Comprehensive Rules state the defeat condition ("a Leader takes damage while
+its controller has no Life cards") without spelling out why the second instance
+escapes it, so the *mechanism* is genuinely under-specified even though the
+*outcome* is not. `rules.doubleAttackCanWinFromOneLife` exists for anyone who
+reads it the other way; it defaults to **`false`**, following the Q&A. Both
+readings are pinned by tests in `keywords.test.ts`.
+
+### `[Trigger]` on life cards
+
+When damage turns a life card over and that card has an ability with
+`trigger: 'trigger'`, the damaged player is offered a `yesNo` choice: activating
+it is always optional, whether or not the ability is written as "you may". With
+Double Attack that is two life cards and therefore **two sequential choices**,
+the first fully resolved before the second damage lands. With Banish no choice
+is offered at all, because the card never reaches the hand.
 
 ## Field limits and leaving the field
 
@@ -204,12 +459,13 @@ rather than buried in engine policy. There is no oldest-first or index-0
 fallback: an action that omits the choice on a full board is rejected with
 `trashChoiceRequired`.
 
-`TODO phase 2: convert into a PendingChoice.` Card effects will need general
-targeting — "choose a Character", "choose an opponent's Character" — which means
-a real pending-choice sub-state where the engine asks and waits for an answer.
-The optional field is deliberately the smallest thing that keeps the decision
-with the player until that machinery exists; it becomes sugar over the general
-mechanism rather than something to unpick.
+`TODO phase 2B: convert into a PendingChoice.` The general targeting machinery
+now exists — `PendingChoice` plus the `select` instruction — so this field is
+finally the sugar over it that it was always meant to become. It is left as it
+is in this PR because converting it changes `PLAY_CARD`'s shape and every
+recorded action log with a full board in it, which is a migration rather than a
+feature, and the client's affordance layer already collapses the variants
+correctly.
 
 Every exit from the field — KO, discard for room, Stage replacement — goes
 through one shared helper, so the DON!!-return-rested rule, modifier cleanup,
@@ -250,6 +506,11 @@ contract and are never renamed.
 | `DECLARE_ATTACK` | `invalidAttacker`, `attackerNotActive`, `cannotAttackYet`, `firstTurnAttackForbidden`, `invalidTarget`, `targetNotRested` |
 | `DECLARE_BLOCK`  | `invalidBlocker`, `notABlocker`, `blockerNotActive` |
 | `PLAY_COUNTER`   | `cardNotInHand`, `noCounterValue`, `invalidCounterTarget` |
+| `ACTIVATE_ABILITY` | `unknownAbility`, `abilityNotActivatable`, `abilitySourceNotOnField`, `abilityConditionUnmet`, `abilityCostUnpayable`, `abilityAlreadyUsed` |
+| `ANSWER_CHOICE`  | `choicePending`, `noPendingChoice`, `missingAnswer`, `wrongChoiceId`, `notYourChoice`, `choiceKindMismatch`, `choiceCardinality`, `choiceCandidateUnknown`, `choiceDuplicateSelection`, `choiceOptionOutOfRange` |
+
+`choicePending` is returned for *any other* action attempted while a choice is
+open: a suspended effect blocks the whole game, not only its own player.
 
 There is deliberately no `wrongPhase` code: because the automatic phases run
 inside the turn transition, a player holding priority with no battle open is
@@ -282,9 +543,33 @@ Each 50-card deck is 4 copies of each of the 10 Characters, 4 of each Event, and
 2 of the Stage. There are no 0-cost cards, which is part of why bot games are
 guaranteed to make progress.
 
+### The ABIL set
+
+`src/testdata/abilities.ts` adds a second synthetic set whose only purpose is to
+exercise the effect system. Between its 24 cards it covers **every `op`, every
+`Trigger`, every `Cost`, every `Condition` kind and all four keywords**, plus an
+`if` nested inside a `forEach`, a `oncePerTurn`, an `optional`, two continuous
+sources, and a K.O. that wakes an `[On K.O.]` on the card it just killed.
+
+It registers through the public registry exactly like the TEST set, and lives in
+`testdata/abilityDecks.ts` so that **`testdata/decks.ts` has no import path to
+it**. That is not a stylistic preference: it is what guarantees a browser game
+on the default decks never opens a choice, which is what lets the Phase 1 client
+ship unchanged. The vanilla sweep confirms it — 200 games, 0 choices opened.
+
+`buildScenario` takes `decks`, `stage`, `lifeCards`, and a `then` list of
+actions with `expectPending`, so a test can build a position that rests on an
+open choice directly rather than playing toward one.
+
 ## Bot and simulation
 
-The bot picks uniformly from `legalActions` with two deliberate biases:
+The bot picks uniformly from `legalActions`, except when a choice is open: then
+it reads `state.pending` and builds a uniformly random valid answer — a random
+cardinality in `[min, max]` and that many distinct candidates for a card
+selection. That is not a special case for the bot's convenience, it is the same
+thing any client has to do, since the answers are deliberately not enumerated.
+
+Otherwise it has two deliberate biases:
 
 - `CONCEDE` is excluded. Left in a uniform pool, essentially every game ends by
   random concession within a few turns, and the resulting statistics validate
@@ -303,10 +588,21 @@ and compared to the live final state. Failures are returned as data — seed,
 error, action index, and the complete action log — never thrown, so one bad seed
 does not abort the run.
 
-Measured on this machine, 1000 games in full mode: **1000 completed, 0 failures,
-19.4 turns on average, longest game 38 turns**, roughly 160 seconds. `--fast`
-samples the JSON round-trip instead of doing it every action; it is a dev-loop
-convenience and is **not** the spec-compliant mode.
+Phase 2A adds one assertion to that list: **a finished game may not leave an
+effect queued** — empty `stack`, empty `resume`, `pending === null`.
+
+Measured on this machine, 200 games in full mode:
+
+| Sweep | Completed | Failures | Turns (avg / max) | Choices/game |
+| ----- | --------- | -------- | ----------------- | ------------ |
+| vanilla (`pnpm sim`) | 200 | 0 | 18.9 / 35 | **0** |
+| abilities (`--abilities`) | 200 | 0 | 23.3 / 39 | 3.1 |
+
+The vanilla row's zero is the load-bearing one: it is the measurement behind
+"the client's runtime behaviour does not change".
+
+`--fast` samples the JSON round-trip instead of doing it every action; it is a
+dev-loop convenience and is **not** the spec-compliant mode.
 
 Note that bot games end in `lifeOut` essentially always: at ~19 turns they
 finish long before a 41-card post-setup deck could run out. `deckOut` coverage
@@ -314,7 +610,23 @@ therefore rests on unit tests, not on the simulation.
 
 ## Test suite
 
-125 tests across 17 files. The nine explicitly mandated cases live in:
+193 tests across 23 files. The Phase 2A acceptance cases live in:
+
+| Mandated case | File |
+| ------------- | ---- |
+| Serialization with a choice open and a non-empty stack | `interpreter.test.ts` |
+| Answering a rehydrated state matches answering the live one | `interpreter.test.ts` |
+| No game ends with a queued effect | `sim/runGame.ts` + `choiceValidation.test.ts` |
+| Every valid answer accepted, every invalid one rejected by reason | `choiceValidation.test.ts` |
+| Non-answering player sees exactly `[CONCEDE]` | `interpreter.test.ts`, `choiceValidation.test.ts` |
+| One case per ABIL card | `abilityTable.test.ts` |
+| Continuous buffs visible with `modifiers` empty | `continuous.test.ts` |
+
+Plus `keywords.test.ts` for the four keywords, the Double Attack rulings and
+life-card `[Trigger]`s, and `staleTargets.test.ts` for the two branches the
+random sweep cannot reach.
+
+The nine originally mandated Phase 0 cases live in:
 
 | Mandated case | File |
 | ------------- | ---- |
@@ -380,13 +692,24 @@ Read the counts as reached / not reached, not as frequencies: the harness
 applies every action twice for the purity check and replays each finished game
 once, so counts are inflated by exactly 3.
 
-Measured over 1000 games, three marks are **never reached**:
+Phase 2A adds marks for the effect system — every `op`, the suspend/resume
+cycle, the cost kinds, the keywords, and the damage branches.
+
+Measured over 200 games with `--abilities --marks`, **four of the 60 declared
+marks are never reached**:
 
 | Dead mark | Why |
 | --------- | --- |
-| `battle.blocked` | No Phase 0 card has Blocker, so the redirect is unreachable from the shipped set. Pinned instead by `blocker.test.ts`, which registers a Blocker card of its own. |
-| `deckOut` | Games end by life-out around turn 19, long before a 41-card deck runs out. Pinned by `winConditions.test.ts`. |
+| `deckOut` | Games end by life-out around turn 23, long before a 41-card deck runs out. Pinned by `winConditions.test.ts`. |
 | `concede` | The bot excludes it on purpose; left in a uniform pool it ends nearly every game at random. Pinned by `winConditions.test.ts`. |
+| `op.targetGone` | Needs something to remove a target *between* choosing it and acting on it. Random play essentially never builds that chain, and "abort the whole script" is the natural wrong implementation, so `staleTargets.test.ts` builds the position directly. |
+| `ability.costLostBeforeResolution` | The defensive re-check when an earlier effect in a chain spends the resources a queued ability needed. Pinned by `staleTargets.test.ts` with a hand-queued stack item. |
+
+`battle.blocked` was dead in Phase 0 and is now reached 294 times: the ABIL set
+has real Blockers, so the redirect branch is exercised by ordinary play for the
+first time. `damage.absorbedByEmptyLife` — the Double Attack Q36 case — fires 33
+times in 200 games, so the ruling above is not just unit-tested but actually
+occurs in the sweep.
 
 And one mark is technically alive but statistically absent:
 
@@ -453,20 +776,88 @@ once activated, opens a selector for which Character to sacrifice.
 
 **`CardDefinition.keywords`.** Added (empty on every Phase 0 card) so that
 Blocker validation checks something real instead of being hardcoded to reject.
+Phase 2A populates it and routes every read through `hasKeyword`.
+
+## Phase 2A divergences from the brief
+
+Recorded here so nobody mistakes them for something that was asked for. Each is
+an addition the brief's own requirements turned out to need.
+
+**`ACTIVATE_ABILITY` is a new action.** The brief lists `ANSWER_CHOICE` as the
+only new action, but it also requires `activateMain` abilities to be gated by
+cost in `legalActions` — which presupposes an action that carries one. Without
+it the `activateMain` trigger is unreachable from any input and the DSL's own
+`Trigger` union has a dead member. It is blocked during battle, like every other
+Main-phase action.
+
+**`GameState.resume`.** A third effect field beside `stack` and `pending`,
+because an effect can suspend inside a *rule* and not only inside a script. See
+"`resume`: rules that pause" above. It is tagged serializable data, never a
+closure, which is the property the brief actually cares about.
+
+**`StackItem.status` and `PendingChoice.sink`.** `status` (`optIn` / `ready` /
+`running`) keeps an optional ability's accept/decline question *on the stack*, so
+it holds its place in the resolution order — a side queue would let a later
+mandatory trigger overtake an earlier optional one. `sink` says where an answer
+goes; without it the reducer would have to infer whether an answer belongs to a
+script variable or to a rule, and that inference is exactly the kind of implicit
+continuation this design forbids.
+
+**`Condition.varTrue`.** The brief's `Instruction` list has `confirm`, which
+writes a boolean into `vars`, but its `Condition` list has nothing that can read
+one — so a "you may do X, otherwise Y" card could be written and would never
+branch. `optional: true` covers "may I activate this at all"; `varTrue` covers a
+branch *inside* a script. Without it, `confirm` is decorative.
+
+**`ZoneRef`, `Duration`, `PlayerRef`, `Color` were not defined in the brief.**
+`ZoneRef` is `{ zone: 'hand' | 'deck' | 'trash' | 'life' }` with no owner field,
+because cards always move to the zones of their **owner** — that is the physical
+rule, and an owner field would only allow states the game cannot reach. `Color`
+is a `string` alias, since `CardDefinition.color` is a plain string in the
+registry; the brief's `Color[]` implied an enum that does not exist. `types` and
+`abilities` were added to `CardDefinition` as optional fields so every Phase 0
+definition still compiles untouched.
+
+**Deterministic discards.** The `discardHand` cost and the `discard` instruction
+take cards from the front of the hand rather than asking. A choice there would
+be a `PendingChoice` before the script starts, and the brief is explicit that
+costs are settled before the script runs. Payability is fully honoured — an
+ability whose discard cannot be paid does not fire — but *which* cards go is
+engine policy for now. `TODO phase 2B: player-chosen discard.` This is the one
+divergence that deletes a real player decision, and it is the same criticism
+Phase 0 levelled at letting the engine pick the 6th-character discard.
+
+**Simultaneous trigger order is fixed, not chosen.** Turn player first, then
+board position. `TODO phase 2B: player-chosen order`, as the brief requested.
+
+**One client file changed, for compilation and nothing else.** The brief allows
+touching the client only as far as its tests demand; its tests passed untouched,
+but `packages/client/src/store/selectors.ts` stopped *compiling*, which is
+worse. Its event-log formatter is an exhaustive switch over `GameEvent` with no
+`default` — deliberately, so a new event cannot be silently dropped — and Phase
+2A adds twelve event types. The fix is twelve log lines and a zone label. No
+component changed, no affordance changed, no `mustAnswerChoice` flag was needed,
+and none of those events can occur in a browser game because the default decks
+have no abilities.
 
 **Perfect information.** The log and state are fully visible; `cardDrawn` carries
 the drawn instance id. Per-player hidden-information views are out of scope.
 
-## Out of scope for Phase 0
+## Out of scope for Phase 2A
 
-- Card effects, triggers, and abilities of any kind — every card is vanilla.
-- Keywords in play: no card has Blocker (the step and validation exist), and
-  Rush, Double Attack, and Banish are absent.
-- Trigger effects on life cards: a damaged life card goes straight to hand.
-- Counter **events** played from hand for an effect; only printed Counter values
-  are used.
-- Real card data, deck-construction legality (4-copy limits, color matching),
-  and the "don't include the Leader in the deck" style checks beyond basic
+- **Real card data.** Phase 2B. Everything here is the synthetic ABIL set.
+- **UI for answering choices.** Phase 2C. The engine opens choices and the bot
+  answers them; the client has no control for it and never sees one, because the
+  default decks have no abilities.
+- **Player-chosen trigger order** and **player-chosen discards** — both fixed
+  deterministic policies today, both flagged `TODO phase 2B` above.
+- **`PLAY_CARD.trashCharacter` as a `PendingChoice`** — the machinery now exists
+  but converting it is a migration of recorded action logs, not a feature.
+- Deck-construction legality (4-copy limits, color matching) beyond basic
   decklist shape validation.
-- Hidden-information views, networking, persistence, UI, and AI beyond the
-  random bot.
+- Hidden-information views, networking, persistence, and AI beyond the random
+  bot.
+
+Still true from Phase 0, and now genuinely tested rather than absent: Counter
+**events** played from hand can carry an effect (`counterEvent`), and a life
+card's `[Trigger]` fires.

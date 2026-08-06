@@ -1,3 +1,4 @@
+import type { Keyword, VarValue } from './abilities/dsl.js';
 import type { GameEvent } from './events.js';
 
 export type PlayerId = 'p1' | 'p2';
@@ -22,9 +23,33 @@ export interface GameState {
   cards: Record<InstanceId, CardInstance>;
   battle: Battle | null;
   modifiers: Modifier[];
+  /** Card effects being resolved, LIFO: `stack.at(-1)` runs next. */
+  stack: StackItem[];
+  /** The question the engine is waiting on, if any. */
+  pending: PendingChoice | null;
+  /**
+   * Engine-level continuations, LIFO: `resume.at(-1)` runs next.
+   *
+   * Not in the original Phase 2A shape, and added for one reason: an effect can
+   * suspend in the middle of a *rule*, not only in the middle of a script. A
+   * `[Trigger]` question opens between the two damage instances of a Double
+   * Attack, and an `endOfTurn` ability can suspend before the next turn starts.
+   * The rest of that rule has to survive the pause, so it is stored the same way
+   * a script position is: as a tagged, serializable record. Never a closure.
+   */
+  resume: ResumeStep[];
   rng: { seed: number; cursor: number };
   log: GameEvent[];
-  rules: { firstPlayerCannotAttackTurnOne: boolean };
+  rules: {
+    firstPlayerCannotAttackTurnOne: boolean;
+    /**
+     * Whether the second damage of a Double Attack can win the game against a
+     * player who had exactly 1 life card. Official Q&A says no (see README);
+     * the flag exists because the Comprehensive Rules do not spell out the
+     * mechanism, only the outcome.
+     */
+    doubleAttackCanWinFromOneLife: boolean;
+  };
 }
 
 export interface PlayerState {
@@ -47,6 +72,8 @@ export interface CardInstance {
   orientation: Orientation; // only relevant on the field
   attachedDon: InstanceId[];
   playedOnTurn: number | null;
+  /** Ability ids already used this turn, for `oncePerTurn`. Cleared at End. */
+  usedThisTurn: string[];
 }
 
 export interface DonCard {
@@ -65,14 +92,121 @@ export interface Battle {
   wasBlocked: boolean;
 }
 
-export interface Modifier {
-  id: string;
-  target: InstanceId;
-  kind: 'power'; // only power in this phase
-  value: number;
-  duration: 'endOfBattle' | 'endOfTurn';
-  source: InstanceId;
+/**
+ * A timed grant written onto the state by a script instruction.
+ *
+ * A discriminated union rather than one shape with optional fields: a power
+ * modifier has no keyword and a keyword modifier has no value, and
+ * `exactOptionalPropertyTypes` plus the no-explicit-undefined rule make the
+ * union the only encoding that round-trips exactly.
+ *
+ * Continuous (`static`) abilities never produce a Modifier. They are read at
+ * lookup time by `getPower`/`hasKeyword` and mutate nothing.
+ */
+export type Modifier =
+  | {
+      id: string;
+      target: InstanceId;
+      kind: 'power';
+      value: number;
+      duration: 'endOfBattle' | 'endOfTurn';
+      source: InstanceId;
+    }
+  | {
+      id: string;
+      target: InstanceId;
+      kind: 'grantKeyword';
+      keyword: Keyword;
+      duration: 'endOfBattle' | 'endOfTurn';
+      source: InstanceId;
+    };
+
+/**
+ * One instruction-list being executed, plus where in it we are.
+ *
+ * `path` locates the list inside the ability's script (`[]` is the root
+ * script); `index` is the next instruction in that list. A `forEach` body frame
+ * additionally carries its own iteration state. Numbers and strings only — this
+ * is the whole reason a suspended effect survives `JSON.parse(JSON.stringify)`.
+ */
+export interface Frame {
+  path: PathStep[];
+  index: number;
+  loop: LoopState | null;
 }
+
+export interface PathStep {
+  /** Index of the nesting instruction inside its own list. */
+  i: number;
+  branch: 'then' | 'else' | 'do';
+}
+
+export interface LoopState {
+  items: InstanceId[];
+  at: number;
+}
+
+export interface StackItem {
+  abilityId: string;
+  source: InstanceId;
+  controller: PlayerId;
+  /**
+   * Where the item is in its own lifecycle. Not in the original Phase 2A shape.
+   *
+   * `optIn` — a "you may" ability (or a life card's `[Trigger]`) waiting for
+   * the controller to accept. `ready` — accepted, costs not yet paid.
+   * `running` — costs paid, executing instructions.
+   *
+   * It lives on the item rather than in a separate queue so an optional ability
+   * keeps its place in the resolution order: a side queue would let a later
+   * mandatory trigger overtake an earlier optional one.
+   */
+  status: 'optIn' | 'ready' | 'running';
+  /** Innermost frame last. Empty means the script ran to the end. */
+  cursor: Frame[];
+  vars: Record<string, VarValue>;
+}
+
+export interface PendingChoice {
+  id: string;
+  player: PlayerId;
+  kind: 'selectCards' | 'yesNo' | 'selectOption' | 'orderCards';
+  prompt: string;
+  candidates: InstanceId[];
+  min: number;
+  max: number;
+  /**
+   * Where the answer goes when it arrives. Not in the original Phase 2A shape;
+   * without it the reducer would have to guess whether an answer belongs to a
+   * script variable or to a rule the engine paused in the middle of, and that
+   * guess is exactly the kind of implicit continuation this design forbids.
+   */
+  sink: { kind: 'var'; name: string } | { kind: 'optIn' };
+}
+
+/**
+ * A rule the engine paused in the middle of. Tagged data, resolved by a switch
+ * — the engine-level twin of a script's program counter.
+ */
+export type ResumeStep =
+  /** Deal `remaining` more damage to `player`'s leader. */
+  | {
+      kind: 'damage';
+      player: PlayerId;
+      remaining: number;
+      /** Life cards go straight to the trash and skip their `[Trigger]`. */
+      banish: boolean;
+      /** False once at least one damage instance of this attack has landed. */
+      first: boolean;
+    }
+  /** Close the turn and start the next one. */
+  | { kind: 'startTurn'; player: PlayerId };
+
+/** The payload of an answered choice. Absent on the `legalActions` marker. */
+export type ChoiceAnswer =
+  | { kind: 'cards'; selected: InstanceId[] }
+  | { kind: 'yesNo'; value: boolean }
+  | { kind: 'option'; index: number };
 
 export interface Decklist {
   leader: CardId;
@@ -88,7 +222,22 @@ export type Action =
   | { type: 'PLAY_COUNTER'; player: PlayerId; instanceId: InstanceId; target: InstanceId }
   | { type: 'PASS'; player: PlayerId }
   | { type: 'END_TURN'; player: PlayerId }
-  | { type: 'CONCEDE'; player: PlayerId };
+  | { type: 'CONCEDE'; player: PlayerId }
+  /**
+   * Activate a Main-phase ability. Not in the Phase 2A brief, which lists only
+   * ANSWER_CHOICE as new — but the brief also requires `activateMain` abilities
+   * to be gated by cost in `legalActions`, and there is no other action that
+   * could carry one. Without it the trigger is unreachable. Documented in the
+   * README as a deliberate divergence.
+   */
+  | { type: 'ACTIVATE_ABILITY'; player: PlayerId; instanceId: InstanceId; abilityId: string }
+  /**
+   * Answer the open `pending`. `answer` is optional *only* because
+   * `legalActions` emits a marker without one; `applyAction` rejects an answer
+   * that is missing. This is the single action whose legality is not fully
+   * enumerated by `legalActions` — see the README.
+   */
+  | { type: 'ANSWER_CHOICE'; player: PlayerId; choiceId: string; answer?: ChoiceAnswer };
 
 export type ApplyResult =
   | { ok: true; state: GameState; events: GameEvent[] }

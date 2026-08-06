@@ -1,11 +1,12 @@
 import type { ReactElement } from 'react';
-import { useGlobalAffordances, useInputBlocked } from '../store/selectors';
+import { useGlobalAffordances, useInBattle, useInputBlocked } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './ActionBar.module.css';
 
 export function ActionBar(): ReactElement {
   const global = useGlobalAffordances();
   const blocked = useInputBlocked();
+  const inBattle = useInBattle();
   const pass = useStore((s) => s.pass);
   const endTurn = useStore((s) => s.endTurn);
   const concede = useStore((s) => s.concede);
@@ -14,7 +15,9 @@ export function ActionBar(): ReactElement {
 
   return (
     <div className={styles.bar}>
-      {global.canPass ? (
+      {/* During a battle the BattleOverlay owns the pass control, so the generic
+          button stays out of the way. Legality still comes from canPass. */}
+      {global.canPass && !inBattle ? (
         <button type="button" className={styles.button} onClick={pass} disabled={blocked}>
           Pasar
         </button>

@@ -101,6 +101,49 @@ describe('where a normalized zero came from', () => {
     expect(printed.map((card) => card.cardId)).toEqual([]);
   });
 
+  /**
+   * The whole "null means a printed zero" reading rests on one card having been
+   * checked against the real thing: `OP01-006` Otama is printed with 0 power.
+   * Everything else is inference from that single verification, so the size of
+   * the inference is pinned here.
+   *
+   * A 0 is the most dangerous value this dataset can produce: a card with
+   * genuinely missing data arrives as a perfectly legal 0-power Character or
+   * 0-cost Event, plays without complaint, and nothing anywhere goes red. The
+   * count moving is the only signal there is.
+   */
+  it('normalizes exactly 149 Characters to a printed power of 0', () => {
+    const fromNull = englishCards.filter(
+      (card) => card.category === 'character' && sourceIndex[card.cardId]?.power === null,
+    );
+    expect(fromNull).toHaveLength(149);
+    // Every one of them is a 0 in the published set, and no Character reaches 0
+    // any other way — so the count above is the whole population, not a subset.
+    for (const card of fromNull) expect(card.power, card.cardId).toBe(0);
+    expect(
+      englishCards.filter((card) => card.category === 'character' && card.power === 0),
+    ).toHaveLength(149);
+  });
+
+  it('normalizes exactly 19 Events to a printed cost of 0', () => {
+    const fromNull = englishCards.filter(
+      (card) => card.category === 'event' && sourceIndex[card.cardId]?.cost === null,
+    );
+    expect(fromNull).toHaveLength(19);
+    for (const card of fromNull) expect(card.cost, card.cardId).toBe(0);
+    expect(
+      englishCards.filter((card) => card.category === 'event' && card.cost === 0),
+    ).toHaveLength(19);
+  });
+
+  it('keeps Otama, the card the reading was verified against, at 0 power', () => {
+    const otama = englishCards.find((card) => card.cardId === 'OP01-006');
+    expect(otama?.name).toBe('Otama');
+    expect(otama?.category).toBe('character');
+    expect(otama?.power).toBe(0);
+    expect(sourceIndex['OP01-006']?.power).toBeNull();
+  });
+
   it('never reads a Leader cost as 0 — a Leader without one is a source failure', () => {
     const missing = englishCards
       .filter((card) => card.category === 'leader')

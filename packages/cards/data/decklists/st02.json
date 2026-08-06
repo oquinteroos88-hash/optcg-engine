@@ -1,0 +1,24 @@
+{
+  "id": "ST-02",
+  "name": "Worst Generation",
+  "packId": "569002",
+  "leader": "ST02-001",
+  "cards": [
+    { "cardId": "ST02-002", "qty": 4 },
+    { "cardId": "ST02-003", "qty": 2 },
+    { "cardId": "ST02-004", "qty": 4 },
+    { "cardId": "ST02-005", "qty": 2 },
+    { "cardId": "ST02-006", "qty": 4 },
+    { "cardId": "ST02-007", "qty": 4 },
+    { "cardId": "ST02-008", "qty": 4 },
+    { "cardId": "ST02-009", "qty": 2 },
+    { "cardId": "ST02-010", "qty": 2 },
+    { "cardId": "ST02-011", "qty": 4 },
+    { "cardId": "ST02-012", "qty": 4 },
+    { "cardId": "ST02-013", "qty": 2 },
+    { "cardId": "ST02-014", "qty": 4 },
+    { "cardId": "ST02-015", "qty": 2 },
+    { "cardId": "ST02-016", "qty": 4 },
+    { "cardId": "ST02-017", "qty": 2 }
+  ]
+}

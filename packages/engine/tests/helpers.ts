@@ -1,6 +1,7 @@
 import { applyAction, createGame, getOpponent } from '../src/index.js';
 import type { Action, GameEvent, GameState, PlayerId } from '../src/index.js';
-import { assertInvariants, assertSerializationRoundTrip } from '../src/invariants.js';
+import { assertInvariants } from '../src/invariants.js';
+import { assertSerializationRoundTrip } from '../src/testing/index.js';
 import { GREEN_DECK, RED_DECK } from '../src/testdata/decks.js';
 
 export function buildGame(seed = 42, firstPlayer: PlayerId = 'p1'): GameState {

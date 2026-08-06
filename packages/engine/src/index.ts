@@ -1,12 +1,10 @@
 export { createGame } from './createGame.js';
 export { applyAction } from './applyAction.js';
 export { legalActions } from './legalActions.js';
-export {
-  assertInvariants,
-  assertSerializationRoundTrip,
-  checkInvariants,
-  checkTurnLeak,
-} from './invariants.js';
+// assertSerializationRoundTrip is intentionally absent: it is a test-only helper
+// that imports node:assert, and exposing it here dragged a Node builtin into
+// every consumer's dependency tree. It lives behind the ./testing subpath.
+export { assertInvariants, checkInvariants, checkTurnLeak } from './invariants.js';
 export { REASONS } from './reducer/errors.js';
 export type { ReasonCode } from './reducer/errors.js';
 export {

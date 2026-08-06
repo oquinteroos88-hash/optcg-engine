@@ -1,0 +1,17 @@
+.table {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-2);
+}
+
+.divider {
+  height: 2px;
+  background: var(--color-border);
+  margin: var(--space-2) var(--space-5);
+  border-radius: 1px;
+}

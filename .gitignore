@@ -4,6 +4,7 @@ dist/
 
 # Locally generated tooling metadata: contains absolute machine-specific paths.
 .atl/
+.claude/
 
 # Coverage output
 coverage-report/

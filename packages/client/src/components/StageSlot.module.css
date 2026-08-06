@@ -1,0 +1,19 @@
+.stageSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+.empty {
+  width: var(--card-w);
+  height: var(--card-h);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+}

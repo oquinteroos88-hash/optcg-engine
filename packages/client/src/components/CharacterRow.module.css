@@ -1,0 +1,15 @@
+.row {
+  display: flex;
+  gap: clamp(var(--space-1), 0.6vw, var(--space-3));
+  justify-content: center;
+  min-height: calc(var(--card-h) + var(--space-1));
+  align-items: center;
+}
+
+.empty {
+  width: var(--card-w);
+  height: var(--card-h);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  opacity: 0.5;
+}

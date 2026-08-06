@@ -1,6 +1,14 @@
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
-import { emit, finishGame, leaveField, mustGetCard, payDonCost } from '../reducer/helpers.js';
+import {
+  detachFromField,
+  emit,
+  finishGame,
+  leaveField,
+  mustGetCard,
+  payDonCost,
+  removeFromNonFieldZone,
+} from '../reducer/helpers.js';
 import { finishTurn } from '../reducer/turn.js';
 import { getAbilities } from '../registry.js';
 import { getOpponent, getPower, isOnField } from '../selectors.js';
@@ -15,9 +23,17 @@ import type {
   StackItem,
 } from '../types.js';
 import { canPayCosts } from './costs.js';
-import type { Ability, AbilityContext, Instruction, PlayerRef, Ref } from './dsl.js';
+import type {
+  Ability,
+  AbilityContext,
+  Duration,
+  Instruction,
+  PlayerRef,
+  Ref,
+  ZoneRef,
+} from './dsl.js';
 import { LOOP_VAR } from './dsl.js';
-import { resolveRef, resolveSelector } from './query.js';
+import { evalCondition, resolveRef, resolveSelector } from './query.js';
 import { fireTriggers } from './triggers.js';
 
 /**
@@ -214,6 +230,137 @@ function isLeader(state: GameState, id: InstanceId): boolean {
   return card !== undefined && state.players[card.controller].leader === id;
 }
 
+function addModifier(
+  draft: GameState,
+  item: StackItem,
+  target: InstanceId,
+  duration: Duration,
+  grant: { power: number } | { keyword: import('./dsl.js').Keyword },
+  events: GameEvent[],
+): void {
+  // Modifiers only ever live on the field, and an endOfBattle modifier created
+  // with no battle open would have a lifetime of zero anyway — creating it
+  // would leave the state describing a battle that is not happening.
+  if (!isOnField(draft, target)) {
+    mark('op.targetGone');
+    return;
+  }
+  if (duration === 'endOfBattle' && draft.battle === null) {
+    mark('op.targetGone');
+    return;
+  }
+  // log.length grows monotonically and every branch below emits, so ids are
+  // unique across the game.
+  const id = `mod-${draft.log.length}`;
+  if ('power' in grant) {
+    mark('op.addPower');
+    draft.modifiers.push({
+      id,
+      target,
+      kind: 'power',
+      value: grant.power,
+      duration,
+      source: item.source,
+    });
+    emit(draft, events, { type: 'powerGranted', target, value: grant.power, duration });
+    return;
+  }
+  mark('op.grantKeyword');
+  draft.modifiers.push({
+    id,
+    target,
+    kind: 'grantKeyword',
+    keyword: grant.keyword,
+    duration,
+    source: item.source,
+  });
+  emit(draft, events, { type: 'keywordGranted', target, keyword: grant.keyword, duration });
+}
+
+function moveCard(
+  draft: GameState,
+  id: InstanceId,
+  to: ZoneRef,
+  position: 'top' | 'bottom',
+  events: GameEvent[],
+): void {
+  // A leader never leaves its slot, and a card the effect can no longer find is
+  // simply skipped.
+  if (isLeader(draft, id)) {
+    return;
+  }
+  const card = draft.cards[id];
+  if (card === undefined) {
+    return;
+  }
+  if (isOnField(draft, id)) {
+    detachFromField(draft, id, events);
+  } else if (!removeFromNonFieldZone(draft, id)) {
+    mark('op.targetGone');
+    return;
+  }
+  mark('op.moveCard');
+  const ps = draft.players[card.owner];
+  switch (to.zone) {
+    case 'hand':
+      ps.hand.push(id);
+      break;
+    case 'trash':
+      ps.trash.unshift(id);
+      break;
+    case 'deck':
+      if (position === 'bottom') {
+        ps.deck.push(id);
+      } else {
+        ps.deck.unshift(id);
+      }
+      break;
+    case 'life':
+      if (position === 'bottom') {
+        ps.life.push(id);
+      } else {
+        ps.life.unshift(id);
+      }
+      break;
+  }
+  emit(draft, events, { type: 'cardMoved', player: card.owner, instanceId: id, to: to.zone });
+}
+
+/** Attaches DON!! from the controller's cost area, rested ones first. */
+function giveDon(
+  draft: GameState,
+  item: StackItem,
+  target: InstanceId,
+  count: number,
+  events: GameEvent[],
+): void {
+  const card = draft.cards[target];
+  // DON!! may only sit on a card its own controller controls, which is also
+  // what the DON!! conservation invariant checks.
+  if (card === undefined || card.controller !== item.controller || !isOnField(draft, target)) {
+    mark('op.targetGone');
+    return;
+  }
+  let remaining = count;
+  for (const orientation of ['rested', 'active'] as const) {
+    for (const don of draft.players[item.controller].don) {
+      if (remaining === 0) {
+        break;
+      }
+      if (don.location.kind === 'cost' && don.location.orientation === orientation) {
+        don.location = { kind: 'attached', to: target };
+        card.attachedDon.push(don.instanceId);
+        remaining -= 1;
+      }
+    }
+  }
+  const given = count - remaining;
+  if (given > 0) {
+    mark('op.giveDon');
+    emit(draft, events, { type: 'donAttached', player: item.controller, to: target, count: given });
+  }
+}
+
 /**
  * Executes one state-changing instruction.
  *
@@ -221,9 +368,6 @@ function isLeader(state: GameState, id: InstanceId): boolean {
  * never a reason to abort. If the character a script meant to KO already left
  * the field, that instruction does nothing and the next one still runs. No
  * instruction can cancel the rest of its script.
- *
- * Three ops for now — enough to prove the suspend/resume cycle end to end
- * before the rest of the instruction set is written on top of it.
  */
 function execute(
   draft: GameState,
@@ -244,17 +388,126 @@ function execute(
       }
       return;
     }
+    case 'rest':
+    case 'setActive': {
+      const orientation = instruction.op === 'rest' ? 'rested' : 'active';
+      for (const id of targets(draft, item, instruction.target)) {
+        if (!isOnField(draft, id)) {
+          mark('op.targetGone');
+          continue;
+        }
+        const card = mustGetCard(draft, id);
+        if (card.orientation === orientation) {
+          continue;
+        }
+        mark(instruction.op === 'rest' ? 'op.rest' : 'op.setActive');
+        card.orientation = orientation;
+        emit(draft, events, { type: 'orientationChanged', instanceId: id, orientation });
+      }
+      return;
+    }
+    case 'addPower': {
+      for (const id of targets(draft, item, instruction.target)) {
+        addModifier(draft, item, id, instruction.duration, { power: instruction.value }, events);
+      }
+      return;
+    }
+    case 'grantKeyword': {
+      for (const id of targets(draft, item, instruction.target)) {
+        addModifier(draft, item, id, instruction.duration, { keyword: instruction.keyword }, events);
+      }
+      return;
+    }
+    case 'moveCard': {
+      for (const id of targets(draft, item, instruction.target)) {
+        moveCard(draft, id, instruction.to, instruction.position ?? 'top', events);
+      }
+      return;
+    }
     case 'draw': {
       mark('op.draw');
       draw(draft, playerOf(item, instruction.player), instruction.count, events);
       return;
     }
+    case 'discard': {
+      // Front of the hand, deterministically.
+      // TODO phase 2B: let the player choose which cards a discard takes.
+      const player = playerOf(item, instruction.player);
+      const ps = draft.players[player];
+      for (let i = 0; i < instruction.count; i += 1) {
+        const id = ps.hand.shift();
+        if (id === undefined) {
+          return;
+        }
+        mark('op.discard');
+        ps.trash.unshift(id);
+        emit(draft, events, { type: 'cardDiscarded', player, instanceId: id });
+      }
+      return;
+    }
+    case 'giveDon': {
+      for (const id of targets(draft, item, instruction.target)) {
+        giveDon(draft, item, id, instruction.count, events);
+      }
+      return;
+    }
+    case 'reveal': {
+      const revealed = resolveSelector(draft, ctxOf(item), instruction.from, getPower);
+      item.vars[instruction.as] = revealed;
+      mark('op.reveal');
+      emit(draft, events, {
+        type: 'cardsRevealed',
+        player: item.controller,
+        instanceIds: revealed,
+      });
+      return;
+    }
     case 'select':
     case 'confirm':
+    case 'if':
+    case 'forEach':
       throw new Error(`Engine bug: ${instruction.op} is control flow, not a mutation`);
-    default:
-      throw new Error(`Engine bug: op ${instruction.op} is not implemented yet`);
   }
+}
+
+/**
+ * `if` and `forEach` do not run anything themselves: they push a frame naming
+ * the nested block, and the cursor walks into it. That is why the cursor is a
+ * stack of frames rather than a single number — and it stays plain data, so a
+ * choice suspended three levels deep still round-trips through JSON.
+ */
+function pushControlFrame(
+  draft: GameState,
+  item: StackItem,
+  instruction: Instruction & { op: 'if' | 'forEach' },
+  frame: { path: PathStep[] },
+  at: number,
+): void {
+  if (instruction.op === 'if') {
+    const taken = evalCondition(draft, ctxOf(item), instruction.cond, getPower);
+    if (taken) {
+      mark('op.if');
+      item.cursor.push({ path: [...frame.path, { i: at, branch: 'then' }], index: 0, loop: null });
+      return;
+    }
+    if (instruction.else !== undefined) {
+      mark('op.ifElse');
+      item.cursor.push({ path: [...frame.path, { i: at, branch: 'else' }], index: 0, loop: null });
+    }
+    return;
+  }
+  const items = targets(draft, item, instruction.in);
+  const first = items[0];
+  if (first === undefined) {
+    return;
+  }
+  mark('op.forEach');
+  item.vars[LOOP_VAR] = [first];
+  item.cursor.push({
+    path: [...frame.path, { i: at, branch: 'do' }],
+    index: 0,
+    loop: { items, at: 0 },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +643,12 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
     return;
   }
 
+  const at = frame.index;
   frame.index += 1;
+  if (instruction.op === 'if' || instruction.op === 'forEach') {
+    pushControlFrame(draft, item, instruction, frame, at);
+    return;
+  }
   execute(draft, item, instruction, events);
 }
 

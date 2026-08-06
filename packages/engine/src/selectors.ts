@@ -1,6 +1,8 @@
-import type { Keyword } from './abilities/dsl.js';
+import type { AbilityContext, Keyword } from './abilities/dsl.js';
 import { PRINTED_KEYWORD } from './abilities/dsl.js';
-import { getCardDef } from './registry.js';
+import { evalCondition, fieldIds, resolveSelector } from './abilities/query.js';
+import { mark } from './instrument.js';
+import { getAbilities, getCardDef } from './registry.js';
 import type { GameState, InstanceId, PlayerId } from './types.js';
 import { PLAYER_IDS } from './types.js';
 
@@ -33,17 +35,70 @@ export function getBasePower(state: GameState, id: InstanceId): number {
 }
 
 /**
- * Effective power. Never stored.
+ * Walks every `static` ability whose source is on the field and whose condition
+ * holds, calling `visit` for each one that applies to `id`.
  *
- * Identical to `getBasePower` for now; continuous abilities plug in here.
+ * This is the whole of the continuous-effect machinery: nothing is written to
+ * the state when a card with a static enters or leaves, so nothing has to be
+ * cleaned up, recalculated, or kept in sync when it does.
  */
-export function getPower(state: GameState, id: InstanceId): number {
-  return getBasePower(state, id);
+function forEachStatic(
+  state: GameState,
+  id: InstanceId,
+  visit: (grants: { power?: number; keyword?: Keyword }) => void,
+): void {
+  for (const player of PLAYER_IDS) {
+    for (const sourceId of fieldIds(state, player)) {
+      const source = state.cards[sourceId];
+      if (source === undefined) {
+        continue;
+      }
+      for (const ability of getAbilities(source.cardId)) {
+        if (ability.trigger !== 'static' || ability.grants === undefined) {
+          continue;
+        }
+        const ctx: AbilityContext = {
+          source: sourceId,
+          controller: source.controller,
+          vars: {},
+        };
+        if (
+          ability.condition !== undefined &&
+          !evalCondition(state, ctx, ability.condition, getBasePower)
+        ) {
+          continue;
+        }
+        if (ability.affects === undefined) {
+          continue;
+        }
+        if (!resolveSelector(state, ctx, ability.affects, getBasePower).includes(id)) {
+          continue;
+        }
+        visit(ability.grants);
+      }
+    }
+  }
 }
 
 /**
- * The single question the engine asks about keywords: printed keywords plus
- * ones granted by live modifiers. Continuous grants plug in here.
+ * Effective power. Never stored:
+ *
+ *   printed + attached DON!! x 1000 + power modifiers + applicable statics
+ */
+export function getPower(state: GameState, id: InstanceId): number {
+  let power = getBasePower(state, id);
+  forEachStatic(state, id, (grants) => {
+    if (grants.power !== undefined) {
+      mark('static.powerApplied');
+      power += grants.power;
+    }
+  });
+  return power;
+}
+
+/**
+ * The single question the engine asks about keywords. Printed keywords, plus
+ * ones granted by continuous abilities, plus ones granted by live modifiers.
  *
  * Nothing else may read `CardDefinition.keywords` directly — a granted Blocker
  * has to block, and a check against the printed list alone would not see it.
@@ -61,7 +116,14 @@ export function hasKeyword(state: GameState, id: InstanceId, keyword: Keyword): 
       return true;
     }
   }
-  return false;
+  let granted = false;
+  forEachStatic(state, id, (grants) => {
+    if (grants.keyword === keyword) {
+      mark('static.keywordApplied');
+      granted = true;
+    }
+  });
+  return granted;
 }
 
 export function getActiveCostDon(state: GameState, player: PlayerId): InstanceId[] {

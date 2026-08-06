@@ -1,3 +1,4 @@
+import { fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import type { CardInstance, GameState, InstanceId, PlayerId } from '../types.js';
@@ -60,12 +61,13 @@ export function payDonCost(
 }
 
 // Shared exit path for any card leaving the field. Attached DON return to the
-// cost area RESTED. Only a real KO emits the koed event; the stageReplaced
-// event is emitted by the caller, which knows the incoming stage.
+// cost area RESTED. Only a real KO emits the koed event and wakes an [On K.O.]
+// ability; the stageReplaced event is emitted by the caller, which knows the
+// incoming stage.
 export function leaveField(
   draft: GameState,
   id: InstanceId,
-  cause: 'ko' | 'trashedForRoom' | 'stageReplaced',
+  cause: 'ko' | 'trashedForRoom' | 'stageReplaced' | 'cost',
   events: GameEvent[],
 ): void {
   const card = mustGetCard(draft, id);
@@ -91,6 +93,7 @@ export function leaveField(
   card.orientation = 'active';
   card.attachedDon = [];
   card.playedOnTurn = null;
+  card.usedThisTurn = [];
 
   const characterIndex = ps.characters.indexOf(id);
   if (characterIndex !== -1) {
@@ -105,7 +108,12 @@ export function leaveField(
 
   if (cause === 'ko') {
     emit(draft, events, { type: 'koed', player: controller, instanceId: id });
+    // A KO wakes the card's own [On K.O.] ability. It is queued, not run: the
+    // effect that caused the KO finishes its script first.
+    fireTriggers(draft, 'onKO', [id]);
   } else if (cause === 'trashedForRoom') {
+    // Deliberately not a KO, and deliberately no onKO trigger: making room for
+    // a 6th character is a discard, which is a different rule.
     emit(draft, events, { type: 'characterTrashedForRoom', player: controller, instanceId: id });
   }
 }

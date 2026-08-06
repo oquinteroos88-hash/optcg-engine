@@ -1,5 +1,8 @@
-import { getCardDef } from './registry.js';
-import { getActiveCostDon, getOpponent } from './selectors.js';
+import { canPayCosts } from './abilities/costs.js';
+import type { AbilityContext } from './abilities/dsl.js';
+import { evalCondition } from './abilities/query.js';
+import { getAbilities, getCardDef } from './registry.js';
+import { getActiveCostDon, getBasePower, getOpponent } from './selectors.js';
 import type { Action, GameState, PlayerId } from './types.js';
 
 const BOARD_LIMIT = 5;
@@ -16,6 +19,16 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
   }
 
   const actions: Action[] = [];
+  // While a choice is open the only move is to answer it, and the answer is not
+  // enumerated: for a "select 2 of 7" the subsets alone would be 21 entries, and
+  // the space explodes from there. The marker names the question; the shape of
+  // a valid answer is data in `state.pending`. This is the single documented
+  // exception to legalActions being exhaustive.
+  if (state.pending !== null) {
+    actions.push({ type: 'ANSWER_CHOICE', player, choiceId: state.pending.id });
+    actions.push({ type: 'CONCEDE', player });
+    return actions;
+  }
   if (state.status === 'mulligan') {
     actions.push({ type: 'MULLIGAN', player, accept: true });
     actions.push({ type: 'MULLIGAN', player, accept: false });
@@ -64,7 +77,46 @@ function pushMainActions(state: GameState, player: PlayerId, actions: Action[]):
     }
   }
 
+  pushActivateActions(state, player, actions);
   pushAttackActions(state, player, actions);
+}
+
+/**
+ * Main-phase activated abilities whose condition holds and whose cost can be
+ * paid. An ability that cannot be paid for is not activatable, so it never
+ * appears here — a cost is never paid halfway to discover that.
+ */
+function pushActivateActions(state: GameState, player: PlayerId, actions: Action[]): void {
+  const ps = state.players[player];
+  const sources = [ps.leader, ...ps.characters];
+  if (ps.stage !== null) {
+    sources.push(ps.stage);
+  }
+  for (const instanceId of sources) {
+    const card = state.cards[instanceId];
+    if (card === undefined) {
+      continue;
+    }
+    for (const ability of getAbilities(card.cardId)) {
+      if (ability.trigger !== 'activateMain') {
+        continue;
+      }
+      if (ability.oncePerTurn === true && card.usedThisTurn.includes(ability.id)) {
+        continue;
+      }
+      const ctx: AbilityContext = { source: instanceId, controller: player, vars: {} };
+      if (
+        ability.condition !== undefined &&
+        !evalCondition(state, ctx, ability.condition, getBasePower)
+      ) {
+        continue;
+      }
+      if (!canPayCosts(state, ctx, ability.cost)) {
+        continue;
+      }
+      actions.push({ type: 'ACTIVATE_ABILITY', player, instanceId, abilityId: ability.id });
+    }
+  }
 }
 
 function pushAttackActions(state: GameState, player: PlayerId, actions: Action[]): void {

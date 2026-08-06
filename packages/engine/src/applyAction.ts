@@ -1,5 +1,8 @@
 import { produce, setAutoFreeze } from 'immer';
+import { settle } from './abilities/interpreter.js';
 import type { GameEvent } from './events.js';
+import { applyActivateAbility, validateActivateAbility } from './reducer/activate.js';
+import { applyAnswerChoice, validateAnswerChoice } from './reducer/choice.js';
 import {
   applyDeclareAttack,
   applyDeclareBlock,
@@ -34,7 +37,31 @@ const ACTION_TYPES: ReadonlySet<string> = new Set([
   'PASS',
   'END_TURN',
   'CONCEDE',
+  'ACTIVATE_ABILITY',
+  'ANSWER_CHOICE',
 ]);
+
+// The answer payload arrives as untrusted JSON like everything else, so its
+// shape is checked before the semantic rules in reducer/choice.ts look at it.
+function malformedAnswer(raw: unknown): boolean {
+  if (raw === undefined) {
+    return false; // absent is legal here; reducer/choice.ts rejects it by rule.
+  }
+  if (typeof raw !== 'object' || raw === null) {
+    return true;
+  }
+  const answer = raw as Record<string, unknown>;
+  switch (answer['kind']) {
+    case 'cards':
+      return !Array.isArray(answer['selected']);
+    case 'yesNo':
+      return typeof answer['value'] !== 'boolean';
+    case 'option':
+      return typeof answer['index'] !== 'number';
+    default:
+      return true;
+  }
+}
 
 // Actions may arrive as untrusted JSON: verify the shape before trusting the
 // declared type. Semantic checks come later and have their own codes.
@@ -71,6 +98,15 @@ function structuralReason(action: Action): string | null {
       return typeof raw['instanceId'] === 'string' && typeof raw['target'] === 'string'
         ? null
         : REASONS.malformedAction;
+    case 'ACTIVATE_ABILITY':
+      return typeof raw['instanceId'] === 'string' && typeof raw['abilityId'] === 'string'
+        ? null
+        : REASONS.malformedAction;
+    case 'ANSWER_CHOICE':
+      if (typeof raw['choiceId'] !== 'string') {
+        return REASONS.malformedAction;
+      }
+      return malformedAnswer(raw['answer']) ? REASONS.malformedAction : null;
     case 'PASS':
     case 'END_TURN':
     case 'CONCEDE':
@@ -93,6 +129,16 @@ function validateAction(state: GameState, action: Action): string | null {
   if (action.player !== state.priority) {
     return REASONS.notYourPriority;
   }
+  // An open choice blocks the whole game, not just its own player: nothing may
+  // move until it is answered.
+  if (state.pending !== null) {
+    return action.type === 'ANSWER_CHOICE'
+      ? validateAnswerChoice(state, action)
+      : REASONS.choicePending;
+  }
+  if (action.type === 'ANSWER_CHOICE') {
+    return REASONS.noPendingChoice;
+  }
   if (state.status === 'mulligan') {
     return action.type === 'MULLIGAN' ? null : REASONS.wrongStatus;
   }
@@ -106,6 +152,7 @@ function validateAction(state: GameState, action: Action): string | null {
     case 'ATTACH_DON':
     case 'DECLARE_ATTACK':
     case 'END_TURN':
+    case 'ACTIVATE_ABILITY':
       if (state.battle !== null) {
         return REASONS.battleInProgress;
       }
@@ -150,6 +197,8 @@ function validateAction(state: GameState, action: Action): string | null {
       return validateDeclareBlock(state, action);
     case 'PLAY_COUNTER':
       return validatePlayCounter(state, action);
+    case 'ACTIVATE_ABILITY':
+      return validateActivateAbility(state, action);
   }
 }
 
@@ -182,6 +231,12 @@ function applyValidated(draft: GameState, action: Action, events: GameEvent[]): 
     case 'PASS':
       applyPass(draft, action, events);
       return;
+    case 'ACTIVATE_ABILITY':
+      applyActivateAbility(draft, action, events);
+      return;
+    case 'ANSWER_CHOICE':
+      applyAnswerChoice(draft, action, events);
+      return;
   }
 }
 
@@ -193,6 +248,10 @@ export function applyAction(state: GameState, action: Action): ApplyResult {
   const events: GameEvent[] = [];
   const nextState = produce(state, (draft) => {
     applyValidated(draft, action, events);
+    // Handlers queue effects; the interpreter runs them. It stops at the first
+    // question, so a state that comes back with `pending` set is mid-effect and
+    // the next action has to be the answer.
+    settle(draft, events);
   });
   return { ok: true, state: nextState, events };
 }

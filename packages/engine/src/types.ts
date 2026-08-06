@@ -202,6 +202,12 @@ export type ResumeStep =
   /** Close the turn and start the next one. */
   | { kind: 'startTurn'; player: PlayerId };
 
+/** The payload of an answered choice. Absent on the `legalActions` marker. */
+export type ChoiceAnswer =
+  | { kind: 'cards'; selected: InstanceId[] }
+  | { kind: 'yesNo'; value: boolean }
+  | { kind: 'option'; index: number };
+
 export interface Decklist {
   leader: CardId;
   cards: CardId[]; // exactly 50
@@ -216,7 +222,22 @@ export type Action =
   | { type: 'PLAY_COUNTER'; player: PlayerId; instanceId: InstanceId; target: InstanceId }
   | { type: 'PASS'; player: PlayerId }
   | { type: 'END_TURN'; player: PlayerId }
-  | { type: 'CONCEDE'; player: PlayerId };
+  | { type: 'CONCEDE'; player: PlayerId }
+  /**
+   * Activate a Main-phase ability. Not in the Phase 2A brief, which lists only
+   * ANSWER_CHOICE as new — but the brief also requires `activateMain` abilities
+   * to be gated by cost in `legalActions`, and there is no other action that
+   * could carry one. Without it the trigger is unreachable. Documented in the
+   * README as a deliberate divergence.
+   */
+  | { type: 'ACTIVATE_ABILITY'; player: PlayerId; instanceId: InstanceId; abilityId: string }
+  /**
+   * Answer the open `pending`. `answer` is optional *only* because
+   * `legalActions` emits a marker without one; `applyAction` rejects an answer
+   * that is missing. This is the single action whose legality is not fully
+   * enumerated by `legalActions` — see the README.
+   */
+  | { type: 'ANSWER_CHOICE'; player: PlayerId; choiceId: string; answer?: ChoiceAnswer };
 
 export type ApplyResult =
   | { ok: true; state: GameState; events: GameEvent[] }

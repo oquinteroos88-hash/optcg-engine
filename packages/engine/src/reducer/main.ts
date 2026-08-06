@@ -1,3 +1,4 @@
+import { fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
@@ -79,6 +80,7 @@ export function applyPlayCard(
         instanceId: action.instanceId,
         cardId: card.cardId,
       });
+      fireTriggers(draft, 'onPlay', [action.instanceId]);
       return;
     }
     case 'stage': {
@@ -103,18 +105,23 @@ export function applyPlayCard(
         instanceId: action.instanceId,
         cardId: card.cardId,
       });
+      fireTriggers(draft, 'onPlay', [action.instanceId]);
       return;
     }
     case 'event': {
       mark('play.event');
-      // No effects in Phase 0: the event resolves to nothing and is trashed.
       emit(draft, events, {
         type: 'cardPlayed',
         player: action.player,
         instanceId: action.instanceId,
         cardId: card.cardId,
       });
+      // The event is trashed first and its effect resolves from there, which is
+      // where the physical card is by the time anything happens. A `{ self }`
+      // ref therefore names a card in the trash, and instructions that need it
+      // on the field no-op — the same rule as any other target that moved on.
       ps.trash.unshift(action.instanceId);
+      fireTriggers(draft, 'mainEvent', [action.instanceId]);
       return;
     }
     case 'leader':

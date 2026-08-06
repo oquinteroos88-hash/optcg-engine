@@ -60,6 +60,49 @@ export const MARK_NAMES = [
   'deckOut',
   'lifeOut',
   'concede',
+
+  // Card effects. The suspend/resume cycle and the ordering rules are the
+  // branches most likely to be silently wrong, so each gets its own name.
+  'choice.opened',
+  'choice.noCandidates',
+  'choice.answered',
+  'ability.activated',
+  'ability.resolved',
+  'ability.declined',
+  'ability.costLostBeforeResolution',
+  'trigger.chained',
+  'cost.returnDon',
+  'cost.trashSelf',
+  'cost.discardHand',
+
+  // Instructions.
+  'op.ko',
+  'op.rest',
+  'op.setActive',
+  'op.addPower',
+  'op.grantKeyword',
+  'op.moveCard',
+  'op.draw',
+  'op.discard',
+  'op.giveDon',
+  'op.reveal',
+  'op.if',
+  'op.ifElse',
+  'op.forEach',
+  'op.targetGone',
+
+  // Keywords in combat.
+  'keyword.rushAttack',
+  'keyword.blockerUsed',
+  'keyword.doubleAttack',
+  'keyword.banish',
+  'static.powerApplied',
+  'static.keywordApplied',
+
+  // Damage.
+  'damage.absorbedByEmptyLife',
+  'damage.banished',
+  'damage.lifeTriggerOffered',
 ] as const;
 
 export type MarkName = (typeof MARK_NAMES)[number];

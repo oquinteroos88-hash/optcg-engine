@@ -65,7 +65,7 @@ Vanilla cards are listed for completeness and excluded from the analysis.
 | ST01-011 | Brook | char | **B** | `onPlay` | "Up to 2" is expressible as two opt-in steps. The gap is again the **rested** DON!! constraint. |
 | ST01-012 | Monkey.D.Luffy | char | **C** | `static` (printed Rush) + `whenAttacking` | Rush is a printed keyword, already handled. The ability is a prohibition: "opponent cannot activate [Blocker] during this battle". |
 | ST01-013 | Roronoa Zoro | char | **B** | `static` | `[DON!! x1]` → +1000 to itself. Same gap as ST01-004: a continuous ability cannot name its own source. |
-| ST01-014 | Guard Point | event | **A** | `counterEvent`, `trigger` | Select 0–1 own leader/character → `addPower`, `endOfBattle` for the Counter, `endOfTurn` for the Trigger. Both fit. |
+| ST01-014 | Guard Point | event | **A** / **C** | `counterEvent`, `trigger` | Select 0–1 own leader/character → `addPower`, `endOfBattle` for the Counter, `endOfTurn` for the Trigger. The `[Trigger]` half fits and is written. **The `[Counter]` half does not** — see the correction below. |
 | ST01-015 | Gum-Gum Jet Pistol | event | **A** | `mainEvent`, `trigger` | Select 0–1 opponent character with `powerMax: 6000` → `ko`. The Trigger says "activate this card's [Main] effect", which is the same instruction list written twice — a data choice, not a DSL gap. |
 | ST01-016 | Diable Jambe | event | **C** | `mainEvent`, `trigger` | Main is a prohibition, and the hardest kind: it attaches to a **chosen card** and lasts the turn, conditioned on that card attacking. The Trigger separately needs to filter a selector **by printed keyword** ("[Blocker] Characters"). |
 | ST01-017 | Thousand Sunny | stage | **B** | `activateMain` | Body fits (select 0–1 own {Straw Hat Crew} → `addPower endOfTurn`). The cost is "rest this Stage", and **resting the source is not one of the four costs**. |
@@ -86,6 +86,28 @@ Vanilla cards are listed for completeness and excluded from the analysis.
 | ST02-015 | Scalpel | event | **B** | `counterEvent`, `trigger` | The power half fits. Both halves then "set up to N of your DON!! cards as active" — same DON!! gap as ST02-008. |
 | ST02-016 | Repel | event | **B** | `counterEvent` | As ST02-015: power fits, the DON!! half does not. |
 | ST02-017 | Straw Sword | event | **B** | `mainEvent`, `trigger` | Main fits (`rest` an opponent character). The Trigger needs to **put a card into play from hand**, filtered by type and cost. |
+
+## Correction — `counterEvent` is unreachable (found while writing pile A)
+
+Added after the seven pile-A cards were actually written. One of the seven did
+not survive contact.
+
+**`ST01-014` Guard Point's `[Counter]` half is not pile A.** The script is
+expressible — that part of the reading was right — but no real card can reach
+the `counterEvent` trigger at all. `legalActions` offers PLAY_COUNTER only for a
+card with a printed Counter value, and `applyPlayCounter` throws without one.
+Every `[Counter]` ability in the game is on an Event, and **all 184 of them are
+printed with no Counter value**. Playing a Counter Event from hand for its cost
+is a move the engine does not have.
+
+The `[Trigger]` half is unaffected and is written and tested.
+
+What the inventory got wrong is a method error worth naming: it read every card
+against the DSL's *vocabulary* and never asked whether the engine has an
+**action that reaches the trigger**. The two questions are independent, and only
+the first was asked. `ST02-015` Scalpel and `ST02-016` Repel (pile B) are behind
+the same wall, so the real count is three of these 34 cards, and gap 3 in the
+table below — DON!! orientation — is not what is blocking them.
 
 ## Gaps, ranked by how many cards need them
 

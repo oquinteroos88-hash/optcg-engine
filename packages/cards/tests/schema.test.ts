@@ -74,10 +74,18 @@ describe('the normalized set', () => {
     }
   });
 
-  it('ships no abilities — this package is data only', () => {
-    for (const card of englishCards) {
-      expect(card.abilities, card.cardId).toBeUndefined();
-    }
+  it('carries a script on exactly the cards that have one written', () => {
+    // Everything else is vanilla as far as the engine is concerned. The list
+    // grows one reviewed card at a time; an unexpected entry here means a
+    // script attached to a card nobody meant to touch.
+    const scripted = englishCards.filter((card) => card.abilities !== undefined);
+    expect(scripted.map((card) => card.cardId).sort()).toEqual([
+      'ST01-005',
+      'ST01-014',
+      'ST01-015',
+      'ST02-009',
+      'ST02-013',
+    ]);
   });
 });
 

@@ -108,6 +108,56 @@ describe('the Leader rule', () => {
   });
 });
 
+describe('printed keywords', () => {
+  const KEYWORDS = ['Rush', 'Blocker', 'Double Attack', 'Banish'] as const;
+  const lines = (card: { effectText: string | null }): string[] =>
+    (card.effectText ?? '').split('<br>').map((line) => line.trim());
+
+  it('only ever claims the four the engine implements', () => {
+    for (const card of englishCards) {
+      for (const keyword of card.keywords) {
+        expect(KEYWORDS, card.cardId).toContain(keyword);
+      }
+    }
+  });
+
+  it('claims a keyword only where its tag opens an ability line', () => {
+    for (const card of englishCards) {
+      for (const keyword of card.keywords) {
+        expect(
+          lines(card).some((line) => line.startsWith(`[${keyword}]`)),
+          `${card.cardId} claims ${keyword}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('never claims a keyword the card only grants to something else', () => {
+    // "this Character gains [Rush] during this turn" is an ability, and this
+    // package ships no abilities. Reading the tag by presence rather than by
+    // position handed out 194 keywords no card has printed, which is the bug
+    // this locks shut.
+    const wrong: string[] = [];
+    for (const card of englishCards) {
+      for (const keyword of KEYWORDS) {
+        const opensALine = lines(card).some((line) => line.startsWith(`[${keyword}]`));
+        if (!opensALine && card.keywords.includes(keyword)) {
+          wrong.push(`${card.cardId} claims a granted ${keyword}`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it('holds the expected keyword counts', () => {
+    const counts: Record<string, number> = {};
+    for (const card of englishCards) {
+      for (const keyword of card.keywords) counts[keyword] = (counts[keyword] ?? 0) + 1;
+    }
+    expect(counts).toEqual({ Rush: 20, Blocker: 270, 'Double Attack': 9, Banish: 8 });
+  });
+});
+
 describe('Counter values', () => {
   it('are null or a positive integer, never 0 and never a string', () => {
     for (const card of englishCards) {

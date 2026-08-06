@@ -997,9 +997,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Rumbar Pirates"
     ],
@@ -1486,9 +1484,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano"
     ],
@@ -1619,9 +1615,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "East Blue"
     ],
@@ -1756,9 +1750,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "East Blue",
       "Buggy Pirates"
@@ -2090,9 +2082,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Sprite"
     ],
@@ -2513,9 +2503,7 @@
     "power": 11000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island"
     ],
@@ -2714,9 +2702,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Water Seven",
       "Straw Hat Crew"
@@ -2740,9 +2726,7 @@
     "power": 5000,
     "counter": null,
     "life": 4,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Alabasta"
     ],
@@ -3130,9 +3114,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -3714,9 +3696,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Animal Kingdom Pirates"
     ],
@@ -3851,9 +3831,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island"
     ],
@@ -4795,9 +4773,7 @@
     "power": 9000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Animal Kingdom Pirates"
@@ -5391,9 +5367,7 @@
     "power": 1000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Biological Weapon",
       "Egghead",
@@ -5417,9 +5391,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Ohara",
       "Scientist"
@@ -5511,9 +5483,7 @@
     "power": 12000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Egghead",
       "The Four Emperors",
@@ -5697,9 +5667,7 @@
     "power": 5000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Supernovas",
       "Beautiful Pirates"
@@ -7060,9 +7028,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "The Seven Warlords of the Sea",
       "Thriller Bark Pirates"
@@ -7713,9 +7679,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Animal Kingdom Pirates"
     ],
@@ -8234,8 +8198,7 @@
     "counter": null,
     "life": 0,
     "keywords": [
-      "Rush",
-      "Blocker"
+      "Rush"
     ],
     "types": [
       "The Four Emperors",
@@ -8441,9 +8404,7 @@
     "power": 4000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -8555,9 +8516,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -8956,9 +8915,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano",
       "Kouzuki Clan"
@@ -9647,9 +9604,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Giant",
       "Revolutionary Army"
@@ -9672,9 +9627,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Impel Down",
       "Straw Hat Crew"
@@ -9939,9 +9892,7 @@
     "power": 2000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Impel Down"
     ],
@@ -10410,9 +10361,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -10544,9 +10493,7 @@
     "power": 5000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -11032,9 +10979,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "ODYSSEY"
     ],
@@ -11079,9 +11024,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -11350,9 +11293,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -11546,9 +11487,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "East Blue",
       "Krieg Pirates"
@@ -12312,9 +12251,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Water Seven",
       "Galley-La Company"
@@ -12573,9 +12510,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Water Seven",
       "Straw Hat Crew"
@@ -13018,9 +12953,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "CP9"
     ],
@@ -13064,9 +12997,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "CP9"
     ],
@@ -13413,9 +13344,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Big Mom Pirates"
     ],
@@ -13765,9 +13694,7 @@
     "power": 5000,
     "counter": null,
     "life": 5,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Alabasta"
     ],
@@ -13857,9 +13784,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Animal",
       "Alabasta"
@@ -15058,9 +14983,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Water Seven",
       "Galley-La Company"
@@ -15333,9 +15256,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Baroque Works"
     ],
@@ -15832,9 +15753,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Straw Hat Crew"
@@ -16163,9 +16082,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Big Mom Pirates"
     ],
@@ -16324,9 +16241,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano",
       "Kouzuki Clan"
@@ -16388,9 +16303,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Alabasta"
     ],
@@ -16481,9 +16394,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Revolutionary Army"
     ],
@@ -16773,9 +16684,7 @@
     "power": 5000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Giant",
       "Revolutionary Army"
@@ -17793,9 +17702,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -17975,9 +17882,7 @@
     "power": 4000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -18194,9 +18099,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Kingdom of Prodence",
       "Dressrosa"
@@ -18331,9 +18234,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Alabasta"
     ],
@@ -19110,9 +19011,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Revolutionary Army"
     ],
@@ -19298,9 +19197,7 @@
     "power": 7000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "FILM",
       "The Pirates Fest"
@@ -20158,9 +20055,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "East Blue"
     ],
@@ -20293,9 +20188,7 @@
     "power": 4000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -20317,9 +20210,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -20445,9 +20336,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "The Vinsmoke Family",
       "GERMA 66"
@@ -20702,9 +20591,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Kingdom of GERMA"
     ],
@@ -21346,9 +21233,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -21627,9 +21512,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island",
       "Shandian Warrior"
@@ -21964,9 +21847,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Mountain Bandits"
     ],
@@ -22308,9 +22189,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Foolshout Island"
     ],
@@ -22424,9 +22303,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Supernovas",
       "Hawkins Pirates"
@@ -22449,9 +22326,7 @@
     "power": 0,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Animal"
     ],
@@ -23058,9 +22933,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "The Seven Warlords of the Sea",
       "Kuja Pirates"
@@ -23634,9 +23507,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "The Seven Warlords of the Sea",
       "Thriller Bark Pirates"
@@ -24442,9 +24313,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -24629,9 +24498,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Drum Kingdom"
     ],
@@ -24744,9 +24611,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Animal",
       "Drum Kingdom"
@@ -25072,9 +24937,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Minks",
       "The Akazaya Nine"
@@ -25534,9 +25397,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -25776,9 +25637,7 @@
     "power": 8000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Animal Kingdom Pirates"
     ],
@@ -26921,9 +26780,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Egghead",
       "Seraphim"
@@ -27420,9 +27277,7 @@
     "power": 3000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Red-Haired Pirates"
     ],
@@ -27490,9 +27345,7 @@
     "power": 4000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Kid Pirates"
     ],
@@ -28576,9 +28429,7 @@
     "power": 7000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -28645,9 +28496,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Animal",
       "Straw Hat Crew"
@@ -29001,11 +28850,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker",
-      "Double Attack",
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Blackbeard Pirates"
     ],
@@ -29761,8 +29606,7 @@
     "counter": null,
     "life": 0,
     "keywords": [
-      "Rush",
-      "Blocker"
+      "Rush"
     ],
     "types": [
       "King of the Pirates",
@@ -29786,9 +29630,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -30780,9 +30622,7 @@
     "power": 2000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Animal",
       "Dressrosa"
@@ -31015,9 +30855,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "The Tontattas",
       "Dressrosa"
@@ -31736,9 +31574,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Blackbeard Pirates"
@@ -31945,9 +31781,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano",
       "Thriller Bark Pirates"
@@ -32014,9 +31848,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Supernovas",
@@ -32058,9 +31890,7 @@
     "power": 5000,
     "counter": null,
     "life": 5,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Supernovas",
       "Kid Pirates"
@@ -32268,9 +32098,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Supernovas",
       "On-Air Pirates"
@@ -32385,9 +32213,7 @@
     "power": 5000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Supernovas",
       "Straw Hat Crew"
@@ -32820,9 +32646,7 @@
     "power": 2000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Navy",
       "SWORD"
@@ -33485,9 +33309,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Firetank Pirates"
     ],
@@ -33835,9 +33657,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Minks"
     ],
@@ -34009,9 +33829,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Big Mom Pirates"
     ],
@@ -34189,9 +34007,7 @@
     "power": 12000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Big Mom Pirates"
@@ -34708,9 +34524,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "East Blue",
       "Navy"
@@ -35386,9 +35200,7 @@
     "power": 2000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Roger Pirates"
     ],
@@ -35435,9 +35247,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Fish-Man",
       "The Sun Pirates"
@@ -35506,9 +35316,7 @@
     "power": 2000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Roger Pirates"
     ],
@@ -35599,9 +35407,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Former Roger Pirates"
     ],
@@ -36393,9 +36199,7 @@
     "power": 3000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -36439,9 +36243,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -36551,9 +36353,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -36710,9 +36510,7 @@
     "power": 7000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Impel Down",
       "Revolutionary Army"
@@ -36735,9 +36533,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "East Blue"
     ],
@@ -36872,9 +36668,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "East Blue"
     ],
@@ -36987,9 +36781,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Heart Pirates"
     ],
@@ -37207,9 +36999,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -37254,9 +37044,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Fish-Man",
       "Dressrosa",
@@ -37502,9 +37290,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Revolutionary Army"
@@ -37668,9 +37454,7 @@
     "power": 8000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "The Seven Warlords of the Sea",
       "Donquixote Pirates"
@@ -38147,9 +37931,7 @@
     "power": 2000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Mountain Bandits"
     ],
@@ -38638,9 +38420,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "FILM",
       "Supernovas",
@@ -39141,9 +38921,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -39232,9 +39010,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -39743,9 +39519,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Celestial Dragons",
       "Five Elders"
@@ -39951,9 +39725,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Celestial Dragons",
       "Five Elders"
@@ -40000,9 +39772,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Celestial Dragons",
       "Five Elders"
@@ -40338,9 +40108,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Bonney Pirates"
     ],
@@ -40385,9 +40153,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Egghead",
       "Bonney Pirates"
@@ -40481,9 +40247,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Egghead",
       "Scientist"
@@ -40642,9 +40406,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -40761,9 +40523,7 @@
     "power": 2000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Supernovas",
@@ -40927,9 +40687,7 @@
     "power": 2000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Supernovas",
@@ -41708,9 +41466,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Fish-Man",
       "The Sun Pirates"
@@ -41802,9 +41558,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Fish-Man",
       "The Seven Warlords of the Sea",
@@ -43576,9 +43330,7 @@
     "power": 9000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "East Blue",
       "Krieg Pirates"
@@ -43647,9 +43399,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "East Blue",
       "Krieg Pirates"
@@ -43946,9 +43696,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -44333,9 +44081,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Yonta Maria Fleet"
@@ -44358,9 +44104,7 @@
     "power": 5000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa"
     ],
@@ -44621,9 +44365,7 @@
     "power": 0,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa"
     ],
@@ -44666,9 +44408,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Barto Club"
@@ -44689,9 +44429,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Revolutionary Army"
@@ -44776,9 +44514,7 @@
     "power": 8000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island"
     ],
@@ -44937,9 +44673,7 @@
     "power": 2000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island",
       "Vassals"
@@ -44962,9 +44696,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island"
     ],
@@ -45032,9 +44764,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Animal",
       "Sky Island"
@@ -45359,9 +45089,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -45383,9 +45111,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -45646,9 +45372,7 @@
     "power": 7000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island",
       "Supernovas",
@@ -45925,9 +45649,7 @@
     "power": 5000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Jaya",
       "Botanist"
@@ -46105,10 +45827,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush",
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Sky Island",
       "Straw Hat Crew"
@@ -46131,9 +45850,7 @@
     "power": 5000,
     "counter": null,
     "life": 5,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -46178,9 +45895,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Whitebeard Pirates"
@@ -46318,9 +46033,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -46999,9 +46712,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Impel Down",
       "Straw Hat Crew"
@@ -47210,9 +46921,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Impel Down",
       "Buggy Pirates"
@@ -47548,9 +47257,7 @@
     "power": 8000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Admiral",
       "Navy"
@@ -47775,9 +47482,7 @@
     "power": 8000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Admiral",
       "Navy"
@@ -47905,9 +47610,7 @@
     "power": 5000,
     "counter": null,
     "life": 5,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano"
     ],
@@ -48678,9 +48381,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Kuja Pirates"
     ],
@@ -48832,9 +48533,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Supernovas",
       "Straw Hat Crew"
@@ -48877,9 +48576,7 @@
     "power": 4000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Supernovas",
       "Kid Pirates"
@@ -48902,9 +48599,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "The Seven Warlords of the Sea",
       "Baroque Works"
@@ -48927,9 +48622,7 @@
     "power": 8000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Animal Kingdom Pirates"
@@ -50792,9 +50485,7 @@
     "power": 12000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Red-Haired Pirates"
@@ -50982,9 +50673,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Revolutionary Army"
     ],
@@ -51097,9 +50786,7 @@
     "power": 4000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Bonney Pirates"
     ],
@@ -51235,9 +50922,7 @@
     "power": 5000,
     "counter": null,
     "life": 5,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -51594,9 +51279,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Blackbeard Pirates"
     ],
@@ -51709,9 +51392,7 @@
     "power": 2000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -51756,9 +51437,7 @@
     "power": 4000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -51939,8 +51618,7 @@
     "counter": null,
     "life": 0,
     "keywords": [
-      "Rush",
-      "Blocker"
+      "Rush"
     ],
     "types": [
       "Supernovas",
@@ -52029,9 +51707,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -52892,9 +52568,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Animal Kingdom Pirates"
@@ -53460,9 +53134,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "FILM",
       "The Pirates Fest"
@@ -53686,9 +53358,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Navy"
     ],
@@ -54035,9 +53705,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Big Mom Pirates"
     ],
@@ -54059,9 +53727,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Big Mom Pirates"
     ],
@@ -54218,9 +53884,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Big Mom Pirates",
       "Homies"
@@ -54265,9 +53929,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Big Mom Pirates",
       "Homies"
@@ -54794,9 +54456,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Double Attack"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano",
       "Kouzuki Clan"
@@ -55109,9 +54769,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -55157,8 +54815,7 @@
     "counter": null,
     "life": 0,
     "keywords": [
-      "Rush",
-      "Blocker"
+      "Rush"
     ],
     "types": [
       "Straw Hat Crew"
@@ -56142,9 +55799,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -56587,9 +56242,7 @@
     "power": 10000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -56804,9 +56457,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -57446,9 +57097,7 @@
     "power": 3000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -57722,9 +57371,7 @@
     "power": 5000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -57746,9 +57393,7 @@
     "power": 0,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Straw Hat Crew"
@@ -58427,9 +58072,7 @@
     "power": 1000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Cross Guild"
     ],
@@ -58498,9 +58141,7 @@
     "power": 1000,
     "counter": 2000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Cross Guild"
     ],
@@ -58704,9 +58345,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Giant",
       "Blackbeard Pirates"
@@ -58775,10 +58414,7 @@
     "power": 1000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker",
-      "Banish"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano",
       "Former Whitebeard Pirates"
@@ -58824,9 +58460,7 @@
     "power": 7000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Land of Wano",
       "Kouzuki Clan"
@@ -59405,9 +59039,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Whitebeard Pirates"
     ],
@@ -59526,10 +59158,7 @@
     "power": 6000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush",
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Impel Down",
       "Straw Hat Crew"
@@ -59659,9 +59288,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -59708,9 +59335,7 @@
     "power": 3000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Straw Hat Crew"
     ],
@@ -59732,9 +59357,7 @@
     "power": 9000,
     "counter": null,
     "life": 0,
-    "keywords": [
-      "Rush"
-    ],
+    "keywords": [],
     "types": [
       "The Four Emperors",
       "Straw Hat Crew"
@@ -60188,9 +59811,7 @@
     "power": 6000,
     "counter": 1000,
     "life": 0,
-    "keywords": [
-      "Blocker"
-    ],
+    "keywords": [],
     "types": [
       "Dressrosa",
       "Revolutionary Army"

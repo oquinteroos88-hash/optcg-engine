@@ -166,17 +166,28 @@ function isParallel(cardId: string): boolean {
 }
 
 /**
- * Printed keywords, read off the effect text rather than off the index's
- * `keywords` field.
+ * Printed keywords, read off the effect text by the *position* of the tag.
  *
- * The index lists every bracketed marker it found, so a card whose text *grants*
- * Rush to something else is indistinguishable there from a card that *has* Rush.
- * A printed keyword always appears as its own bracketed marker, so matching
- * `[Rush]` is both stricter and closer to what is actually printed.
+ * Not off the index's `keywords` field: that one lists every bracketed marker
+ * found anywhere in the text, so a card that *grants* Rush to something else is
+ * indistinguishable there from a card that *has* Rush.
+ *
+ * Presence alone has the same flaw, which is why it is not enough to match
+ * `[Rush]` anywhere either. The distinction is positional: a printed keyword
+ * opens its own ability line, while a granted one sits inside a sentence —
+ * "this Character gains [Rush] during this turn". Measured over this dataset,
+ * matching by presence would have handed out 194 keywords a card does not have:
+ * 68 Rush, 89 Blocker, 23 Double Attack, 14 Banish.
+ *
+ * The printed text separates ability lines with `<br>`, and every printed
+ * keyword in this dataset opens such a line with nothing before it.
  */
 function extractKeywords(effect: string | null): string[] {
   if (effect === null) return [];
-  return PRINTED_KEYWORDS.filter((keyword) => effect.includes(`[${keyword}]`));
+  const lines = effect.split('<br>').map((line) => line.trim());
+  return PRINTED_KEYWORDS.filter((keyword) =>
+    lines.some((line) => line.startsWith(`[${keyword}]`)),
+  );
 }
 
 /**
@@ -478,9 +489,12 @@ ${Object.entries(r.byCategory)
    printed "—", which the engine already models as \`counter: null\`.
 5. **Colors lowercased**, matching the engine's existing sets. \`color\` is the
    first printed color; \`colors\` keeps the full list for multicolor cards.
-6. **Keywords** are read from the effect text as bracketed markers
-   (\`[Blocker]\`), restricted to the four the engine implements. Card abilities
-   are **not** in this package.
+6. **Keywords** are read from the effect text by the *position* of the tag: a
+   printed keyword opens its own ability line, a granted one sits inside a
+   sentence ("this Character gains \`[Rush]\` during this turn"). Restricted to
+   the four the engine implements. Matching by presence instead would claim 194
+   keywords no card has printed — 68 Rush, 89 Blocker, 23 Double Attack, 14
+   Banish. Card abilities are **not** in this package.
 
 ## Source anomalies
 

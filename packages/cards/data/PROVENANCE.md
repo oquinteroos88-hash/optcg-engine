@@ -59,9 +59,12 @@ see `data/source-index.en.json` and the cross-source test.
    printed "—", which the engine already models as `counter: null`.
 5. **Colors lowercased**, matching the engine's existing sets. `color` is the
    first printed color; `colors` keeps the full list for multicolor cards.
-6. **Keywords** are read from the effect text as bracketed markers
-   (`[Blocker]`), restricted to the four the engine implements. Card abilities
-   are **not** in this package.
+6. **Keywords** are read from the effect text by the *position* of the tag: a
+   printed keyword opens its own ability line, a granted one sits inside a
+   sentence ("this Character gains `[Rush]` during this turn"). Restricted to
+   the four the engine implements. Matching by presence instead would claim 194
+   keywords no card has printed — 68 Rush, 89 Blocker, 23 Double Attack, 14
+   Banish. Card abilities are **not** in this package.
 
 ## Source anomalies
 

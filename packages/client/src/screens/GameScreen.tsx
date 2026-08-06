@@ -10,13 +10,14 @@ import { MulliganOverlay } from '../components/MulliganOverlay';
 import { PassDeviceScreen } from '../components/PassDeviceScreen';
 import { Table } from '../components/Table';
 import { TrashChoiceModal } from '../components/TrashChoiceModal';
-import { useInputBlocked } from '../store/selectors';
+import { useChoosingTrash, useInputBlocked } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './GameScreen.module.css';
 
 export function GameScreen(): ReactElement {
   const uiEvent = useStore((s) => s.uiEvent);
   const blocked = useInputBlocked();
+  const cardToPlay = useChoosingTrash();
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -38,7 +39,7 @@ export function GameScreen(): ReactElement {
       </div>
       <ActionBar />
       <BattleOverlay />
-      <TrashChoiceModal />
+      {cardToPlay === null ? null : <TrashChoiceModal cardToPlay={cardToPlay} />}
       <MulliganOverlay />
       <GameOverOverlay />
       <PassDeviceScreen />

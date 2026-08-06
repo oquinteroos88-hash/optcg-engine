@@ -1,20 +1,20 @@
 import type { ReactElement } from 'react';
+import type { InstanceId } from '@optcg/engine';
 import { useCardView, useTrashCandidates } from '../store/selectors';
 import { useStore } from '../store/store';
 import { CardTile } from './CardTile';
 import styles from './TrashChoiceModal.module.css';
 
+interface TrashChoiceModalProps {
+  /** Always a real card: the parent mounts this only while a choice is pending. */
+  cardToPlay: InstanceId;
+}
+
 /** Sixth-character sacrifice: pick which own character leaves the field. */
-export function TrashChoiceModal(): ReactElement | null {
-  const mode = useStore((s) => s.ui.mode);
+export function TrashChoiceModal({ cardToPlay }: TrashChoiceModalProps): ReactElement {
   const uiEvent = useStore((s) => s.uiEvent);
-  const cardToPlay = mode.kind === 'choosingTrash' ? mode.cardToPlay : '';
   const candidates = useTrashCandidates(cardToPlay);
   const pending = useCardView(cardToPlay);
-
-  if (mode.kind !== 'choosingTrash') {
-    return null;
-  }
 
   return (
     <div className={styles.overlay} onClick={() => uiEvent({ kind: 'escape' })}>

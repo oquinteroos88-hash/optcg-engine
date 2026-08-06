@@ -423,6 +423,11 @@ export function useIsHighlighted(id: InstanceId): boolean {
   return useStore((s) => s.animQueue[0]?.cardIds.includes(id) ?? false);
 }
 
+/** The card waiting on a sacrifice choice, or null when no choice is pending. */
+export function useChoosingTrash(): InstanceId | null {
+  return useStore((s) => (s.ui.mode.kind === 'choosingTrash' ? s.ui.mode.cardToPlay : null));
+}
+
 /** True while the UI is asking the player to pick a target. */
 export function useTargeting(): boolean {
   return useStore((s) => {

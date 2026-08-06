@@ -2,7 +2,7 @@ import { canPayCosts } from './abilities/costs.js';
 import type { AbilityContext } from './abilities/dsl.js';
 import { evalCondition } from './abilities/query.js';
 import { getAbilities, getCardDef } from './registry.js';
-import { getActiveCostDon, getBasePower, getOpponent } from './selectors.js';
+import { getActiveCostDon, getBasePower, getOpponent, hasKeyword } from './selectors.js';
 import type { Action, GameState, PlayerId } from './types.js';
 
 const BOARD_LIMIT = 5;
@@ -135,7 +135,11 @@ function pushAttackActions(state: GameState, player: PlayerId, actions: Action[]
   ];
   for (const attacker of [ps.leader, ...ps.characters]) {
     const card = state.cards[attacker];
-    if (card === undefined || card.orientation !== 'active' || card.playedOnTurn === state.turn) {
+    if (card === undefined || card.orientation !== 'active') {
+      continue;
+    }
+    // Rush is exactly the exemption from summoning sickness.
+    if (card.playedOnTurn === state.turn && !hasKeyword(state, attacker, 'rush')) {
       continue;
     }
     for (const target of targets) {
@@ -144,16 +148,12 @@ function pushAttackActions(state: GameState, player: PlayerId, actions: Action[]
   }
 }
 
-// Real enumeration even though no Phase 0 card carries Blocker: the row stays
-// honest for Phase 1.
+// Blocker is asked of `hasKeyword`, never of the printed list: a Blocker
+// granted by a continuous effect or a modifier has to be able to block.
 function pushBlockActions(state: GameState, player: PlayerId, actions: Action[]): void {
   for (const blocker of state.players[player].characters) {
     const card = state.cards[blocker];
-    if (
-      card !== undefined &&
-      card.orientation === 'active' &&
-      getCardDef(card.cardId).keywords.includes('Blocker')
-    ) {
+    if (card !== undefined && card.orientation === 'active' && hasKeyword(state, blocker, 'blocker')) {
       actions.push({ type: 'DECLARE_BLOCK', player, blocker });
     }
   }

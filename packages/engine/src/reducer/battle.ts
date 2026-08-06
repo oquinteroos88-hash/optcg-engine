@@ -2,7 +2,7 @@ import { fireTriggers, ownedFieldSources } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
-import { getOpponent, getPower, isOwnLeaderOrCharacter } from '../selectors.js';
+import { getOpponent, getPower, hasKeyword, isOwnLeaderOrCharacter } from '../selectors.js';
 import type { Battle, GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
 import { emit, leaveField, mustGetCard } from './helpers.js';
@@ -42,7 +42,8 @@ export function validateDeclareAttack(state: GameState, action: DeclareAttackAct
   if (attacker.orientation !== 'active') {
     return REASONS.attackerNotActive;
   }
-  if (attacker.playedOnTurn === state.turn) {
+  // Rush lifts exactly this restriction and nothing else.
+  if (attacker.playedOnTurn === state.turn && !hasKeyword(state, action.attacker, 'rush')) {
     return REASONS.cannotAttackYet;
   }
   if (
@@ -72,7 +73,11 @@ export function applyDeclareAttack(
   action: DeclareAttackAction,
   events: GameEvent[],
 ): void {
-  mustGetCard(draft, action.attacker).orientation = 'rested';
+  const attacker = mustGetCard(draft, action.attacker);
+  if (attacker.playedOnTurn === draft.turn) {
+    mark('keyword.rushAttack');
+  }
+  attacker.orientation = 'rested';
   draft.battle = {
     step: 'block',
     attacker: action.attacker,
@@ -100,7 +105,7 @@ export function validateDeclareBlock(state: GameState, action: DeclareBlockActio
   if (blocker === undefined) {
     return REASONS.invalidBlocker;
   }
-  if (!getCardDef(blocker.cardId).keywords.includes('Blocker')) {
+  if (!hasKeyword(state, action.blocker, 'blocker')) {
     return REASONS.notABlocker;
   }
   if (blocker.orientation !== 'active') {
@@ -116,6 +121,7 @@ export function applyDeclareBlock(
 ): void {
   const battle = mustGetBattle(draft);
   mark('battle.blocked');
+  mark('keyword.blockerUsed');
   mustGetCard(draft, action.blocker).orientation = 'rested';
   battle.target = action.blocker;
   battle.wasBlocked = true;
@@ -250,13 +256,22 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
     return;
   }
 
-  // One instance of damage for now; the keywords that change the count and the
-  // destination plug in here.
+  // Double Attack deals two damage; Banish sends the life cards to the trash
+  // without their [Trigger] ever being offered. Both are read through
+  // hasKeyword, so a granted keyword counts exactly like a printed one.
+  const doubleAttack = hasKeyword(draft, attacker, 'doubleAttack');
+  const banish = hasKeyword(draft, attacker, 'banish');
+  if (doubleAttack) {
+    mark('keyword.doubleAttack');
+  }
+  if (banish) {
+    mark('keyword.banish');
+  }
   draft.resume.push({
     kind: 'damage',
     player: defender,
-    remaining: 1,
-    banish: false,
+    remaining: doubleAttack ? 2 : 1,
+    banish,
     first: true,
   });
 }

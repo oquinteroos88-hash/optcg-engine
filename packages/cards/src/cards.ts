@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { registerCardSet } from '@optcg/engine';
 import type { CardId } from '@optcg/engine';
+import { STARTER_ABILITIES } from './abilities.js';
 import type { EnglishCardDefinition } from './types.js';
 
 /**
@@ -72,6 +73,26 @@ function validate(card: EnglishCardDefinition, seen: Set<CardId>): void {
   seen.add(id);
 }
 
+/**
+ * Attaches the scripted effects to the definitions that have them.
+ *
+ * The printed data comes from JSON and the effects come from code, so they meet
+ * here rather than in one literal the way the `TEST` and `ABIL` sets write
+ * them. A card with no entry keeps no `abilities` key at all, which is what
+ * `getAbilities` already treats as "vanilla".
+ */
+function withAbilities(card: EnglishCardDefinition): EnglishCardDefinition {
+  const abilities = STARTER_ABILITIES[card.cardId];
+  if (abilities === undefined) {
+    return Object.freeze(card);
+  }
+  const ids = new Set(abilities.map((ability) => ability.id));
+  if (ids.size !== abilities.length) {
+    fail(card.cardId, 'two abilities share an id');
+  }
+  return Object.freeze({ ...card, abilities });
+}
+
 function load(): EnglishCardDefinition[] {
   const cards = JSON.parse(readFileSync(DATA_URL, 'utf8')) as EnglishCardDefinition[];
   if (!Array.isArray(cards) || cards.length === 0) {
@@ -79,7 +100,16 @@ function load(): EnglishCardDefinition[] {
   }
   const seen = new Set<CardId>();
   for (const card of cards) validate(card, seen);
-  return cards.map((card) => Object.freeze(card));
+
+  // A mistyped key in STARTER_ABILITIES would otherwise attach to nothing and
+  // fail silently: the card would simply have no effect, which is exactly what
+  // a vanilla card looks like.
+  for (const cardId of Object.keys(STARTER_ABILITIES)) {
+    if (!seen.has(cardId)) {
+      throw new Error(`abilities.ts: ${cardId} is not a card in this set`);
+    }
+  }
+  return cards.map(withAbilities);
 }
 
 /** Every English card, parallels excluded, sorted by card id. */

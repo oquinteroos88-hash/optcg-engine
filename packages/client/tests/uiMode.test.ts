@@ -56,34 +56,6 @@ describe('reduceUiMode transitions', () => {
     expect(result.intent).toBeUndefined();
   });
 
-  it('idle + ambiguous card (play + attack) enters cardSelected', () => {
-    const a = aff({ x1: card({ canPlay: true, canAttack: true, attackTargets: ['L2'] }) });
-    const viaHand = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'x1' }, a);
-    expect(viaHand.mode).toEqual({ kind: 'cardSelected', owner: 'p1', card: 'x1' });
-    const viaField = reduceUiMode(IDLE, { kind: 'clickFieldCard', instanceId: 'x1', mine: true }, a);
-    expect(viaField.mode).toEqual({ kind: 'cardSelected', owner: 'p1', card: 'x1' });
-  });
-
-  it('cardSelected + chooseAction routes to play intent, choosingTrash, or attacking', () => {
-    const selected: UiMode = { kind: 'cardSelected', owner: 'p1', card: 'x1' };
-    const plain = aff({ x1: card({ canPlay: true, canAttack: true }) });
-    expect(reduceUiMode(selected, { kind: 'chooseAction', action: 'play' }, plain)).toEqual({
-      mode: IDLE,
-      intent: { type: 'PLAY_CARD', instanceId: 'x1' },
-    });
-    const trashy = aff({
-      x1: card({ canPlay: true, canAttack: true, playRequiresTrash: true, trashCandidates: ['c1'] }),
-    });
-    expect(reduceUiMode(selected, { kind: 'chooseAction', action: 'play' }, trashy).mode).toEqual({
-      kind: 'choosingTrash',
-      owner: 'p1',
-      cardToPlay: 'x1',
-    });
-    const attack = reduceUiMode(selected, { kind: 'chooseAction', action: 'attack' }, plain);
-    expect(attack.mode).toEqual({ kind: 'attacking', owner: 'p1', attacker: 'x1' });
-    expect(attack.intent).toBeUndefined();
-  });
-
   it('idle + own attacker enters attacking; valid target emits DECLARE_ATTACK', () => {
     const a = aff({ c1: card({ canAttack: true, attackTargets: ['L2', 'e1'] }) });
     const enter = reduceUiMode(IDLE, { kind: 'clickFieldCard', instanceId: 'c1', mine: true }, a);
@@ -162,7 +134,6 @@ describe('reduceUiMode transitions', () => {
     const a = aff({ h1: card({ canPlay: true }) });
     const modes: UiMode[] = [
       { kind: 'idle' },
-      { kind: 'cardSelected', owner: 'p1', card: 'h1' },
       { kind: 'attacking', owner: 'p1', attacker: 'c1' },
       { kind: 'attachingDon', owner: 'p1' },
       { kind: 'choosingTrash', owner: 'p1', cardToPlay: 'h1' },
@@ -233,7 +204,6 @@ describe('ensureModeValid', () => {
     const staleModes: UiMode[] = [
       { kind: 'attachingDon', owner: 'p1' },
       { kind: 'attacking', owner: 'p1', attacker },
-      { kind: 'cardSelected', owner: 'p1', card: handCardId },
       { kind: 'choosingTrash', owner: 'p1', cardToPlay: handCardId },
       { kind: 'countering', owner: 'p1', counterCard: handCardId },
     ];
@@ -390,12 +360,5 @@ describe('clickStateOf', () => {
     expect(clickStateOf(mode, a, 'h1')).toBe('selected');
     expect(clickStateOf(mode, a, 'L1')).toBe('targetable');
     expect(clickStateOf(mode, a, 'c9')).toBe('inert');
-  });
-
-  it('marks only the selected card in cardSelected mode', () => {
-    const a = aff({ x1: card({ canPlay: true, canAttack: true }) });
-    const mode: UiMode = { kind: 'cardSelected', owner: 'p1', card: 'x1' };
-    expect(clickStateOf(mode, a, 'x1')).toBe('selected');
-    expect(clickStateOf(mode, a, 'other')).toBe('inert');
   });
 });

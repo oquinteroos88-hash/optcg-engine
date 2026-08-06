@@ -7,10 +7,17 @@ import type { ActionIntent } from './driver-types';
  * Every non-idle mode records the player it was opened for. Without that stamp
  * `attachingDon` — the only mode carrying no instance id — survived a turn
  * change, handing the next player a board already in DON-targeting mode.
+ *
+ * There is deliberately no `cardSelected` (disambiguation) mode in phase 1: it
+ * was unreachable by construction, because `canPlay` only ever describes a card
+ * in hand and `canAttack` only a card on the field, so no card can carry both
+ * (0 hits across 10,082 sampled states). It returns in phase 2 with different
+ * semantics: once `ACTIVATE_ABILITY` exists, a character that can both attack
+ * and activate an ability is genuinely ambiguous, and the menu will then offer N
+ * variable options rather than a fixed Jugar/Atacar pair.
  */
 export type UiMode =
   | { kind: 'idle' }
-  | { kind: 'cardSelected'; owner: PlayerId; card: InstanceId }
   | { kind: 'attacking'; owner: PlayerId; attacker: InstanceId }
   | { kind: 'attachingDon'; owner: PlayerId }
   | { kind: 'choosingTrash'; owner: PlayerId; cardToPlay: InstanceId }
@@ -21,8 +28,10 @@ export type UiEvent =
   | { kind: 'clickFieldCard'; instanceId: InstanceId; mine: boolean }
   | { kind: 'clickDonArea' }
   | { kind: 'clickEmpty' }
-  | { kind: 'escape' }
-  | { kind: 'chooseAction'; action: 'play' | 'attack' };
+  | { kind: 'escape' };
+
+/** Everything except the two events that unconditionally reset to idle. */
+type BoardEvent = Exclude<UiEvent, { kind: 'escape' } | { kind: 'clickEmpty' }>;
 
 export interface UiModeResult {
   mode: UiMode;
@@ -55,15 +64,6 @@ export function reduceUiMode(mode: UiMode, ev: UiEvent, aff: Affordances): UiMod
   switch (mode.kind) {
     case 'idle':
       return reduceIdle(mode, ev, aff);
-    case 'cardSelected': {
-      if (ev.kind === 'chooseAction') {
-        if (ev.action === 'play') {
-          return playOutcome(mode.card, aff);
-        }
-        return { mode: { kind: 'attacking', owner: aff.whoActs, attacker: mode.card } };
-      }
-      return { mode };
-    }
     case 'attacking': {
       if (ev.kind === 'clickFieldCard') {
         const attacker = cardAffordance(aff, mode.attacker);
@@ -113,15 +113,14 @@ export function reduceUiMode(mode: UiMode, ev: UiEvent, aff: Affordances): UiMod
   }
 }
 
-function reduceIdle(mode: UiMode, ev: UiEvent, aff: Affordances): UiModeResult {
+// Exhaustive over BoardEvent on purpose: no `default`, so a new UiEvent cannot
+// be added without TypeScript demanding a branch here.
+function reduceIdle(mode: UiMode, ev: BoardEvent, aff: Affordances): UiModeResult {
   switch (ev.kind) {
     case 'clickHandCard': {
       const card = cardAffordance(aff, ev.instanceId);
       if (card.canCounter) {
         return { mode: { kind: 'countering', owner: aff.whoActs, counterCard: ev.instanceId } };
-      }
-      if (card.canPlay && card.canAttack) {
-        return { mode: { kind: 'cardSelected', owner: aff.whoActs, card: ev.instanceId } };
       }
       if (card.canPlay) {
         return playOutcome(ev.instanceId, aff);
@@ -133,9 +132,6 @@ function reduceIdle(mode: UiMode, ev: UiEvent, aff: Affordances): UiModeResult {
         return { mode };
       }
       const card = cardAffordance(aff, ev.instanceId);
-      if (card.canAttack && card.canPlay) {
-        return { mode: { kind: 'cardSelected', owner: aff.whoActs, card: ev.instanceId } };
-      }
       if (card.canAttack) {
         return { mode: { kind: 'attacking', owner: aff.whoActs, attacker: ev.instanceId } };
       }
@@ -150,8 +146,6 @@ function reduceIdle(mode: UiMode, ev: UiEvent, aff: Affordances): UiModeResult {
       }
       return { mode };
     }
-    default:
-      return { mode };
   }
 }
 
@@ -168,10 +162,6 @@ export function ensureModeValid(mode: UiMode, state: GameState): UiMode {
   switch (mode.kind) {
     case 'idle':
       return mode;
-    case 'cardSelected': {
-      const card = cardAffordance(aff, mode.card);
-      return card.canPlay || card.canAttack ? mode : IDLE;
-    }
     case 'attacking':
       return cardAffordance(aff, mode.attacker).canAttack ? mode : IDLE;
     case 'attachingDon':

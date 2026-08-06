@@ -13,8 +13,6 @@ export function clickStateOf(mode: UiMode, aff: Affordances, id: InstanceId): Cl
       return card.canPlay || card.canAttack || card.canCounter || card.canBlock
         ? 'selectable'
         : 'inert';
-    case 'cardSelected':
-      return mode.card === id ? 'selected' : 'inert';
     case 'attacking':
       if (mode.attacker === id) {
         return 'selected';

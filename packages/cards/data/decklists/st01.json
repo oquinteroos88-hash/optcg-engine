@@ -1,0 +1,24 @@
+{
+  "id": "ST-01",
+  "name": "Straw Hat Crew",
+  "packId": "569001",
+  "leader": "ST01-001",
+  "cards": [
+    { "cardId": "ST01-002", "qty": 4 },
+    { "cardId": "ST01-003", "qty": 4 },
+    { "cardId": "ST01-004", "qty": 4 },
+    { "cardId": "ST01-005", "qty": 4 },
+    { "cardId": "ST01-006", "qty": 4 },
+    { "cardId": "ST01-007", "qty": 4 },
+    { "cardId": "ST01-008", "qty": 4 },
+    { "cardId": "ST01-009", "qty": 4 },
+    { "cardId": "ST01-010", "qty": 4 },
+    { "cardId": "ST01-011", "qty": 2 },
+    { "cardId": "ST01-012", "qty": 2 },
+    { "cardId": "ST01-013", "qty": 2 },
+    { "cardId": "ST01-014", "qty": 2 },
+    { "cardId": "ST01-015", "qty": 2 },
+    { "cardId": "ST01-016", "qty": 2 },
+    { "cardId": "ST01-017", "qty": 2 }
+  ]
+}

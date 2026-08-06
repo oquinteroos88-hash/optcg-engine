@@ -89,3 +89,22 @@ describe('the two source files, joined by card id', () => {
     expect(divergences).toEqual([]);
   });
 });
+
+describe('where a normalized zero came from', () => {
+  // `power: 0` and `cost: 0` reach the engine from two different places, and the
+  // difference is invisible once they are numbers. These pin the source side, so
+  // a blind `?? 0` creeping back into the ingest fails here.
+  it('never reads a power off an Event or a Stage — their 0 is the category rule', () => {
+    const printed = englishCards
+      .filter((card) => card.category === 'event' || card.category === 'stage')
+      .filter((card) => sourceIndex[card.cardId]?.power !== null);
+    expect(printed.map((card) => card.cardId)).toEqual([]);
+  });
+
+  it('never reads a Leader cost as 0 — a Leader without one is a source failure', () => {
+    const missing = englishCards
+      .filter((card) => card.category === 'leader')
+      .filter((card) => sourceIndex[card.cardId]?.cost === null);
+    expect(missing.map((card) => card.cardId)).toEqual([]);
+  });
+});

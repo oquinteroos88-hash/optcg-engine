@@ -179,6 +179,35 @@ function extractKeywords(effect: string | null): string[] {
   return PRINTED_KEYWORDS.filter((keyword) => effect.includes(`[${keyword}]`));
 }
 
+/**
+ * Power, read per category — because the source's `null` does not mean the same
+ * thing on both sides of the line.
+ *
+ * On a Character it means a printed 0 (`OP01-006` Otama really is a 0-power
+ * Character); on an Event or a Stage it means there is no power box at all. The
+ * engine has one encoding for both, `power: 0`, exactly as the TEST set already
+ * writes for its Events — so the resulting number is identical either way.
+ *
+ * What differs is where the number comes from, and that is the part worth
+ * keeping: a Character's 0 is data read off the card, an Event's 0 is this rule.
+ * Run as one blind `?? 0` they are indistinguishable, and a source that starts
+ * printing a power on Events would slide in as a playable stat instead of
+ * failing here.
+ */
+function normalizePower(
+  card: SourceCard,
+  category: 'leader' | 'character' | 'event' | 'stage',
+  where: string,
+): number {
+  if (category === 'event' || category === 'stage') {
+    if (card.power !== null) {
+      throw new Error(`${where}: a ${category} has no power box, but the source printed ${card.power}`);
+    }
+    return 0;
+  }
+  return card.power === null ? 0 : expectInt(card.power, `${where}.power`);
+}
+
 function normalize(card: SourceCard): NormalizedCard {
   const where = card.id;
   const category = CATEGORIES[card.category];
@@ -195,6 +224,14 @@ function normalize(card: SourceCard): NormalizedCard {
   // Leaders: the source has no `life` field and puts Life in `cost`. Leaders
   // have no cost in OPTCG, so nothing is lost by the move — but a Leader read
   // as a 5-cost card would be nonsense, which is why this is asserted.
+  //
+  // A Leader's `cost: 0` therefore comes from *this* rule, not from the
+  // printed-zero mapping below: there is no such thing as a Leader that costs
+  // zero, so a Leader arriving with no cost at all is a source failure, not a
+  // value to normalize.
+  if (category === 'leader' && card.cost === null) {
+    throw new Error(`${where}: a Leader with no cost field to read Life from`);
+  }
   const sourceCost = card.cost === null ? 0 : expectInt(card.cost, `${where}.cost`);
   const cost = category === 'leader' ? 0 : sourceCost;
   const life = category === 'leader' ? sourceCost : 0;
@@ -217,7 +254,7 @@ function normalize(card: SourceCard): NormalizedCard {
     color: colors[0] as string,
     colors,
     cost,
-    power: card.power === null ? 0 : expectInt(card.power, `${where}.power`),
+    power: normalizePower(card, category, where),
     counter,
     life,
     keywords: extractKeywords(card.effect),

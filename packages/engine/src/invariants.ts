@@ -1,4 +1,3 @@
-import { deepStrictEqual } from 'node:assert';
 import { legalActions } from './legalActions.js';
 import { getOpponent, isOnField } from './selectors.js';
 import type { GameState, InstanceId, PlayerId } from './types.js';
@@ -51,11 +50,9 @@ export function checkTurnLeak(state: GameState): string[] {
   return violations;
 }
 
-// JSON round-trip must be lossless. deepStrictEqual (unlike vitest toEqual)
-// distinguishes { a: undefined } from {}, catching explicit undefined in state.
-export function assertSerializationRoundTrip(state: GameState): void {
-  deepStrictEqual(JSON.parse(JSON.stringify(state)), state);
-}
+// assertSerializationRoundTrip lives in ./testing/index.ts: it needs node:assert,
+// and keeping that import here put a Node builtin in the public barrel's
+// dependency tree, which a browser bundler cannot resolve.
 
 function zonesOf(state: GameState, player: PlayerId): Array<[string, readonly InstanceId[]]> {
   const ps = state.players[player];

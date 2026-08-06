@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { assertSerializationRoundTrip, checkInvariants } from '../src/index.js';
+import { checkInvariants } from '../src/index.js';
 import type { GameState } from '../src/index.js';
+import { assertSerializationRoundTrip } from '../src/testing/index.js';
 import {
   advanceToMain,
   buildGame,

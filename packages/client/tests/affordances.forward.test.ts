@@ -16,6 +16,17 @@ function assertForward(state: GameState): void {
   const player = state.priority;
   const aff = computeAffordances(state, player);
 
+  // PASS is battle-only in the engine: legalActions offers it at the block and
+  // counter steps and nowhere else, and those are the only observable states
+  // with an open battle. So canPass and an open battle are the same condition,
+  // which is why the pass control lives in BattleOverlay and the ActionBar has
+  // no generic one.
+  //
+  // If this ever fails, the engine has grown a pass outside battle and the UI
+  // needs a control it does not have today - add it to ActionBar rather than
+  // relaxing this assertion.
+  expect(aff.global.canPass).toBe(state.battle !== null);
+
   if (aff.global.mustAnswerMulligan) {
     expectApplies(state, { type: 'MULLIGAN', player, accept: true });
     expectApplies(state, { type: 'MULLIGAN', player, accept: false });

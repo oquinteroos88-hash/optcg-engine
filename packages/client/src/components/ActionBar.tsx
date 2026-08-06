@@ -1,13 +1,11 @@
 import type { ReactElement } from 'react';
-import { useGlobalAffordances, useInBattle, useInputBlocked } from '../store/selectors';
+import { useGlobalAffordances, useInputBlocked } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './ActionBar.module.css';
 
 export function ActionBar(): ReactElement {
   const global = useGlobalAffordances();
   const blocked = useInputBlocked();
-  const inBattle = useInBattle();
-  const pass = useStore((s) => s.pass);
   const endTurn = useStore((s) => s.endTurn);
   const concede = useStore((s) => s.concede);
   const toggleVeil = useStore((s) => s.toggleVeil);
@@ -15,13 +13,10 @@ export function ActionBar(): ReactElement {
 
   return (
     <div className={styles.bar}>
-      {/* During a battle the BattleOverlay owns the pass control, so the generic
-          button stays out of the way. Legality still comes from canPass. */}
-      {global.canPass && !inBattle ? (
-        <button type="button" className={styles.button} onClick={pass} disabled={blocked}>
-          Pasar
-        </button>
-      ) : null}
+      {/* There is no generic pass control: PASS is battle-only in the engine, so
+          canPass is true exactly while a battle is open, and the BattleOverlay
+          owns the contextual button for both of its steps. See the invariant
+          asserted in tests/affordances.forward.test.ts. */}
       {global.canEndTurn ? (
         <button type="button" className={styles.button} onClick={endTurn} disabled={blocked}>
           Terminar turno

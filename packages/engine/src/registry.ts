@@ -1,3 +1,4 @@
+import type { Ability } from './abilities/dsl.js';
 import type { CardId } from './types.js';
 
 export type CardCategory = 'leader' | 'character' | 'event' | 'stage';
@@ -19,7 +20,23 @@ export interface CardDefinition {
    */
   counter: number | null;
   life: number; // leaders only; 0 otherwise
-  keywords: string[]; // empty for every Phase 0 card
+  /**
+   * Printed keywords in their printed spelling: 'Blocker', 'Rush',
+   * 'Double Attack', 'Banish'. The DSL's `Keyword` uses lowercase identifiers;
+   * `hasKeyword` is the only place the two spellings meet.
+   */
+  keywords: string[];
+  /** Card types ("Straw Hat Crew"). Optional so Phase 0 definitions still compile. */
+  types?: readonly string[];
+  /** Card effects. Absent on every vanilla card. */
+  abilities?: readonly Ability[];
+}
+
+const NO_ABILITIES: readonly Ability[] = Object.freeze([]);
+
+/** Never returns undefined, so callers do not each repeat the empty check. */
+export function getAbilities(cardId: CardId): readonly Ability[] {
+  return getCardDef(cardId).abilities ?? NO_ABILITIES;
 }
 
 const registry = new Map<CardId, CardDefinition>();

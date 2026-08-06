@@ -19,6 +19,7 @@ export function checkInvariants(state: GameState): string[] {
   checkModifierShape(state, violations);
   checkBattleShape(state, violations);
   checkStateShape(state, violations);
+  checkEffectShape(state, violations);
   return violations;
 }
 
@@ -256,7 +257,13 @@ function checkStateShape(state: GameState, violations: string[]): void {
     if (state.turn < 1) {
       violations.push(`stateShape: playing requires turn >= 1, got ${state.turn}`);
     }
-    if (state.battle === null) {
+    // A suspended effect owns priority: whoever has to answer holds it, and it
+    // goes back to being derived the moment the choice is answered.
+    if (state.pending !== null) {
+      if (state.priority !== state.pending.player) {
+        violations.push('stateShape: priority must be the player who owes an answer');
+      }
+    } else if (state.battle === null) {
       if (state.phase !== 'main') {
         violations.push(`stateShape: resting playing state must be in main, got ${state.phase}`);
       }
@@ -265,6 +272,56 @@ function checkStateShape(state: GameState, violations: string[]): void {
       }
     } else if (state.priority !== getOpponent(state.activePlayer)) {
       violations.push('stateShape: priority must be the defender during battle');
+    }
+  }
+}
+
+/**
+ * Effects never rest half-resolved.
+ *
+ * Between actions the interpreter has run to completion, so a non-empty stack
+ * or resume queue means the engine is waiting on somebody — and a finished game
+ * means nothing is left waiting at all.
+ */
+function checkEffectShape(state: GameState, violations: string[]): void {
+  const busy = state.stack.length > 0 || state.resume.length > 0;
+  if (state.status === 'finished') {
+    if (busy || state.pending !== null) {
+      violations.push('effectShape: a finished game must have no pending effects');
+    }
+    return;
+  }
+  if (state.pending === null && busy) {
+    violations.push('effectShape: effects are queued but nothing is waiting on a choice');
+  }
+  const pending = state.pending;
+  if (pending === null) {
+    return;
+  }
+  if (state.stack.length === 0 && state.resume.length === 0) {
+    violations.push('effectShape: a choice is open with nothing to resume into');
+  }
+  if (pending.min > pending.max) {
+    violations.push(`effectShape: choice ${pending.id} has min ${pending.min} > max ${pending.max}`);
+  }
+  if (pending.kind === 'selectCards' || pending.kind === 'orderCards') {
+    if (pending.max > pending.candidates.length) {
+      violations.push(`effectShape: choice ${pending.id} allows more cards than it offers`);
+    }
+  }
+  const seen = new Set<InstanceId>();
+  for (const id of pending.candidates) {
+    if (seen.has(id)) {
+      violations.push(`effectShape: choice ${pending.id} lists candidate ${id} twice`);
+    }
+    seen.add(id);
+    if (state.cards[id] === undefined) {
+      violations.push(`effectShape: choice ${pending.id} offers unknown candidate ${id}`);
+    }
+  }
+  for (const item of state.stack) {
+    if (state.cards[item.source] === undefined) {
+      violations.push(`effectShape: stack item ${item.abilityId} has unknown source ${item.source}`);
     }
   }
 }

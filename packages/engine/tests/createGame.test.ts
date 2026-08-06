@@ -58,12 +58,19 @@ describe('createGame', () => {
     expect(state.priority).toBe('p2');
     expect(state.battle).toBeNull();
     expect(state.modifiers).toEqual([]);
-    expect(state.rules).toEqual({ firstPlayerCannotAttackTurnOne: true });
+    expect(state.stack).toEqual([]);
+    expect(state.resume).toEqual([]);
+    expect(state.pending).toBeNull();
+    expect(state.rules).toEqual({
+      firstPlayerCannotAttackTurnOne: true,
+      doubleAttackCanWinFromOneLife: false,
+    });
     expect(state.log).toEqual([{ type: 'gameStarted', matchId: 'optcg-42', firstPlayer: 'p2' }]);
     for (const card of Object.values(state.cards)) {
       expect(card.orientation).toBe('active');
       expect(card.attachedDon).toEqual([]);
       expect(card.playedOnTurn).toBeNull();
+      expect(card.usedThisTurn).toEqual([]);
       expect(card.owner).toBe(card.controller);
     }
   });

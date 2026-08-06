@@ -3,8 +3,9 @@ import { applyAction } from '../applyAction.js';
 import { botRngFor, chooseAction } from '../bots/randomBot.js';
 import { createGame } from '../createGame.js';
 import { assertInvariants, checkTurnLeak } from '../invariants.js';
+import { ABIL_DECK } from '../testdata/abilityDecks.js';
 import { GREEN_DECK, RED_DECK } from '../testdata/decks.js';
-import type { Action, GameState, PlayerId } from '../types.js';
+import type { Action, Decklist, GameState, PlayerId } from '../types.js';
 
 // Acceptance criterion 2: exceeding this is a flow bug, never bad luck.
 export const TURN_LIMIT = 200;
@@ -15,6 +16,8 @@ export interface GameStats {
   seed: number;
   turns: number;
   actions: number;
+  /** How many of those actions were answers to a choice the engine opened. */
+  choices: number;
   winner: PlayerId | null;
   endReason: 'lifeOut' | 'deckOut' | 'concede' | null;
 }
@@ -32,6 +35,19 @@ export interface RunOptions {
   // Full mode (the default) round-trips the state after every action, as the
   // acceptance criteria require. Fast mode samples instead, for quick dev loops.
   fast?: boolean;
+  /**
+   * 'vanilla' plays the effect-free TEST decks; 'abilities' plays the ABIL set
+   * on both sides, which is the only way the sweep ever reaches a PendingChoice.
+   */
+  decks?: DeckMode;
+}
+
+export type DeckMode = 'vanilla' | 'abilities';
+
+function decksFor(mode: DeckMode): Record<PlayerId, Decklist> {
+  return mode === 'abilities'
+    ? { p1: ABIL_DECK, p2: ABIL_DECK }
+    : { p1: RED_DECK, p2: GREEN_DECK };
 }
 
 const ROUND_TRIP_SAMPLE = 25;
@@ -60,11 +76,12 @@ function assertPerAction(state: GameState, index: number, fast: boolean): void {
  */
 export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
   const fast = options.fast ?? false;
+  const deckMode = options.decks ?? 'vanilla';
   const actions: Action[] = [];
   let botRng = botRngFor(seed);
   let state = createGame({
     seed,
-    decks: { p1: RED_DECK, p2: GREEN_DECK },
+    decks: decksFor(deckMode),
     firstPlayer: 'p1',
   });
 
@@ -103,9 +120,14 @@ export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
       assertPerAction(state, actions.length, fast);
     }
 
+    // No game may finish with an effect still half-resolved.
+    if (state.stack.length > 0 || state.pending !== null || state.resume.length > 0) {
+      throw new Error('Game finished with effects still queued');
+    }
+
     // Criterion 4: the whole log replayed from scratch must land byte for byte
     // on the same state.
-    const replayed = replay(seed, actions);
+    const replayed = replay(seed, actions, deckMode);
     deepStrictEqual(replayed, state);
 
     return {
@@ -114,6 +136,7 @@ export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
         seed,
         turns: state.turn,
         actions: actions.length,
+        choices: actions.filter((action) => action.type === 'ANSWER_CHOICE').length,
         winner: state.winner,
         endReason: state.endReason,
       },
@@ -131,10 +154,14 @@ export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
   }
 }
 
-export function replay(seed: number, actions: readonly Action[]): GameState {
+export function replay(
+  seed: number,
+  actions: readonly Action[],
+  deckMode: DeckMode = 'vanilla',
+): GameState {
   let state = createGame({
     seed,
-    decks: { p1: RED_DECK, p2: GREEN_DECK },
+    decks: decksFor(deckMode),
     firstPlayer: 'p1',
   });
   for (const action of actions) {

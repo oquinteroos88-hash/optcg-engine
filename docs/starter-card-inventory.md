@@ -23,6 +23,19 @@ Where a number is quoted for "the whole set", it comes from a text probe over
 all 2665 cards in `packages/cards/data/cards.en.json`. Those numbers are
 regex counts, not classifications: they size a gap, they do not prove one.
 
+> **The probes overcount.** Added after `docs/trigger-reachability.md` measured
+> the same way and found the flaw: a probe counts cards that **mention** a
+> mechanic, not cards that **have** it. Two Leaders match "[On Play]" while
+> saying "Your [On Play] effects are negated"; five Leaders match "[Trigger]"
+> while referring to *other* cards' triggers. Every "full set" figure below is
+> therefore an upper bound.
+>
+> Nothing here is recounted, because the figures are only used to tell a family
+> from a one-off and an upper bound still does that. The rule going forward is
+> narrow: **when a decision turns on a close comparison between two gaps, count
+> those two by hand first.** The error only ever inflates, so a gap that looks
+> small really is small.
+
 > **Data note.** A card with no printed effect carries `effectText: "-"`, not
 > `null` — 317 cards across the full set. Only `triggerText` uses `null` for
 > absence. Anything that filters for "has an effect" has to handle both.
@@ -83,8 +96,8 @@ Vanilla cards are listed for completeness and excluded from the analysis.
 | ST02-012 | Bepo | char | vanilla | — | |
 | ST02-013 | Eustass"Captain"Kid | char | **A** | `static` (printed Blocker) + `endOfTurn` | Blocker is printed. `endOfTurn` fires for both players' field cards, so "End of **Your** Turn" is `isYourTurn` — which exists. `setActive` on `{self: true}`. Fits. |
 | ST02-014 | X.Drake | char | **B** | `static` | Grant and audience both expressible. The condition "if this Character is rested" is not: a condition cannot ask about the **source's own orientation**. |
-| ST02-015 | Scalpel | event | **B** | `counterEvent`, `trigger` | The power half fits. Both halves then "set up to N of your DON!! cards as active" — same DON!! gap as ST02-008. |
-| ST02-016 | Repel | event | **B** | `counterEvent` | As ST02-015: power fits, the DON!! half does not. |
+| ST02-015 | Scalpel | event | **B** / **C** | `counterEvent`, `trigger` | The power half fits. Both halves then "set up to N of your DON!! cards as active" — same DON!! gap as ST02-008. **Its `[Counter]` half is also unreachable**, like ST01-014's — see the correction below. |
+| ST02-016 | Repel | event | **B** / **C** | `counterEvent` | As ST02-015: power fits, the DON!! half does not — and its only trigger is the unreachable `counterEvent`, so nothing about this card can run today. |
 | ST02-017 | Straw Sword | event | **B** | `mainEvent`, `trigger` | Main fits (`rest` an opponent character). The Trigger needs to **put a card into play from hand**, filtered by type and cost. |
 
 ## Correction — `counterEvent` is unreachable (found while writing pile A)
@@ -108,6 +121,24 @@ against the DSL's *vocabulary* and never asked whether the engine has an
 the first was asked. `ST02-015` Scalpel and `ST02-016` Repel (pile B) are behind
 the same wall, so the real count is three of these 34 cards, and gap 3 in the
 table below — DON!! orientation — is not what is blocking them.
+
+`docs/trigger-reachability.md` later asked the reachability question of all
+eleven triggers. `counterEvent` is the only one that answered no, so no card in
+this table moves pile for that reason beyond the three named here.
+
+### It belongs to a different backlog than everything below
+
+The table that follows lists what the **DSL cannot say**. `counterEvent` is not
+on it and never could be: the trigger is unreachable because the *engine* has no
+move that gets there, not because the DSL is short a word. Those are two
+separate queues, and the sweep document sets them out — **missing rules** versus
+**missing expressiveness**.
+
+The distinction matters for ranking. A gap below limits which cards can be
+written; every card already written still plays correctly. A missing rule does
+not limit what can be written at all — the cards sit in the deck and the games
+simply stop resembling the game. `counterEvent` is the only item on that list
+today, and it outranks anything on this one.
 
 ## Gaps, ranked by how many cards need them
 

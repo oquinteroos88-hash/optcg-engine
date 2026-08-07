@@ -184,7 +184,14 @@ describe('a real game, ST-01 against ST-02', () => {
     // the bots spent attacking. Seed 2 draws and plays Brook; seed 12 is the one
     // that gets Urouge onto a three-Character board with a DON!! so its static
     // switches on — the hardest of the three continuous effects to reach.
-    const SEEDS = [20260806, 5, 99, 2, 12];
+    //
+    // Seed 9 attacks with Scratchmen Apoo carrying a DON!!, which is the only
+    // way its [When Attacking] reaches the opponent's cost area. Seed 107 is the
+    // one that spends both Counter Events in the same game — Scalpel and Repel
+    // are the rarest abilities in this deck to reach unprompted, because they
+    // need a battle the driver chooses to answer with an Event rather than a
+    // Counter card.
+    const SEEDS = [20260806, 5, 99, 2, 12, 9, 107];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {
@@ -205,8 +212,12 @@ describe('a real game, ST-01 against ST-02', () => {
       'ST01-014-trigger',
       'ST01-015-main',
       'ST01-015-trigger',
+      'ST02-008-whenAttacking',
       'ST02-009-onPlay',
       'ST02-013-endOfTurn',
+      'ST02-015-counter',
+      'ST02-015-trigger',
+      'ST02-016-counter',
     ]);
     // The three self-targeting statics have no event to fire; they are affirmed
     // by having been read off the board while in effect during a real game.

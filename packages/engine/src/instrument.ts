@@ -88,6 +88,7 @@ export const MARK_NAMES = [
   'op.draw',
   'op.discard',
   'op.giveDon',
+  'op.orientDon',
   'op.reveal',
   'op.if',
   'op.ifElse',

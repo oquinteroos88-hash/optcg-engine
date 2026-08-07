@@ -9,8 +9,27 @@ import type { Action, Decklist, GameState, PlayerId } from '../types.js';
 
 // Acceptance criterion 2: exceeding this is a flow bug, never bad luck.
 export const TURN_LIMIT = 200;
-// Backstop against a game that never terminates without burning turns.
-export const ACTION_LIMIT = 10_000;
+/**
+ * Backstop against a game that never terminates without burning turns.
+ *
+ * `TURN_LIMIT` does not cover this on its own: an action that is always legal
+ * and changes nothing — an ability whose targets have run out, say — repeats
+ * forever *inside* one turn without ever advancing it. That is the failure mode
+ * this number exists for, and the only one it has to be sized against.
+ *
+ * Sized from measurement, not from caution. Across 400 bot games (seeds 1..200
+ * in each deck mode) the longest game took 424 actions: vanilla ran
+ * p50 167 / p95 237 / max 301, abilities p50 216 / p95 363 / max 424. 1500 is
+ * ~3.5x the worst observed game, so no legitimate game can reach it.
+ *
+ * The ceiling matters as much as the floor. The previous 10_000 was ~24x that
+ * worst game, and a single looping seed cost ~66s to reach it — enough, on top
+ * of the sweep's own runtime, to blow vitest's 120s timeout before the loop
+ * reported anything. A timeout names no seed and prints no action log, which is
+ * the silent failure this cap is supposed to prevent. A cap only helps if a
+ * game hits it fast enough to still be reported.
+ */
+export const ACTION_LIMIT = 1_500;
 
 export interface GameStats {
   seed: number;
@@ -40,6 +59,13 @@ export interface RunOptions {
    * on both sides, which is the only way the sweep ever reaches a PendingChoice.
    */
   decks?: DeckMode;
+  /**
+   * Overrides `ACTION_LIMIT` for one run. Exists so a test can drive a normal
+   * game into the cap on purpose and check what comes back — the alternative is
+   * a card that loops for real, which would have to live in the ABIL deck and
+   * would hang every other sweep that uses it.
+   */
+  actionLimit?: number;
 }
 
 export type DeckMode = 'vanilla' | 'abilities';
@@ -77,6 +103,7 @@ function assertPerAction(state: GameState, index: number, fast: boolean): void {
 export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
   const fast = options.fast ?? false;
   const deckMode = options.decks ?? 'vanilla';
+  const actionLimit = options.actionLimit ?? ACTION_LIMIT;
   const actions: Action[] = [];
   let botRng = botRngFor(seed);
   let state = createGame({
@@ -88,8 +115,8 @@ export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
   try {
     assertPerAction(state, 0, fast);
     while (state.status !== 'finished') {
-      if (actions.length >= ACTION_LIMIT) {
-        throw new Error(`Action limit reached (${ACTION_LIMIT}) without finishing`);
+      if (actions.length >= actionLimit) {
+        throw new Error(`Action limit reached (${actionLimit}) without finishing`);
       }
       if (state.turn > TURN_LIMIT) {
         throw new Error(`Turn limit exceeded (${state.turn} > ${TURN_LIMIT})`);

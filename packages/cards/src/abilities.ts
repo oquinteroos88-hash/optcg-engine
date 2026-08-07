@@ -66,6 +66,55 @@ const GIVE_ONE_RESTED_DON: Instruction[] = [
   { op: 'giveDon', target: { var: 'recipient' }, count: 1 },
 ];
 
+/**
+ * "Set up to 1 of your DON!! cards as active."
+ *
+ * The "up to 1" is a quantity, and the DSL chooses cards or yes/no, never a
+ * number — so it rides on a `confirm`, the shape Brook established. One question
+ * covers both answers here: no leaves the op unreached, yes turns one DON!!.
+ * `orientDon` only counts DON!! that actually change, so a cost area with
+ * nothing rested resolves the same way a "no" does.
+ *
+ * Shared by the [Counter] halves of ST02-015 and ST02-016, whose second
+ * sentence is word for word the same.
+ */
+const SET_ONE_DON_ACTIVE: Instruction[] = [
+  { op: 'confirm', as: 'refresh', prompt: 'Set up to 1 of your DON!! cards as active?' },
+  {
+    op: 'if',
+    cond: { kind: 'varTrue', name: 'refresh' },
+    then: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 1 }],
+  },
+];
+
+/**
+ * "[Counter] Up to 1 of your Leader or Character cards gains +X power during
+ *  this battle. Then, set up to 1 of your DON!! cards as active."
+ *
+ * ST02-015 and ST02-016 are the same card with a different number, so the shape
+ * is written once and the number passed in. A shared constant would not do:
+ * `value` appears in the prompt as well as in the instruction, and two lists
+ * built by hand are two lists that can drift.
+ *
+ * Official Q&A for both cards: "Can I choose not to set any DON!! cards as
+ * active when using this [Counter] effect?" — "Yes, you can." That is the
+ * `confirm`, and answering no is a complete resolution of the card.
+ */
+function counterBoostThenRefresh(value: number): Instruction[] {
+  return [
+    {
+      op: 'select',
+      as: 'ally',
+      from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+      min: 0,
+      max: 1,
+      prompt: `Give up to 1 of your Leader or Character cards +${value} power`,
+    },
+    { op: 'addPower', target: { var: 'ally' }, value, duration: 'endOfBattle' },
+    ...SET_ONE_DON_ACTIVE,
+  ];
+}
+
 export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
   // ST01-001 Monkey.D.Luffy (Leader)
   // "[Activate: Main] [Once Per Turn] Give this Leader or 1 of your Characters
@@ -290,6 +339,79 @@ export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = O
         { op: 'setActive', target: { var: 'ally' } },
       ],
     },
+  ],
+
+  // ST02-008 Scratchmen Apoo
+  // "[DON!! x1] [When Attacking] Rest up to 1 of your opponent's DON!! cards."
+  //
+  // The first card in the set that reaches across the table at DON!!. It names
+  // no particular DON!! card and could not: official Q&A settles which ones are
+  // even candidates — "Can I rest a DON!! card that is already rested?" and
+  // "Can I rest a DON!! card that has been given to an opponent's Character?"
+  // both answer "No, you cannot. You must choose up to 1 active DON!! card from
+  // your opponent's cost area." `orientDon` enforces both by construction, so
+  // the script says only "up to 1".
+  'ST02-008': [
+    {
+      id: 'ST02-008-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [
+        { op: 'confirm', as: 'rest', prompt: "Rest up to 1 of your opponent's DON!! cards?" },
+        {
+          op: 'if',
+          cond: { kind: 'varTrue', name: 'rest' },
+          then: [{ op: 'orientDon', player: 'opponent', orientation: 'rested', count: 1 }],
+        },
+      ],
+    },
+  ],
+
+  // ST02-015 Scalpel
+  // "[Counter] Up to 1 of your Leader or Character cards gains +2000 power
+  //  during this battle. Then, set up to 1 of your DON!! cards as active."
+  // "[Trigger] Set up to 2 of your DON!! cards as active."
+  //
+  // A DON!! set active during the opponent's turn is an ordinary active DON!!
+  // in your cost area, and CR 7-1-3-2-2 has the defender pay an Event's cost the
+  // same way anyone does (2-7-3, 8-3-1-5: rest that many active cost-area
+  // DON!!). Nothing scopes either rule by whose turn it is, so this card can pay
+  // for the next [Counter] Event in the same battle.
+  'ST02-015': [
+    { id: 'ST02-015-counter', trigger: 'counterEvent', script: counterBoostThenRefresh(2000) },
+    {
+      id: 'ST02-015-trigger',
+      trigger: 'trigger',
+      // "Up to 2" needs every count in 0..2 reachable, and one confirm only
+      // reaches 0 and 2 — hence two, each gating a single DON!!, exactly as
+      // Brook's "up to 2 rested DON!!" is written. The Q&A confirms 1 is a real
+      // answer: asked whether the [Trigger] works without enough DON!! in the
+      // cost area, "Yes... In that case, you can choose to set 0 or 1 DON!!
+      // cards as active."
+      script: [
+        { op: 'confirm', as: 'first', prompt: 'Set 1 of your DON!! cards as active?' },
+        {
+          op: 'if',
+          cond: { kind: 'varTrue', name: 'first' },
+          then: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 1 }],
+        },
+        { op: 'confirm', as: 'second', prompt: 'Set another of your DON!! cards as active?' },
+        {
+          op: 'if',
+          cond: { kind: 'varTrue', name: 'second' },
+          then: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 1 }],
+        },
+      ],
+    },
+  ],
+
+  // ST02-016 Repel
+  // "[Counter] Up to 1 of your Leader or Character cards gains +4000 power
+  //  during this battle. Then, set up to 1 of your DON!! cards as active."
+  // Scalpel's [Counter] half with a bigger number and a bigger cost; no
+  // [Trigger] printed.
+  'ST02-016': [
+    { id: 'ST02-016-counter', trigger: 'counterEvent', script: counterBoostThenRefresh(4000) },
   ],
 
   // ST02-013 Eustass"Captain"Kid

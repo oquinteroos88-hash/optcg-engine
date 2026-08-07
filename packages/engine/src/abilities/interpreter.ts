@@ -16,6 +16,7 @@ import type {
   ChoiceAnswer,
   GameState,
   InstanceId,
+  Orientation,
   PathStep,
   PendingChoice,
   PlayerId,
@@ -370,6 +371,51 @@ function giveDon(
 }
 
 /**
+ * Turns up to `count` of one player's cost-area DON!! to `orientation`.
+ *
+ * Works by quantity because DON!! are fungible — there is nothing to choose
+ * between two rested DON!! — so this takes a count and a player rather than a
+ * `Ref`, and never asks the controller which ones.
+ *
+ * Two exclusions, and only one of them is an optimisation:
+ *
+ * - Attached DON!! are not candidates at all. A given DON!! is "neither active
+ *   nor rested" (CR 4-4-2), which the state models as a `location` union with no
+ *   `orientation` field on the attached side. There is no orientation there to
+ *   change, and the Q&A for ST02-008 confirms the reading — a DON!! given to a
+ *   Character cannot be rested by that effect.
+ * - DON!! already in the target orientation are skipped, so `count` is a budget
+ *   of DON!! *changed*, not of DON!! looked at. That is the same Q&A again:
+ *   resting the opponent's DON!! must "choose up to 1 active DON!! card", so an
+ *   all-rested cost area is nothing to choose from and the effect does nothing.
+ *   Rule 3 of the interpreter, as always: fewer than asked is a smaller number,
+ *   not a failed effect (CR 4-8-1, 8-4-4-1).
+ */
+function orientDon(
+  draft: GameState,
+  player: PlayerId,
+  orientation: Orientation,
+  count: number,
+  events: GameEvent[],
+): void {
+  let remaining = count;
+  for (const don of draft.players[player].don) {
+    if (remaining === 0) {
+      break;
+    }
+    if (don.location.kind === 'cost' && don.location.orientation !== orientation) {
+      don.location = { kind: 'cost', orientation };
+      remaining -= 1;
+    }
+  }
+  const turned = count - remaining;
+  if (turned > 0) {
+    mark('op.orientDon');
+    emit(draft, events, { type: 'donOrientationChanged', player, orientation, count: turned });
+  }
+}
+
+/**
  * Executes one state-changing instruction.
  *
  * Rule 1 of the interpreter lives here: a target that moved on is *ignored*,
@@ -457,6 +503,16 @@ function execute(
       for (const id of targets(draft, item, instruction.target)) {
         giveDon(draft, item, id, instruction.count, events);
       }
+      return;
+    }
+    case 'orientDon': {
+      orientDon(
+        draft,
+        playerOf(item, instruction.player),
+        instruction.orientation,
+        instruction.count,
+        events,
+      );
       return;
     }
     case 'reveal': {

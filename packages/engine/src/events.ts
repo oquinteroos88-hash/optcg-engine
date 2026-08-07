@@ -13,6 +13,12 @@ export type GameEvent =
   | { type: 'donAttached'; player: PlayerId; to: InstanceId; count: number }
   | { type: 'donPaid'; player: PlayerId; count: number }
   | { type: 'donReturned'; player: PlayerId; count: number; rested: boolean }
+  /**
+   * `count` is how many DON!! actually turned, which is not what the card asked
+   * for whenever some were already in that orientation. The event is not
+   * emitted at all when nothing moved.
+   */
+  | { type: 'donOrientationChanged'; player: PlayerId; orientation: Orientation; count: number }
   | { type: 'cardPlayed'; player: PlayerId; instanceId: InstanceId; cardId: CardId }
   | { type: 'characterTrashedForRoom'; player: PlayerId; instanceId: InstanceId }
   | { type: 'stageReplaced'; player: PlayerId; oldStage: InstanceId; newStage: InstanceId }

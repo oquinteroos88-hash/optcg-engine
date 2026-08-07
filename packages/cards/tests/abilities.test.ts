@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCardDef, getPower, legalActions } from '@optcg/engine';
+import { getCardDef, getPower, getPowerWithoutStatics, hasKeyword, legalActions } from '@optcg/engine';
 import type { GameState, InstanceId } from '@optcg/engine';
 import { characterAt, handCard } from '@optcg/engine/testdata/scenarios';
 import { answer, applyOk, assertSettled, firedIds, optIn, run, starterScenario } from './support.js';
@@ -12,6 +12,88 @@ import { answer, applyOk, assertSettled, firedIds, optIn, run, starterScenario }
  * Each case also asserts the interpreter came to a full stop, which is where a
  * half-resolved script shows up.
  */
+
+// ---------------------------------------------------------------------------
+// ST01-013 Zoro, ST01-004 Sanji, ST02-003 Urouge — self-targeting statics
+// ---------------------------------------------------------------------------
+
+describe('ST01-013 Zoro — [DON!! x1] this Character gains +1000 power', () => {
+  it('lifts itself by +1000 with a DON!! attached, and only then', () => {
+    const withDon = starterScenario({
+      p1: { activeDon: 2, characters: [{ cardId: 'ST01-013', attachedDon: 1 }] },
+    });
+    const zoro = characterAt(withDon, 'p1', 0);
+    // 5000 printed + 1000 DON!! + 1000 self static. Read through getPower; the
+    // without-statics value is 6000, so the static is exactly the 1000 delta.
+    expect(getPower(withDon, zoro)).toBe(7000);
+    expect(getPowerWithoutStatics(withDon, zoro)).toBe(6000);
+
+    const noDon = starterScenario({ p1: { characters: [{ cardId: 'ST01-013' }] } });
+    const bare = characterAt(noDon, 'p1', 0);
+    // No DON!! attached: the static is dormant and power is the printed value.
+    expect(getPower(noDon, bare)).toBe(getCardDef('ST01-013').power);
+  });
+});
+
+describe('ST01-004 Sanji — [DON!! x2] this Character gains [Rush]', () => {
+  // Played this turn (playedOnTurn = the scenario's turn 3): without Rush it is
+  // summoning-sick and cannot attack, so Rush is what legalActions must see.
+  function setup(attachedDon: number): { state: GameState; sanji: InstanceId } {
+    const state = starterScenario({
+      p1: { activeDon: 4, characters: [{ cardId: 'ST01-004', attachedDon, playedOnTurn: 3 }] },
+    });
+    return { state, sanji: characterAt(state, 'p1', 0) };
+  }
+  const canAttack = (state: GameState, id: InstanceId): boolean =>
+    legalActions(state, 'p1').some((a) => a.type === 'DECLARE_ATTACK' && a.attacker === id);
+
+  it('grants Rush with two DON!! — and it can attack the turn it was played', () => {
+    const { state, sanji } = setup(2);
+    // Both sides: the keyword is granted AND that reaches legalActions as a
+    // legal attack despite the summoning sickness.
+    expect(hasKeyword(state, sanji, 'rush')).toBe(true);
+    expect(canAttack(state, sanji)).toBe(true);
+  });
+
+  it('grants nothing with one DON!! — and it cannot attack', () => {
+    const { state, sanji } = setup(1);
+    expect(hasKeyword(state, sanji, 'rush')).toBe(false);
+    expect(canAttack(state, sanji)).toBe(false);
+  });
+});
+
+describe('ST02-003 Urouge — [DON!! x1] +2000 with 3 or more Characters', () => {
+  // Urouge is an ST-02 card, so it lives on p2's board.
+  function board(attachedDon: number, extras: string[]): GameState {
+    return starterScenario({
+      firstPlayer: 'p2',
+      p2: {
+        activeDon: 2,
+        characters: [{ cardId: 'ST02-003', attachedDon }, ...extras.map((cardId) => ({ cardId }))],
+      },
+    });
+  }
+
+  it('fires only when both the DON!! and the three-Character board hold', () => {
+    // Urouge counts itself, so two more Characters make three.
+    const state = board(1, ['ST02-002', 'ST02-012']);
+    const urouge = characterAt(state, 'p2', 0);
+    expect(getPower(state, urouge)).toBe(6000); // 3000 + 1000 DON!! + 2000 static
+    expect(getPowerWithoutStatics(state, urouge)).toBe(4000);
+  });
+
+  it('is dormant with only two Characters, DON!! or not', () => {
+    const state = board(1, ['ST02-002']);
+    const urouge = characterAt(state, 'p2', 0);
+    expect(getPower(state, urouge)).toBe(4000); // 3000 + DON!! only; static off
+  });
+
+  it('is dormant on a full board with no DON!! attached', () => {
+    const state = board(0, ['ST02-002', 'ST02-012']);
+    const urouge = characterAt(state, 'p2', 0);
+    expect(getPower(state, urouge)).toBe(getCardDef('ST02-003').power); // 3000
+  });
+});
 
 // ---------------------------------------------------------------------------
 // ST01-001 Luffy (Leader) & ST01-007 Nami — [Activate: Main] [Once Per Turn]

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, assertInvariants, createGame, legalActions } from '@optcg/engine';
+import {
+  applyAction,
+  assertInvariants,
+  createGame,
+  getPower,
+  getPowerWithoutStatics,
+  hasKeyword,
+  legalActions,
+} from '@optcg/engine';
 import type { Action, ChoiceAnswer, GameState, PendingChoice, PlayerId } from '@optcg/engine';
 import { registerEnglishCards, ST01_DECK, ST02_DECK, toEngineDecklist } from '../src/index.js';
 
@@ -54,6 +62,37 @@ interface Run {
   mix: Record<string, number>;
   /** Ability ids that resolved, with how many times each did. */
   fired: Record<string, number>;
+  /**
+   * Card ids of `static` abilities seen actually contributing during the game.
+   * Continuous effects never emit an `abilityTriggered` event — they are read,
+   * not fired — so "did it manifest" is a board reading, not an event count: a
+   * power static shows up as getPower above the without-statics value, a keyword
+   * static as a granted keyword the card does not print.
+   */
+  manifested: Set<string>;
+}
+
+/** Records any of the three self-targeting statics currently in effect. */
+function recordManifestedStatics(state: GameState, into: Set<string>): void {
+  for (const player of ['p1', 'p2'] as const) {
+    const ps = state.players[player];
+    for (const id of [ps.leader, ...ps.characters]) {
+      const card = state.cards[id];
+      if (card === undefined) continue;
+      // ST-01/02 carry no foreign statics, so a card above its without-statics
+      // power can only be lifting itself.
+      if (
+        (card.cardId === 'ST01-013' || card.cardId === 'ST02-003') &&
+        getPower(state, id) > getPowerWithoutStatics(state, id)
+      ) {
+        into.add(card.cardId);
+      }
+      // Sanji prints no Rush, so a granted Rush is the static.
+      if (card.cardId === 'ST01-004' && hasKeyword(state, id, 'rush')) {
+        into.add(card.cardId);
+      }
+    }
+  }
 }
 
 function run(seed: number): Run {
@@ -66,6 +105,7 @@ function run(seed: number): Run {
   let taken = 0;
   const mix: Record<string, number> = {};
   const fired: Record<string, number> = {};
+  const manifested = new Set<string>();
   for (let step = 0; step < ACTIONS; step += 1) {
     if (state.status === 'finished') break;
     const player: PlayerId = state.priority;
@@ -93,9 +133,10 @@ function run(seed: number): Run {
         fired[event.abilityId] = (fired[event.abilityId] ?? 0) + 1;
       }
     }
+    recordManifestedStatics(state, manifested);
     assertInvariants(state);
   }
-  return { state, taken, mix, fired };
+  return { state, taken, mix, fired, manifested };
 }
 
 describe('a real game, ST-01 against ST-02', () => {
@@ -135,18 +176,21 @@ describe('a real game, ST-01 against ST-02', () => {
     expect(state.players.p2.life).toHaveLength(5);
   });
 
-  it('fires each ability at least once across four unscripted games', () => {
+  it('fires and manifests each ability at least once across five unscripted games', () => {
     // Which abilities a single game reaches is a matter of what gets drawn, so
     // one seed covers only some of them. These seeds between them reach every
     // scripted ability in a real game nobody staged — including both halves of
     // Gum-Gum Jet Pistol and all three DON!!-givers, which recycle rested DON!!
-    // the bots spent attacking. Seed 2 is the one that draws and plays Brook;
-    // the original three never reached its [On Play].
-    const SEEDS = [20260806, 5, 99, 2];
+    // the bots spent attacking. Seed 2 draws and plays Brook; seed 12 is the one
+    // that gets Urouge onto a three-Character board with a DON!! so its static
+    // switches on — the hardest of the three continuous effects to reach.
+    const SEEDS = [20260806, 5, 99, 2, 12];
     const fired = new Set<string>();
+    const manifested = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
       for (const id of Object.keys(game.fired)) fired.add(id);
+      for (const id of game.manifested) manifested.add(id);
       // Nothing left mid-script when a game ends.
       expect(game.state.pending, `seed ${seed}`).toBeNull();
       expect(game.state.stack, `seed ${seed}`).toEqual([]);
@@ -164,6 +208,9 @@ describe('a real game, ST-01 against ST-02', () => {
       'ST02-009-onPlay',
       'ST02-013-endOfTurn',
     ]);
+    // The three self-targeting statics have no event to fire; they are affirmed
+    // by having been read off the board while in effect during a real game.
+    expect([...manifested].sort()).toEqual(['ST01-004', 'ST01-013', 'ST02-003']);
   });
 
   it('reaches the [Trigger] half of an event from a life card', () => {

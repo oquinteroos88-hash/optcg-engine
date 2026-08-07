@@ -86,6 +86,44 @@ describe('continuous power', () => {
     expect(getPowerWithoutStatics(state, ally)).toBe(4000); // 2000 + 2 DON
     expect(getPower(state, ally)).toBe(5000); // + the static
   });
+
+  it('lets a static name its own source with {self: true}', () => {
+    // ABIL-003-self is `[DON!! x1]` -> +1000 to the bearer itself. Its other
+    // static (excludeSelf) still refuses to buff the bearer, so the only thing
+    // lifting this card is the self-targeting one.
+    const state = buildScenario({
+      decks: abilityDecks,
+      p1: { activeDon: 2, characters: [{ cardId: 'ABIL-003', attachedDon: 1 }] },
+    });
+    const bearer = characterAt(state, 'p1', 0);
+    // 3000 printed + 1000 DON + 1000 self-static. No excludeSelf leak onto self.
+    expect(getPower(state, bearer)).toBe(5000);
+    expect(getPowerWithoutStatics(state, bearer)).toBe(4000); // self-static excluded
+    expect(state.modifiers).toEqual([]);
+  });
+
+  it('does not recurse: a self static and a foreign static on the same card', () => {
+    // Two Standard Bearers. The first has a DON!!, so it lifts itself with its
+    // own {self: true} static; the second lifts the first with its excludeSelf
+    // static. getPower has to terminate with both self- and foreign-reference in
+    // play — the guard is that every static reads getPowerWithoutStatics, which
+    // never re-enters getPower.
+    const state = buildScenario({
+      decks: abilityDecks,
+      p1: {
+        activeDon: 2,
+        characters: [{ cardId: 'ABIL-003', attachedDon: 1 }, { cardId: 'ABIL-003' }],
+      },
+    });
+    const first = characterAt(state, 'p1', 0);
+    const second = characterAt(state, 'p1', 1);
+    // 3000 + 1000 DON + 1000 self-static + 1000 from the other bearer.
+    expect(getPower(state, first)).toBe(6000);
+    // The second has no DON!!, so its self-static is dormant; only the first's
+    // excludeSelf static lifts it.
+    expect(getPower(state, second)).toBe(4000);
+    expect(state.modifiers).toEqual([]);
+  });
 });
 
 describe('continuous keywords', () => {

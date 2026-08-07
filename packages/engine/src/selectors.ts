@@ -81,10 +81,18 @@ function forEachStatic(
         ) {
           continue;
         }
-        if (ability.affects === undefined) {
+        const affects = ability.affects;
+        if (affects === undefined) {
           continue;
         }
-        if (!resolveSelector(state, ctx, ability.affects, getPowerWithoutStatics).includes(id)) {
+        // `{self: true}` needs no selector pass at all — the source is the one
+        // card it names — which also keeps it clear of the `getPowerWithoutStatics`
+        // recursion anchor a selector would ride through.
+        const applies =
+          'self' in affects
+            ? id === sourceId
+            : resolveSelector(state, ctx, affects.selector, getPowerWithoutStatics).includes(id);
+        if (!applies) {
           continue;
         }
         visit(ability.grants);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBasePower, getPower, hasKeyword, legalActions } from '../src/index.js';
+import { getPower, getPowerWithoutStatics, hasKeyword, legalActions } from '../src/index.js';
 import { ABIL_DECK } from '../src/testdata/abilityDecks.js';
 import { buildScenario, characterAt } from '../src/testdata/scenarios.js';
 import { applyOk } from './helpers.js';
@@ -47,7 +47,7 @@ describe('continuous power', () => {
     });
     const lonely = characterAt(withoutSource, 'p1', 0);
     expect(getPower(withoutSource, lonely)).toBe(2000);
-    expect(getBasePower(withoutSource, lonely)).toBe(2000);
+    expect(getPowerWithoutStatics(withoutSource, lonely)).toBe(2000);
     expect(withoutSource.modifiers).toEqual([]);
   });
 
@@ -83,7 +83,7 @@ describe('continuous power', () => {
       },
     });
     const ally = characterAt(state, 'p1', 1);
-    expect(getBasePower(state, ally)).toBe(4000); // 2000 + 2 DON
+    expect(getPowerWithoutStatics(state, ally)).toBe(4000); // 2000 + 2 DON
     expect(getPower(state, ally)).toBe(5000); // + the static
   });
 });

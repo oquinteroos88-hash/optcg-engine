@@ -610,7 +610,7 @@ therefore rests on unit tests, not on the simulation.
 
 ## Test suite
 
-193 tests across 23 files. The Phase 2A acceptance cases live in:
+198 tests across 25 files. The Phase 2A acceptance cases live in:
 
 | Mandated case | File |
 | ------------- | ---- |

@@ -122,6 +122,68 @@ describe('ST01-001 Luffy & ST01-007 Nami — give up to 1 rested DON!!', () => {
 });
 
 // ---------------------------------------------------------------------------
+// ST01-011 Brook — [On Play] give up to 2 rested DON!!
+// ---------------------------------------------------------------------------
+
+describe('ST01-011 Brook — [On Play] give up to 2 rested DON!!', () => {
+  // Brook costs 2, so playing it rests two DON!! before its [On Play] fires:
+  // its own cost floors the rested pool at two, and giving them is the point.
+  function play(): { state: GameState; leader: InstanceId } {
+    const state = starterScenario({ p1: { activeDon: 2, hand: ['ST01-011'] } });
+    const asking = applyOk(state, {
+      type: 'PLAY_CARD',
+      player: 'p1',
+      instanceId: handCard(state, 'p1', 'ST01-011'),
+    }).state;
+    return { state: asking, leader: asking.players.p1.leader };
+  }
+
+  const restedCount = (state: GameState): number =>
+    state.players.p1.don.filter(
+      (d) => d.location.kind === 'cost' && d.location.orientation === 'rested',
+    ).length;
+
+  it('gives two rested DON!! and +2000 when both confirms are accepted', () => {
+    const { state, leader } = play();
+    const before = getPower(state, leader);
+    expect(state.pending?.kind).toBe('selectCards');
+
+    const picked = answer(state, 'p1', { kind: 'cards', selected: [leader] });
+    const done = optIn(optIn(picked, 'p1', true), 'p1', true);
+
+    expect(done.cards[leader]?.attachedDon).toHaveLength(2);
+    expect(getPower(done, leader)).toBe(before + 2000); // +1000 per DON!!
+    expect(restedCount(done)).toBe(0); // both rested DON!! left the cost area
+    assertSettled(done);
+  });
+
+  it('stops at one DON!! and +1000 when the second confirm is declined', () => {
+    const { state, leader } = play();
+    const picked = answer(state, 'p1', { kind: 'cards', selected: [leader] });
+    const done = optIn(optIn(picked, 'p1', true), 'p1', false);
+
+    expect(done.cards[leader]?.attachedDon).toHaveLength(1);
+    expect(restedCount(done)).toBe(1); // the untaken DON!! stays rested
+    assertSettled(done);
+  });
+
+  it('resolves to nothing when no recipient is chosen, even through the confirms', () => {
+    const { state } = play();
+    expect(state.pending?.min).toBe(0);
+
+    // The min-0 select is answered empty; the two confirms are still asked (the
+    // DSL cannot gate them on the selection), and saying yes to both moves
+    // nothing, because giveDon has no target.
+    const picked = answer(state, 'p1', { kind: 'cards', selected: [] });
+    const done = optIn(optIn(picked, 'p1', true), 'p1', true);
+
+    expect(done.players.p1.don.filter((d) => d.location.kind === 'attached')).toHaveLength(0);
+    expect(restedCount(done)).toBe(2); // both rested DON!! untouched
+    assertSettled(done);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // ST01-005 Jinbe — [DON!! x1] [When Attacking]
 // ---------------------------------------------------------------------------
 

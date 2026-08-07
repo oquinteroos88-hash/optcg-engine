@@ -81,6 +81,49 @@ export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = O
     { id: 'ST01-007-main', trigger: 'activateMain', oncePerTurn: true, script: GIVE_ONE_RESTED_DON },
   ],
 
+  // ST01-011 Brook
+  // "[On Play] Give up to 2 rested DON!! cards to your Leader or 1 of your
+  //  Characters."
+  //
+  // "Up to 2" is a choice of *quantity*, and the DSL only chooses cards
+  // (`select`) or yes/no (`confirm`), never a number. Modeled as two opt-in
+  // confirms, each gating a `giveDon` of 1 to the one recipient: no/no gives 0,
+  // yes/no or no/yes gives 1, yes/yes gives 2 — every count in 0..2 is
+  // reachable. `varTrue` reads each confirm's answer, which is the only reason
+  // that condition exists.
+  //
+  // The confirms are asked even when the target select was left empty (the DSL
+  // has no "selection is non-empty" guard); `giveDon` no-ops on an empty target,
+  // so that path is harmless, just two dead questions.
+  'ST01-011': [
+    {
+      id: 'ST01-011-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'recipient',
+          from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+          min: 0,
+          max: 1,
+          prompt: 'Give up to 2 rested DON!! cards to your Leader or 1 of your Characters',
+        },
+        { op: 'confirm', as: 'give1', prompt: 'Give a rested DON!! card?' },
+        {
+          op: 'if',
+          cond: { kind: 'varTrue', name: 'give1' },
+          then: [{ op: 'giveDon', target: { var: 'recipient' }, count: 1 }],
+        },
+        { op: 'confirm', as: 'give2', prompt: 'Give another rested DON!! card?' },
+        {
+          op: 'if',
+          cond: { kind: 'varTrue', name: 'give2' },
+          then: [{ op: 'giveDon', target: { var: 'recipient' }, count: 1 }],
+        },
+      ],
+    },
+  ],
+
   // ST01-005 Jinbe
   // "[DON!! x1] [When Attacking] Up to 1 of your Leader or Character cards
   //  other than this card gains +1000 power during this turn."

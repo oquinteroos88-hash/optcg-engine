@@ -337,6 +337,24 @@ export const ABIL_CARDS: CardDefinition[] = [
         oncePerTurn: true,
         script: [{ op: 'giveDon', target: { self: true }, count: 1 }],
       },
+      // --- orientDon, both directions -------------------------------------
+      // Hung off the DON!! card rather than given a card of their own: a new
+      // ABIL id changes the deck list, which reshuffles every seeded scenario in
+      // the package. Once per turn for the same reason the giveDon above is —
+      // orientDon no-ops when nothing can turn, and an always-legal no-op is
+      // exactly the shape the sweep's action cap exists to catch.
+      {
+        id: 'ABIL-018-restFoe',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [{ op: 'orientDon', player: 'opponent', orientation: 'rested', count: 2 }],
+      },
+      {
+        id: 'ABIL-018-refresh',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 2 }],
+      },
     ],
   }),
 

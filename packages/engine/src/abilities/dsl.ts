@@ -138,6 +138,28 @@ export type Instruction =
   | { op: 'draw'; player: PlayerRef; count: number }
   | { op: 'discard'; player: PlayerRef; count: number }
   | { op: 'giveDon'; target: Ref; count: number }
+  /**
+   * Turns up to `count` of a player's cost-area DON!! to `orientation`.
+   *
+   * The one instruction that names cards by *quantity* rather than by `Ref`,
+   * because DON!! are fungible: "rest up to 1 of your opponent's DON!! cards"
+   * does not care which one, and no printed card in the game asks to point at a
+   * particular DON!! card. Making them selectable would mean giving DON!! a
+   * `Selector` zone and putting them in front of the player as choices, which is
+   * a large capability answering a question nothing has asked. If a card ever
+   * does need to name one, that is the moment to add it.
+   *
+   * `player` is relative to the controller, like `draw` and `discard`: 'you' for
+   * a card that refreshes its own DON!!, 'opponent' for one that rests theirs.
+   *
+   * Only the cost area. A given DON!! has no orientation to change (CR 4-4-2:
+   * "given DON!! cards are neither active nor rested"), so attached DON!! are
+   * not merely skipped, they are not candidates. Official Q&A for ST02-008 says
+   * both halves outright: a DON!! given to a Character cannot be rested by it,
+   * and neither can one that is rested already — "you must choose up to 1 active
+   * DON!! card from your opponent's cost area."
+   */
+  | { op: 'orientDon'; player: PlayerRef; orientation: Orientation; count: number }
   | { op: 'reveal'; as: string; from: Selector }
   // Control flow. Both nest, which is why the cursor is a frame stack.
   | { op: 'if'; cond: Condition; then: Instruction[]; else?: Instruction[] }

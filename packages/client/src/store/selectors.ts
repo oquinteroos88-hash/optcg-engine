@@ -170,6 +170,16 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
           ? `recupera ${event.count} DON!! agotados (no usables este turno)`
           : `recupera ${event.count} DON!! activos`,
       };
+    // El jugador es el dueno de los DON!!, que no siempre es quien activa el
+    // efecto: una carta puede agotar los DON!! del rival.
+    case 'donOrientationChanged':
+      return {
+        player: event.player,
+        text:
+          event.orientation === 'rested'
+            ? `agota ${event.count} DON!! de su area de coste`
+            : `activa ${event.count} DON!! de su area de coste`,
+      };
     case 'cardPlayed':
       return { player: event.player, text: `juega ${nameOf(state, event.instanceId)}` };
     case 'characterTrashedForRoom':

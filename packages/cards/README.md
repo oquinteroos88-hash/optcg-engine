@@ -21,8 +21,18 @@ This package ships **data**: id, name, category, colors, cost, Life, power,
 Counter, attributes, types, printed keywords, and the effect and trigger text as
 raw strings.
 
-It ships **no abilities**. `effectText` is text, not behaviour — nothing in this
-package builds an `Ability`. The cards play as vanilla until the DSL scripts land.
+It also ships **abilities**, for the cards that have them. `effectText` is text,
+not behaviour — nothing is derived from it. The scripts live in
+`src/abilities.ts`, keyed by card id, written by hand in the engine's DSL and
+attached to the matching definitions as they load. Every other card plays as
+vanilla.
+
+**14 of the 34 base cards of ST-01 and ST-02 are scripted today**, and two more
+(`ST01-006`, `ST02-004`) need no script at all: their whole printed text is the
+`[Blocker]` reminder, which the engine already applies from
+`CardDefinition.keywords`. Together with the 8 vanilla cards, 24 of the 34 play
+their printed text. `docs/starter-card-inventory.md` tracks the remaining 10 and
+what blocks each.
 
 ## Nothing here touches the network
 

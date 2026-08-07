@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Reads the pnpm version from the `packageManager` field of package.json,
+      # so the pin lives in one place.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      # Node 20 cannot run this project: the client's jsdom suite pulls in
+      # undici, which requires >=22.19.0, and jsdom 30 itself asks for
+      # ^22.22.2 || ^24.15.0 || >=26. On 20 the suite fails to load at all.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Test
+        run: pnpm run test

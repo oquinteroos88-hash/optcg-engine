@@ -3,14 +3,17 @@
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.22.2"
   },
   "scripts": {
-    "build": "pnpm -r build",
-    "build:engine": "pnpm --filter @optcg/engine build",
-    "dev": "pnpm --filter @optcg/engine build && pnpm --filter @optcg/client dev",
-    "test": "pnpm --filter @optcg/engine build && pnpm -r test",
-    "typecheck": "pnpm --filter @optcg/engine build && pnpm -r typecheck",
-    "sim": "pnpm --filter @optcg/engine sim"
+    "build": "pnpm -r run build",
+    "build:engine": "pnpm --filter @optcg/engine run build",
+    "dev": "pnpm --filter @optcg/engine run build && pnpm --filter @optcg/client run dev",
+    "test": "pnpm -r --no-bail run test",
+    "typecheck": "pnpm -r --no-bail run typecheck",
+    "sim": "pnpm --filter @optcg/engine run sim"
+  },
+  "devDependencies": {
+    "pnpm": "10.13.1"
   }
 }

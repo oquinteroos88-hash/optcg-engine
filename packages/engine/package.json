@@ -10,8 +10,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.build.json && vitest run",
+    "typecheck": "tsc -p tsconfig.build.json && tsc -p tsconfig.json",
     "sim": "tsc -p tsconfig.build.json && node dist/sim/main.js",
     "coverage:sim": "vitest run --config vitest.coverage.config.ts --coverage"
   },

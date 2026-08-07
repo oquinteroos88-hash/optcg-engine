@@ -369,12 +369,14 @@ describe('ABIL-015 — endOfTurn', () => {
 });
 
 describe('ABIL-016 — counterEvent', () => {
-  it('adds its own power to the battle target on top of the printed counter', () => {
+  it('is activated with PLAY_COUNTER_EVENT, paying its cost and buffing the battle target', () => {
     const staged = buildScenario({
       decks,
       turn: 3,
       p1: { characters: [{ cardId: 'ABIL-005' }] },
-      p2: { hand: ['ABIL-016'] },
+      // A [Counter] Event has no printed value: it is paid by its cost (1) from
+      // the defender's active cost-area DON!!, not discarded for a counter value.
+      p2: { hand: ['ABIL-016'], activeDon: 1 },
     });
     const counterCard = lastInHand(staged, 'p2');
     const defenderLeader = staged.players.p2.leader;
@@ -387,16 +389,20 @@ describe('ABIL-016 — counterEvent', () => {
     }).state;
     const counterStep = applyOk(attacking, { type: 'PASS', player: 'p2' }).state;
     const countered = applyOk(counterStep, {
-      type: 'PLAY_COUNTER',
+      type: 'PLAY_COUNTER_EVENT',
       player: 'p2',
       instanceId: counterCard,
-      target: defenderLeader,
     }).state;
 
-    // 5000 leader + 1000 printed counter + 2000 from the effect.
-    expect(getPower(countered, defenderLeader)).toBe(8000);
+    // 5000 leader + 2000 from the effect. No printed counter to add: the Event
+    // has none, which is exactly what the fixed card shape now reflects.
+    expect(getPower(countered, defenderLeader)).toBe(7000);
+    // Paid: the one active DON!! is now rested, and the card sits in the trash
+    // where its effect resolved from.
+    expect(countered.players.p2.don.filter((d) => d.location.kind === 'cost' && d.location.orientation === 'active')).toEqual([]);
     expect(countered.players.p2.trash[0]).toBe(counterCard);
-    expect(countered.pending).toBeNull();
+    expect(countered.players.p2.hand).not.toContain(counterCard);
+    assertSettled(countered);
   });
 });
 

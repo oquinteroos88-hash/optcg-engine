@@ -29,6 +29,8 @@ export const REASONS = {
   blockerNotActive: 'blockerNotActive',
   noCounterValue: 'noCounterValue',
   invalidCounterTarget: 'invalidCounterTarget',
+  // PLAY_COUNTER_EVENT: the card is not an Event carrying a [Counter] ability.
+  notACounterEvent: 'notACounterEvent',
 
   // ACTIVATE_ABILITY
   unknownAbility: 'unknownAbility',

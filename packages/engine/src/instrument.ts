@@ -30,6 +30,9 @@ export const MARK_NAMES = [
   'counter.played',
   'counter.onNonBattlingCard',
   'counter.stacked',
+  // A [Counter] Event activated from hand — a different play from a counter
+  // card discarded for its printed value.
+  'counterEvent.played',
 
   // Field limits.
   'field.sixthCharacter',

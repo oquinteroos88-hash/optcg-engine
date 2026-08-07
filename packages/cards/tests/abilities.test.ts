@@ -14,6 +14,114 @@ import { answer, applyOk, assertSettled, firedIds, optIn, run, starterScenario }
  */
 
 // ---------------------------------------------------------------------------
+// ST01-001 Luffy (Leader) & ST01-007 Nami — [Activate: Main] [Once Per Turn]
+// ---------------------------------------------------------------------------
+
+describe('ST01-001 Luffy & ST01-007 Nami — give up to 1 rested DON!!', () => {
+  // Both are ST-01 cards, so only p1 can hold them: ST01-001 is always p1's
+  // Leader, ST01-007 a Character staged onto p1's board.
+
+  const offersLuffy = (state: GameState): boolean =>
+    legalActions(state, 'p1').some(
+      (a) => a.type === 'ACTIVATE_ABILITY' && a.abilityId === 'ST01-001-main',
+    );
+
+  const costDon = (state: GameState, orientation: 'active' | 'rested'): number =>
+    state.players.p1.don.filter(
+      (d) => d.location.kind === 'cost' && d.location.orientation === orientation,
+    ).length;
+
+  it('gives nothing when the cost area holds only active DON!! — the bug', () => {
+    // The recycling ability charges no cost, so a player can activate it on an
+    // untouched board. With every DON!! active there is no rested one to give.
+    const state = starterScenario({ p1: { activeDon: 5 } });
+    const leader = state.players.p1.leader;
+    const asking = applyOk(state, {
+      type: 'ACTIVATE_ABILITY',
+      player: 'p1',
+      instanceId: leader,
+      abilityId: 'ST01-001-main',
+    }).state;
+    // Even choosing the Leader as the recipient moves no DON!!.
+    const done = answer(asking, 'p1', { kind: 'cards', selected: [leader] });
+
+    expect(done.cards[leader]?.attachedDon).toHaveLength(0);
+    expect(done.players.p1.don.filter((d) => d.location.kind === 'attached')).toHaveLength(0);
+    expect(costDon(done, 'active')).toBe(5); // all five untouched
+    expect(getPower(done, leader)).toBe(getCardDef('ST01-001').power);
+    assertSettled(done);
+  });
+
+  it('moves a rested DON!! onto the chosen card and adds +1000', () => {
+    const state = starterScenario({
+      p1: { activeDon: 1, restedDon: 2, characters: [{ cardId: 'ST01-007' }] },
+    });
+    const nami = characterAt(state, 'p1', 0);
+    const before = getPower(state, nami);
+    const asking = applyOk(state, {
+      type: 'ACTIVATE_ABILITY',
+      player: 'p1',
+      instanceId: nami,
+      abilityId: 'ST01-007-main',
+    }).state;
+    const done = answer(asking, 'p1', { kind: 'cards', selected: [nami] });
+
+    expect(done.cards[nami]?.attachedDon).toHaveLength(1);
+    expect(getPower(done, nami)).toBe(before + 1000);
+    // The rested pool paid — 2 down to 1 — and the lone active DON!! is left be.
+    expect(costDon(done, 'rested')).toBe(1);
+    expect(costDon(done, 'active')).toBe(1);
+    assertSettled(done);
+  });
+
+  it('resolves to nothing when the target choice is left empty (min 0)', () => {
+    const state = starterScenario({ p1: { restedDon: 3 } });
+    const leader = state.players.p1.leader;
+    const asking = applyOk(state, {
+      type: 'ACTIVATE_ABILITY',
+      player: 'p1',
+      instanceId: leader,
+      abilityId: 'ST01-001-main',
+    }).state;
+    expect(asking.pending?.kind).toBe('selectCards');
+    expect(asking.pending?.min).toBe(0);
+
+    // An empty answer is legal, and the ability resolves into nothing without
+    // moving a DON!! or leaving the stack or a pending choice hanging.
+    const done = answer(asking, 'p1', { kind: 'cards', selected: [] });
+    expect(done.players.p1.don.filter((d) => d.location.kind === 'attached')).toHaveLength(0);
+    expect(done.cards[leader]?.attachedDon).toHaveLength(0);
+    expect(costDon(done, 'rested')).toBe(3);
+    assertSettled(done);
+  });
+
+  it('cannot be activated twice in a turn, and returns the next turn', () => {
+    const state = starterScenario({ p1: { activeDon: 1, restedDon: 2 } });
+    const leader = state.players.p1.leader;
+    expect(offersLuffy(state)).toBe(true);
+
+    const asking = applyOk(state, {
+      type: 'ACTIVATE_ABILITY',
+      player: 'p1',
+      instanceId: leader,
+      abilityId: 'ST01-001-main',
+    }).state;
+    const used = answer(asking, 'p1', { kind: 'cards', selected: [leader] });
+    expect(used.cards[leader]?.usedThisTurn).toContain('ST01-001-main');
+    expect(offersLuffy(used)).toBe(false);
+
+    // A full turn cycle clears usedThisTurn, and the ability is offered again.
+    const back = run(
+      used,
+      { type: 'END_TURN', player: 'p1' },
+      { type: 'END_TURN', player: 'p2' },
+    );
+    expect(back.activePlayer).toBe('p1');
+    expect(offersLuffy(back)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // ST01-005 Jinbe — [DON!! x1] [When Attacking]
 // ---------------------------------------------------------------------------
 

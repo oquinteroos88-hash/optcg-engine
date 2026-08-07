@@ -137,9 +137,10 @@ describe('a real game, ST-01 against ST-02', () => {
 
   it('fires each ability at least once across three unscripted games', () => {
     // Which abilities a single game reaches is a matter of what gets drawn, so
-    // one seed covers two or three of the six. These three between them reach
-    // all six — every ability written in this PR fires in a real game nobody
-    // staged, including both halves of Gum-Gum Jet Pistol.
+    // one seed covers only some of them. These three seeds between them reach
+    // every scripted ability in a real game nobody staged — including both
+    // halves of Gum-Gum Jet Pistol and both [Activate: Main] DON!!-givers,
+    // which recycle rested DON!! the bots spent attacking.
     const SEEDS = [20260806, 5, 99];
     const fired = new Set<string>();
     for (const seed of SEEDS) {
@@ -152,7 +153,9 @@ describe('a real game, ST-01 against ST-02', () => {
     }
 
     expect([...fired].sort()).toEqual([
+      'ST01-001-main',
       'ST01-005-whenAttacking',
+      'ST01-007-main',
       'ST01-014-trigger',
       'ST01-015-main',
       'ST01-015-trigger',

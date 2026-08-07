@@ -80,7 +80,9 @@ describe('the normalized set', () => {
     // script attached to a card nobody meant to touch.
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
+      'ST01-001',
       'ST01-005',
+      'ST01-007',
       'ST01-014',
       'ST01-015',
       'ST02-009',

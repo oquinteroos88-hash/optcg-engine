@@ -44,7 +44,43 @@ const JET_PISTOL: Instruction[] = [
   { op: 'ko', target: { var: 'victim' } },
 ];
 
+/**
+ * "Give up to 1 rested DON!! card to your Leader or 1 of your Characters."
+ *
+ * Shared by ST01-001 and ST01-007, whose effects are word-for-word the same.
+ * The "up to 1" quantity rides on the target select's `min: 0`: pick a
+ * recipient and it takes one rested DON!!, pick none and nothing moves. giveDon
+ * only ever draws from rested DON!!, so an empty rested pool resolves the same
+ * way — the ability does nothing rather than gift an active DON!! the card does
+ * not authorize.
+ */
+const GIVE_ONE_RESTED_DON: Instruction[] = [
+  {
+    op: 'select',
+    as: 'recipient',
+    from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+    min: 0,
+    max: 1,
+    prompt: 'Give up to 1 rested DON!! card to your Leader or 1 of your Characters',
+  },
+  { op: 'giveDon', target: { var: 'recipient' }, count: 1 },
+];
+
 export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
+  // ST01-001 Monkey.D.Luffy (Leader)
+  // "[Activate: Main] [Once Per Turn] Give this Leader or 1 of your Characters
+  //  up to 1 rested DON!! card."
+  'ST01-001': [
+    { id: 'ST01-001-main', trigger: 'activateMain', oncePerTurn: true, script: GIVE_ONE_RESTED_DON },
+  ],
+
+  // ST01-007 Nami
+  // "[Activate: Main] [Once Per Turn] Give up to 1 rested DON!! card to your
+  //  Leader or 1 of your Characters."
+  'ST01-007': [
+    { id: 'ST01-007-main', trigger: 'activateMain', oncePerTurn: true, script: GIVE_ONE_RESTED_DON },
+  ],
+
   // ST01-005 Jinbe
   // "[DON!! x1] [When Attacking] Up to 1 of your Leader or Character cards
   //  other than this card gains +1000 power during this turn."

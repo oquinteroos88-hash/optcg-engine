@@ -424,7 +424,9 @@ describe('ABIL-017 — mainEvent, reveal, moveCard', () => {
 });
 
 describe('ABIL-018 — giveDon', () => {
-  it('attaches one DON!! from the cost area to itself', () => {
+  it('attaches one rested DON!!, never an active one', () => {
+    // Cost 2, so playing it rests 2 of the 3 active DON!! before the [On Play]
+    // fires: at giveDon time the cost area holds 1 active and 2 rested DON!!.
     const staged = buildScenario({ decks, p1: { activeDon: 3, hand: ['ABIL-018'] } });
     const card = lastInHand(staged, 'p1');
     const done = applyOk(staged, { type: 'PLAY_CARD', player: 'p1', instanceId: card }).state;
@@ -432,6 +434,12 @@ describe('ABIL-018 — giveDon', () => {
     expect(done.cards[card]?.attachedDon).toHaveLength(1);
     expect(getPower(done, card)).toBe(3000); // 2000 printed + 1000 for the DON
     expect(done.players.p1.don.filter((d) => d.location.kind === 'attached')).toHaveLength(1);
+    // The DON!! it took was a rested one: the lone active DON!! is left alone,
+    // and the rested pool dropped from 2 to 1. Rested is a restriction here.
+    const cost = (o: 'active' | 'rested') =>
+      done.players.p1.don.filter((d) => d.location.kind === 'cost' && d.location.orientation === o);
+    expect(cost('active')).toHaveLength(1);
+    expect(cost('rested')).toHaveLength(1);
     assertSettled(done);
   });
 });

@@ -135,12 +135,14 @@ describe('a real game, ST-01 against ST-02', () => {
     expect(state.players.p2.life).toHaveLength(5);
   });
 
-  it('fires each ability at least once across three unscripted games', () => {
+  it('fires each ability at least once across four unscripted games', () => {
     // Which abilities a single game reaches is a matter of what gets drawn, so
-    // one seed covers two or three of the six. These three between them reach
-    // all six — every ability written in this PR fires in a real game nobody
-    // staged, including both halves of Gum-Gum Jet Pistol.
-    const SEEDS = [20260806, 5, 99];
+    // one seed covers only some of them. These seeds between them reach every
+    // scripted ability in a real game nobody staged — including both halves of
+    // Gum-Gum Jet Pistol and all three DON!!-givers, which recycle rested DON!!
+    // the bots spent attacking. Seed 2 is the one that draws and plays Brook;
+    // the original three never reached its [On Play].
+    const SEEDS = [20260806, 5, 99, 2];
     const fired = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
@@ -152,7 +154,10 @@ describe('a real game, ST-01 against ST-02', () => {
     }
 
     expect([...fired].sort()).toEqual([
+      'ST01-001-main',
       'ST01-005-whenAttacking',
+      'ST01-007-main',
+      'ST01-011-onPlay',
       'ST01-014-trigger',
       'ST01-015-main',
       'ST01-015-trigger',

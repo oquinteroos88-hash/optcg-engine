@@ -12,15 +12,24 @@ export function getOpponent(player: PlayerId): PlayerId {
 
 /**
  * Power from everything written into the state: printed value, attached DON!!,
- * and power modifiers.
+ * and power modifiers. Static grants are not included.
  *
- * Exported because continuous effects are evaluated against it rather than
- * against `getPower`. A `static` ability whose `affects` selector filtered on
- * effective power would ask `getPower` for a card whose effective power that
- * very ability is contributing to, and the two would call each other forever.
- * Base power is the fixed point that breaks it.
+ * This is the reading `forEachStatic` uses for a static's own condition and
+ * its `affects` selector. A `static` filtering on effective power would ask
+ * `getPower` for a card whose effective power that very ability is
+ * contributing to, and the two would call each other forever; this value is
+ * the fixed point that breaks the loop. Conditions of non-static abilities and
+ * scripts read `getPower` instead — there is no re-entry to guard against
+ * there.
+ *
+ * Named "without statics" rather than "base power" deliberately: the
+ * Comprehensive Rules use base power for a value an effect *sets* (4-9-2-1 —
+ * when several effects set base power, the highest applies), and the engine
+ * will need that name the day a card says "this Character's base power
+ * becomes X". This function is not that concept; it is a recursion anchor,
+ * not a rules term.
  */
-export function getBasePower(state: GameState, id: InstanceId): number {
+export function getPowerWithoutStatics(state: GameState, id: InstanceId): number {
   const card = state.cards[id];
   if (card === undefined) {
     throw new Error(`Unknown instance id: ${id}`);
@@ -62,16 +71,20 @@ function forEachStatic(
           controller: source.controller,
           vars: {},
         };
+        // The guard has a cost here: a static whose own condition asks about
+        // power reads the without-statics value, so a gate like OP06-002's
+        // "7000 power or more" cannot be opened by another card's continuous
+        // effect. Declared divergence — docs/trigger-reachability.md, backlog A.
         if (
           ability.condition !== undefined &&
-          !evalCondition(state, ctx, ability.condition, getBasePower)
+          !evalCondition(state, ctx, ability.condition, getPowerWithoutStatics)
         ) {
           continue;
         }
         if (ability.affects === undefined) {
           continue;
         }
-        if (!resolveSelector(state, ctx, ability.affects, getBasePower).includes(id)) {
+        if (!resolveSelector(state, ctx, ability.affects, getPowerWithoutStatics).includes(id)) {
           continue;
         }
         visit(ability.grants);
@@ -86,7 +99,7 @@ function forEachStatic(
  *   printed + attached DON!! x 1000 + power modifiers + applicable statics
  */
 export function getPower(state: GameState, id: InstanceId): number {
-  let power = getBasePower(state, id);
+  let power = getPowerWithoutStatics(state, id);
   forEachStatic(state, id, (grants) => {
     if (grants.power !== undefined) {
       mark('static.powerApplied');

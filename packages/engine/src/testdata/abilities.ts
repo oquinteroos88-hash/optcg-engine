@@ -9,8 +9,9 @@ import { registerCardSet } from '../registry.js';
  * Between them these cards cover every `op`, every `Trigger`, every `Cost`,
  * every `Condition` kind and all four keywords, plus the shapes most likely to
  * be implemented wrong: an `if` nested inside a `forEach`, a `oncePerTurn`, an
- * `optional`, a continuous effect, and a KO that wakes an `[On K.O.]` on the
- * card it just killed.
+ * `optional`, a continuous effect, a power-gated condition standing next to a
+ * continuous buff, and a KO that wakes an `[On K.O.]` on the card it just
+ * killed.
  *
  * Registered through the public registry exactly like the TEST set. The default
  * decks do **not** include it, so a browser game still never opens a choice.
@@ -405,6 +406,43 @@ export const ABIL_CARDS: CardDefinition[] = [
       },
     ],
   },
+
+  // --- power-gated condition (current power, per conditionPower.test.ts) --
+  character('ABIL-025', 'Gatekeeper', 2, 2000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-025-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        condition: {
+          kind: 'countCards',
+          selector: { zone: 'field', owner: 'you', category: ['character'], powerMin: 4000 },
+          min: 1,
+        },
+        script: [
+          {
+            op: 'select',
+            as: 'champion',
+            from: { zone: 'field', owner: 'you', category: ['character'], powerMin: 4000 },
+            min: 1,
+            max: 1,
+            prompt: 'Choose one of your characters with 4000 power or more',
+          },
+          { op: 'addPower', target: { var: 'champion' }, value: 1000, duration: 'endOfTurn' },
+        ],
+      },
+      {
+        id: 'ABIL-025-onPlay',
+        trigger: 'onPlay',
+        condition: {
+          kind: 'countCards',
+          selector: { zone: 'field', owner: 'you', category: ['character'], powerMin: 4000 },
+          min: 1,
+        },
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+    ],
+  }),
 ];
 
 registerCardSet(ABIL_CARDS);

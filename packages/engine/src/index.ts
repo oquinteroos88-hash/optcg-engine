@@ -9,9 +9,9 @@ export { REASONS } from './reducer/errors.js';
 export type { ReasonCode } from './reducer/errors.js';
 export {
   getActiveCostDon,
-  getBasePower,
   getOpponent,
   getPower,
+  getPowerWithoutStatics,
   hasKeyword,
   isOnField,
   isOwnLeaderOrCharacter,

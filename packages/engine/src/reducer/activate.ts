@@ -5,7 +5,7 @@ import { enqueue, makeStackItem } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getAbilities } from '../registry.js';
-import { getBasePower, isOnField } from '../selectors.js';
+import { getPower, isOnField } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
 
@@ -42,9 +42,11 @@ export function validateActivateAbility(
     return REASONS.abilityAlreadyUsed;
   }
   const ctx: AbilityContext = { source: action.instanceId, controller: action.player, vars: {} };
+  // Conditions read the power a card has now, statics included (CR 2-6-3,
+  // 8-4-1-1). The without-statics reading belongs to static evaluation only.
   if (
     ability.condition !== undefined &&
-    !evalCondition(state, ctx, ability.condition, getBasePower)
+    !evalCondition(state, ctx, ability.condition, getPower)
   ) {
     return REASONS.abilityConditionUnmet;
   }

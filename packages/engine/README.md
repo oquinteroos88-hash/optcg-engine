@@ -341,7 +341,7 @@ counter steps and returns to the attacker afterwards.
 ```
 DECLARE_ATTACK ──> [block] ──PASS──> [counter] ──PASS──> (damage) ──> battle = null
                       │                  │
-                 DECLARE_BLOCK      PLAY_COUNTER (repeatable)
+                 DECLARE_BLOCK      PLAY_COUNTER / PLAY_COUNTER_EVENT (repeatable)
                       │                  │
                       └──> [counter] <───┘
 ```
@@ -354,12 +354,17 @@ DECLARE_ATTACK ──> [block] ──PASS──> [counter] ──PASS──> (da
   attack. Blocker is asked of `hasKeyword`, so a Blocker granted by a continuous
   effect or a modifier blocks exactly like a printed one. The step is never
   auto-skipped.
-- **Counter** — the defender discards cards from hand for their printed Counter
+- **Counter** — the defender has two moves here, both repeatable, neither from
+  the field. `PLAY_COUNTER` discards a card from hand for its printed Counter
   value, adding that power to any own Leader or Character, including one not
-  involved in the battle. Repeatable. Counters cannot come from the field.
-  A card whose printed Counter is the dash — modelled as `counter: null`, not
-  `0` — cannot be played in this step at all. The absence of a value is not a
-  value worth zero, and encoding it as `0` invites exactly that misreading.
+  involved in the battle. A card whose printed Counter is the dash — modelled as
+  `counter: null`, not `0` — cannot be played this way at all; the absence of a
+  value is not a value worth zero, and encoding it as `0` invites exactly that
+  misreading. `PLAY_COUNTER_EVENT` (CR 7-1-3-2-2) activates a [Counter] Event —
+  an Event whose text is a `counterEvent` ability, printed with no Counter
+  value: the defender pays its printed cost with active cost-area DON!!, trashes
+  it, and its effect resolves from the trash, choosing its own targets. It
+  carries no target of its own for that reason.
 - **Damage** — powers are compared and **the attacker wins ties** (`>=`). Beating
   a Character KOs it; beating the Leader takes life cards; losing does nothing.
   Damage is never bidirectional.
@@ -506,6 +511,7 @@ contract and are never renamed.
 | `DECLARE_ATTACK` | `invalidAttacker`, `attackerNotActive`, `cannotAttackYet`, `firstTurnAttackForbidden`, `invalidTarget`, `targetNotRested` |
 | `DECLARE_BLOCK`  | `invalidBlocker`, `notABlocker`, `blockerNotActive` |
 | `PLAY_COUNTER`   | `cardNotInHand`, `noCounterValue`, `invalidCounterTarget` |
+| `PLAY_COUNTER_EVENT` | `cardNotInHand`, `notACounterEvent`, `notEnoughDon` |
 | `ACTIVATE_ABILITY` | `unknownAbility`, `abilityNotActivatable`, `abilitySourceNotOnField`, `abilityConditionUnmet`, `abilityCostUnpayable`, `abilityAlreadyUsed` |
 | `ANSWER_CHOICE`  | `choicePending`, `noPendingChoice`, `missingAnswer`, `wrongChoiceId`, `notYourChoice`, `choiceKindMismatch`, `choiceCardinality`, `choiceCandidateUnknown`, `choiceDuplicateSelection`, `choiceOptionOutOfRange` |
 
@@ -858,6 +864,7 @@ the drawn instance id. Per-player hidden-information views are out of scope.
 - Hidden-information views, networking, persistence, and AI beyond the random
   bot.
 
-Still true from Phase 0, and now genuinely tested rather than absent: Counter
-**events** played from hand can carry an effect (`counterEvent`), and a life
-card's `[Trigger]` fires.
+Still true from Phase 0, and now a real move rather than a synthetic-only one: a
+Counter **Event** is played from hand for its cost (`PLAY_COUNTER_EVENT`), its
+`counterEvent` effect resolving from the trash, and a life card's `[Trigger]`
+fires.

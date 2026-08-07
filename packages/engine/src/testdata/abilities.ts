@@ -250,6 +250,15 @@ export const ABIL_CARDS: CardDefinition[] = [
   }),
 
   // --- counterEvent / battle ref -----------------------------------------
+  // A [Counter] Event in the shape the game actually prints: no printed Counter
+  // value (`counter: null`), its whole text a [Counter] ability. It is played
+  // with PLAY_COUNTER_EVENT — paid by its printed cost and trashed for its
+  // effect — never with PLAY_COUNTER, which is for a printed Counter value.
+  //
+  // It used to carry `counter: 1000` as well, a combination no real card has
+  // (no printed Event has a Counter value). That invented shape made the
+  // `counterEvent` trigger look reachable through PLAY_COUNTER and hid the
+  // missing play; `abilCardShapes.test.ts` now guards against it returning.
   {
     cardId: 'ABIL-016',
     name: 'Desperate Parry',
@@ -257,7 +266,7 @@ export const ABIL_CARDS: CardDefinition[] = [
     color: 'blue',
     cost: 1,
     power: 0,
-    counter: 1000,
+    counter: null,
     life: 0,
     keywords: [],
     types: ['Tactic'],

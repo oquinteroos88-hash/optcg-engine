@@ -220,6 +220,16 @@ export type Action =
   | { type: 'DECLARE_ATTACK'; player: PlayerId; attacker: InstanceId; target: InstanceId }
   | { type: 'DECLARE_BLOCK'; player: PlayerId; blocker: InstanceId }
   | { type: 'PLAY_COUNTER'; player: PlayerId; instanceId: InstanceId; target: InstanceId }
+  /**
+   * Activate a [Counter] Event from hand during the Counter Step (CR 7-1-3-2-2).
+   *
+   * A different move from PLAY_COUNTER, not a second payment form of it. The
+   * printed Counter value drives PLAY_COUNTER and names its target in the
+   * action; a [Counter] Event has no printed value — it is paid by its printed
+   * cost, trashed, and its effect chooses its own targets through the script's
+   * `select`, resolved afterwards through `pending`. So it carries no `target`.
+   */
+  | { type: 'PLAY_COUNTER_EVENT'; player: PlayerId; instanceId: InstanceId }
   | { type: 'PASS'; player: PlayerId }
   | { type: 'END_TURN'; player: PlayerId }
   | { type: 'CONCEDE'; player: PlayerId }

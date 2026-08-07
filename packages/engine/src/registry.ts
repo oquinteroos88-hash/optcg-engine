@@ -39,6 +39,16 @@ export function getAbilities(cardId: CardId): readonly Ability[] {
   return getCardDef(cardId).abilities ?? NO_ABILITIES;
 }
 
+/**
+ * A [Counter] Event is an Event whose text is a [Counter] ability — one that
+ * answers to the `counterEvent` trigger. This is the gate that distinguishes it
+ * from a plain Main-phase Event (which must never be activatable in the Counter
+ * Step), shared by `legalActions` and the Counter-Step reducer.
+ */
+export function isCounterEvent(cardId: CardId): boolean {
+  return getAbilities(cardId).some((ability) => ability.trigger === 'counterEvent');
+}
+
 const registry = new Map<CardId, CardDefinition>();
 
 export function registerCardSet(defs: readonly CardDefinition[]): void {

@@ -1,10 +1,14 @@
 # Trigger reachability sweep
 
-**Ten of the eleven triggers are reachable by a real card. The eleventh is
-`counterEvent`, already known and already pinned.**
+**All eleven triggers are now reachable by a real card.** The sweep found one
+hole — `counterEvent` — and it has since been closed: the engine can activate a
+[Counter] Event from hand (`PLAY_COUNTER_EVENT`, CR 7-1-3-2-2), so `ST01-014`
+Guard Point's `[Counter]` half is a real, reachable play. The record below is
+kept as the evidence, with the `counterEvent` row updated and the "one hole"
+section rewritten to how it was closed.
 
-That is the whole headline. The rest of this document is the evidence, plus
-three secondary findings the sweep turned up on the way.
+The rest of this document is that evidence, plus three secondary findings the
+sweep turned up on the way.
 
 ## Why this sweep exists
 
@@ -63,7 +67,7 @@ origins of `onKO`.
 | `whenOpponentAttacks` | `applyDeclareAttack`, `reducer/battle.ts:97` | **yes** | ABIL-014 only | 49 | no real-card coverage |
 | `activateMain` | `ACTIVATE_ABILITY` → `reducer/activate.ts:38`, gated in `legalActions.ts:101` | **yes** | ABIL-009/010 only | 365 | no real-card coverage |
 | `trigger` | `stepResume` damage step, `abilities/interpreter.ts:747` | **yes** | `ST01-014`, `ST01-015` from life, unstaged games | 501 | see coverage note |
-| `counterEvent` | `applyPlayCounter`, `reducer/battle.ts:192` | **NO** | ABIL-016 only — and see below | 184 | **missing rule** |
+| `counterEvent` | `applyPlayCounterEvent` (`PLAY_COUNTER_EVENT`), `reducer/battle.ts`, gated in `legalActions.ts` | **yes** | `ST01-014` Guard Point from hand (`counterEvent.test.ts`); ABIL-016 | 184 | **was missing rule — now closed** |
 | `mainEvent` | `applyPlayCard`, `reducer/main.ts:124` | **yes** | `ST01-015` Jet Pistol, unstaged game | 272 | — |
 | `endOfTurn` | `applyEndTurn`, `reducer/turn.ts:24` | **yes** | `ST02-013` Kid, unstaged game | 50 | — |
 | `static` | not fired — read in `getPower` / `hasKeyword` via `forEachStatic`, `selectors.ts:45` | **yes** | ABIL-003/004/024 (`continuous.test.ts`) | — | see the read-path audit |
@@ -83,35 +87,46 @@ Precondition notes, since that is what this sweep is actually about:
 - **`trigger`** needs the card to be in the life area, which means in the deck.
   Every category that carries the marker can be.
 
-## The one hole: `counterEvent`
+## The one hole, now closed: `counterEvent`
 
-Classification: **missing rule**. The engine is incomplete, not merely limited.
+Was: **missing rule**. The engine was incomplete, not merely limited.
 
-`legalActions.ts:167` offers `PLAY_COUNTER` only for a card whose printed
-`counter` is not null, and `applyPlayCounter` (`battle.ts:159`) throws without
-one. Playing a Counter Event from hand for its cost is a different move, and the
-engine does not have it. All 184 `[Counter]` cards in the game are Events, and
-all 184 are printed with no Counter value.
+`legalActions` offered `PLAY_COUNTER` only for a card whose printed `counter`
+was not null, and `applyPlayCounter` threw without one. Playing a Counter Event
+from hand for its cost was a different move, and the engine did not have it. All
+184 `[Counter]` cards in the game are Events, and all 184 are printed with no
+Counter value.
 
-Pinned by `packages/cards/tests/counterEvent.test.ts`: Karoo (printed Counter
-1000) and Guard Point (a `[Counter]` ability, no printed value) sit in the same
-hand during the same Counter Step, and only one of them is offered.
+The move exists now. `PLAY_COUNTER_EVENT` (CR 7-1-3-2-2): the attacked player
+pays the Event's printed cost with active cost-area DON!!, trashes it, then its
+`[Counter]` effect resolves — offered only to the defender, only at the Counter
+Step. `packages/cards/tests/counterEvent.test.ts` inverted with it: Karoo
+(printed Counter 1000) is still offered as a discard for its value, and Guard
+Point (a `[Counter]` ability, no printed value) is now offered beside it as a
+Counter Event, each move naming only its own card.
 
-### Why the ABIL set hid it
+### Why the ABIL set hid it — and the guard that now stops a repeat
 
 Worth recording, because it is the reusable lesson.
 
-`ABIL-016 "Desperate Parry"` is an Event with **`counter: 1000` and a
-`counterEvent` ability**. That is what makes `abilityTable.test.ts` reach the
-trigger — and that combination **does not exist on any printed card**. The
-synthetic set did not merely fail to catch the hole: it invented a card shape
-the game never prints, and that shape was exactly the one that made the trigger
-look reachable.
+`ABIL-016 "Desperate Parry"` was an Event with **`counter: 1000` and a
+`counterEvent` ability**. That combination made `abilityTable.test.ts` reach the
+trigger through `PLAY_COUNTER` — and it **does not exist on any printed card**.
+The synthetic set did not merely fail to catch the hole: it invented a card
+shape the game never prints, and that shape was exactly the one that made the
+trigger look reachable.
 
 A synthetic set built to cover the *DSL* will do this by construction. It is
 free to give a card any combination of fields, including combinations no printer
 ever produced. That makes it a good test of the interpreter and a bad witness
 for reachability.
+
+ABIL-016 is now the shape the game prints: `counter: null`, its whole text a
+`[Counter]` ability, activated with `PLAY_COUNTER_EVENT`.
+`packages/cards/tests/abilCardShapes.test.ts` pins the reachability-relevant
+printed fields (category and whether a Counter value is printed) and asserts
+every ABIL card's shape has a counterpart in `cards.en.json` — so no synthetic
+card can fake a printed shape, and stand in for reachability, unnoticed again.
 
 ## Secondary findings
 
@@ -203,12 +218,13 @@ because it is not that kind of problem. It belongs to a second list nobody had
 opened yet.
 
 **Backlog A — missing rules.** The game has a move the engine does not offer,
-or a behavior it does not reproduce. Today it has two items:
+or a behavior it does not reproduce. It opened with two items; the first is now
+built.
 
-| Missing rule | Cards behind it |
-| --- | --- |
-| Playing a Counter Event from hand during the Counter Step, paying its cost | 184 |
-| Layered evaluation of continuous effects: a `static` whose own condition asks about power reads the without-statics value (the recursion guard), so OP06-002's [Banish] cannot switch on through another card's continuous buff | 1 |
+| Missing rule | Cards behind it | Status |
+| --- | --- | --- |
+| Playing a Counter Event from hand during the Counter Step, paying its cost | 184 | **done** — `PLAY_COUNTER_EVENT` |
+| Layered evaluation of continuous effects: a `static` whose own condition asks about power reads the without-statics value (the recursion guard), so OP06-002's [Banish] cannot switch on through another card's continuous buff | 1 | open |
 
 **Backlog B — missing expressiveness.** The trigger is reachable and the move
 exists, but the DSL cannot say what the card does. This is the inventory's
@@ -222,14 +238,15 @@ fifth keyword for `[Unblockable]` (8 cards).
 A gap in backlog B limits *which cards can be written*. Every card already
 written still behaves correctly; the deck is smaller than the real one, and
 that is all. A gap in backlog A is different in kind: the cards can be written,
-they sit in the deck, and the **games do not resemble the game**. A player
-holding Guard Point during the Counter Step is holding a card the engine will
-never let them use, and the simulation quietly reports a loss that would not
-have happened at a table.
+they sit in the deck, and the **games do not resemble the game**. That was the
+`counterEvent` hole: a player holding Guard Point during the Counter Step held a
+card the engine would never let them use, and the simulation quietly reported a
+loss that would not have happened at a table. With `PLAY_COUNTER_EVENT` that
+player can now defend, and the sweep exercises the play in every ability game.
 
 That is why an item in A outranks a same-sized item in B, and why the sizes are
-not even comparable: 184 cards is what `counterEvent` *blocks from being
-played*, not what it blocks from being written.
+not even comparable: 184 cards is what `counterEvent` *blocked from being
+played*, not what it blocked from being written.
 
 ## Does this change the order of work?
 
@@ -237,10 +254,10 @@ Not within backlog B. The inventory's order was driven by how many cards each
 gap unlocks, and nothing here moves those numbers.
 
 What changes is that backlog B is no longer the only queue. `counterEvent`
-heads backlog A, it blocks all three `[Counter]` Events of the two starter
-decks, and whenever the engine's own rule set is next opened it belongs at the
-top of that list, ahead of anything in B. The layered-evaluation item sits
-behind it, one printed card against 184.
+headed backlog A — it blocked all three `[Counter]` Events of the two starter
+decks — and it has now been built, ahead of anything in B, exactly because an A
+item outranks a same-sized B item. The layered-evaluation item, one printed card
+against 184, is what remains at the head of A.
 
 The methodological correction is worth more than the ordering: **for every card
 from here on, ask both questions.** Can the DSL say it, and can a real card get

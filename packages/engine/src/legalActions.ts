@@ -1,7 +1,7 @@
 import { canPayCosts } from './abilities/costs.js';
 import type { AbilityContext } from './abilities/dsl.js';
 import { evalCondition } from './abilities/query.js';
-import { getAbilities, getCardDef } from './registry.js';
+import { getAbilities, getCardDef, isCounterEvent } from './registry.js';
 import { getActiveCostDon, getOpponent, getPower, hasKeyword } from './selectors.js';
 import type { Action, GameState, PlayerId } from './types.js';
 
@@ -164,13 +164,25 @@ function pushBlockActions(state: GameState, player: PlayerId, actions: Action[])
 function pushCounterActions(state: GameState, player: PlayerId, actions: Action[]): void {
   const ps = state.players[player];
   const targets = [ps.leader, ...ps.characters];
+  const activeDon = getActiveCostDon(state, player).length;
   for (const instanceId of ps.hand) {
     const card = state.cards[instanceId];
-    if (card === undefined || getCardDef(card.cardId).counter === null) {
+    if (card === undefined) {
       continue;
     }
-    for (const target of targets) {
-      actions.push({ type: 'PLAY_COUNTER', player, instanceId, target });
+    const def = getCardDef(card.cardId);
+    // A card with a printed Counter value is discarded to add it to a chosen
+    // ally: the action names its target (CR 7-1-3-2-1).
+    if (def.counter !== null) {
+      for (const target of targets) {
+        actions.push({ type: 'PLAY_COUNTER', player, instanceId, target });
+      }
+    }
+    // A [Counter] Event is a different play: paid by its printed cost, trashed,
+    // and its effect picks its own targets (CR 7-1-3-2-2). It is unpayable, so
+    // never offered, when its cost exceeds the active cost-area DON!!.
+    if (def.category === 'event' && def.cost <= activeDon && isCounterEvent(card.cardId)) {
+      actions.push({ type: 'PLAY_COUNTER_EVENT', player, instanceId });
     }
   }
 }

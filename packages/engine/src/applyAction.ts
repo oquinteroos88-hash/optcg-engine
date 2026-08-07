@@ -8,9 +8,11 @@ import {
   applyDeclareBlock,
   applyPass,
   applyPlayCounter,
+  applyPlayCounterEvent,
   validateDeclareAttack,
   validateDeclareBlock,
   validatePlayCounter,
+  validatePlayCounterEvent,
 } from './reducer/battle.js';
 import { applyConcede } from './reducer/concede.js';
 import { REASONS } from './reducer/errors.js';
@@ -34,6 +36,7 @@ const ACTION_TYPES: ReadonlySet<string> = new Set([
   'DECLARE_ATTACK',
   'DECLARE_BLOCK',
   'PLAY_COUNTER',
+  'PLAY_COUNTER_EVENT',
   'PASS',
   'END_TURN',
   'CONCEDE',
@@ -98,6 +101,8 @@ function structuralReason(action: Action): string | null {
       return typeof raw['instanceId'] === 'string' && typeof raw['target'] === 'string'
         ? null
         : REASONS.malformedAction;
+    case 'PLAY_COUNTER_EVENT':
+      return typeof raw['instanceId'] === 'string' ? null : REASONS.malformedAction;
     case 'ACTIVATE_ABILITY':
       return typeof raw['instanceId'] === 'string' && typeof raw['abilityId'] === 'string'
         ? null
@@ -166,6 +171,7 @@ function validateAction(state: GameState, action: Action): string | null {
       }
       break;
     case 'PLAY_COUNTER':
+    case 'PLAY_COUNTER_EVENT':
       if (state.battle === null) {
         return REASONS.noBattle;
       }
@@ -197,6 +203,8 @@ function validateAction(state: GameState, action: Action): string | null {
       return validateDeclareBlock(state, action);
     case 'PLAY_COUNTER':
       return validatePlayCounter(state, action);
+    case 'PLAY_COUNTER_EVENT':
+      return validatePlayCounterEvent(state, action);
     case 'ACTIVATE_ABILITY':
       return validateActivateAbility(state, action);
   }
@@ -227,6 +235,9 @@ function applyValidated(draft: GameState, action: Action, events: GameEvent[]): 
       return;
     case 'PLAY_COUNTER':
       applyPlayCounter(draft, action, events);
+      return;
+    case 'PLAY_COUNTER_EVENT':
+      applyPlayCounterEvent(draft, action, events);
       return;
     case 'PASS':
       applyPass(draft, action, events);

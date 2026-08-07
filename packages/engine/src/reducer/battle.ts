@@ -1,11 +1,17 @@
 import { fireTriggers, ownedFieldSources } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
-import { getCardDef } from '../registry.js';
-import { getOpponent, getPower, hasKeyword, isOwnLeaderOrCharacter } from '../selectors.js';
+import { getCardDef, isCounterEvent } from '../registry.js';
+import {
+  getActiveCostDon,
+  getOpponent,
+  getPower,
+  hasKeyword,
+  isOwnLeaderOrCharacter,
+} from '../selectors.js';
 import type { Battle, GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
-import { emit, leaveField, mustGetCard } from './helpers.js';
+import { emit, leaveField, mustGetCard, payDonCost } from './helpers.js';
 
 interface DeclareAttackAction {
   player: PlayerId;
@@ -22,6 +28,11 @@ interface PlayCounterAction {
   player: PlayerId;
   instanceId: InstanceId;
   target: InstanceId;
+}
+
+interface PlayCounterEventAction {
+  player: PlayerId;
+  instanceId: InstanceId;
 }
 
 function mustGetBattle(draft: GameState): Battle {
@@ -189,6 +200,57 @@ export function applyPlayCounter(
   });
   // A Counter card with an effect resolves it from the trash, where the card
   // now is. Only the printed Counter value gates the play itself.
+  fireTriggers(draft, 'counterEvent', [action.instanceId]);
+}
+
+export function validatePlayCounterEvent(
+  state: GameState,
+  action: PlayCounterEventAction,
+): string | null {
+  if (!state.players[action.player].hand.includes(action.instanceId)) {
+    return REASONS.cardNotInHand;
+  }
+  const card = state.cards[action.instanceId];
+  if (card === undefined) {
+    return REASONS.cardNotInHand;
+  }
+  const def = getCardDef(card.cardId);
+  // CR 7-1-3-2-2: only an Event card carrying a [Counter] effect may be
+  // activated here. A printed Counter value is a different play (PLAY_COUNTER);
+  // a Counter Event has none and is trashed for its effect instead.
+  if (def.category !== 'event' || !isCounterEvent(card.cardId)) {
+    return REASONS.notACounterEvent;
+  }
+  // The price is the Event's printed play cost, paid with the defender's active
+  // cost-area DON!!. No active-DON to rest for it means the play is unavailable.
+  if (getActiveCostDon(state, action.player).length < def.cost) {
+    return REASONS.notEnoughDon;
+  }
+  return null;
+}
+
+export function applyPlayCounterEvent(
+  draft: GameState,
+  action: PlayCounterEventAction,
+  events: GameEvent[],
+): void {
+  const card = mustGetCard(draft, action.instanceId);
+  const def = getCardDef(card.cardId);
+  const ps = draft.players[action.player];
+  mark('counterEvent.played');
+  // CR 7-1-3-2-2, in order: pay the cost, trash the Event, then activate the
+  // [Counter] effect. The trash step comes before the trigger, so the card is
+  // already in the trash when its own effect resolves — a `{ self }` ref names
+  // a card in the trash, exactly as a Main-phase Event does.
+  payDonCost(draft, action.player, def.cost, events);
+  ps.hand = ps.hand.filter((id) => id !== action.instanceId);
+  ps.trash.unshift(action.instanceId);
+  emit(draft, events, {
+    type: 'cardPlayed',
+    player: action.player,
+    instanceId: action.instanceId,
+    cardId: card.cardId,
+  });
   fireTriggers(draft, 'counterEvent', [action.instanceId]);
 }
 

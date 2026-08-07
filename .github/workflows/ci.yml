@@ -22,10 +22,13 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
+      # Node 20 cannot run this project: the client's jsdom suite pulls in
+      # undici, which requires >=22.19.0, and jsdom 30 itself asks for
+      # ^22.22.2 || ^24.15.0 || >=26. On 20 the suite fails to load at all.
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies

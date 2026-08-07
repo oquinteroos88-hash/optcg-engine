@@ -2,7 +2,7 @@ import { canPayCosts } from './abilities/costs.js';
 import type { AbilityContext } from './abilities/dsl.js';
 import { evalCondition } from './abilities/query.js';
 import { getAbilities, getCardDef } from './registry.js';
-import { getActiveCostDon, getBasePower, getOpponent, hasKeyword } from './selectors.js';
+import { getActiveCostDon, getOpponent, getPower, hasKeyword } from './selectors.js';
 import type { Action, GameState, PlayerId } from './types.js';
 
 const BOARD_LIMIT = 5;
@@ -105,9 +105,11 @@ function pushActivateActions(state: GameState, player: PlayerId, actions: Action
         continue;
       }
       const ctx: AbilityContext = { source: instanceId, controller: player, vars: {} };
+      // Conditions read the power a card has now, statics included (CR 2-6-3,
+      // 8-4-1-1). The without-statics reading belongs to static evaluation only.
       if (
         ability.condition !== undefined &&
-        !evalCondition(state, ctx, ability.condition, getBasePower)
+        !evalCondition(state, ctx, ability.condition, getPower)
       ) {
         continue;
       }

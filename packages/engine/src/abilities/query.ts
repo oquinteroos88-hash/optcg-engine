@@ -9,10 +9,16 @@ import type { AbilityContext, Condition, PlayerRef, Ref, Selector } from './dsl.
  *
  * Power comes in as a parameter rather than being imported. That is the
  * recursion guard for continuous effects: `getPower` has to evaluate every
- * `static` ability's `affects` selector, and if that selector filtered on
- * *effective* power it would call `getPower` again on the same card and never
- * bottom out. Continuous evaluation therefore passes base power; scripts, which
- * cannot be re-entered this way, pass the full one.
+ * `static` ability's condition and `affects` selector, and if those filtered
+ * on *effective* power they would call `getPower` again on the same card and
+ * never bottom out. Static evaluation therefore passes the without-statics
+ * reading — and only static evaluation. Scripts and the conditions of
+ * non-static abilities pass `getPower`: a card has one power value, made
+ * higher or lower than printed by effects (Comprehensive Rules 2-6-3), an
+ * activation condition is met or not against that value as it stands
+ * (8-4-1-1), and the Damage Step compares "the power" of the same card
+ * (7-1-4-1). A condition that asks about power asks about the same magnitude
+ * everything else reads.
  */
 export type PowerFn = (state: GameState, id: InstanceId) => number;
 

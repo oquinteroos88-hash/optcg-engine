@@ -131,7 +131,7 @@ marker suggested.
 Also unsayable, in the same family: `[Unblockable]`, 8 cards. `Keyword` has
 exactly four members and this is a fifth.
 
-### Ability conditions are evaluated against base power
+### Power-gated conditions: answered — current power, with one declared divergence
 
 `getPower` and `hasKeyword` are the only readers of printed power and printed
 keywords — the audit for that is clean. Nothing outside `selectors.ts` touches
@@ -140,24 +140,28 @@ keywords — the audit for that is clean. Nothing outside `selectors.ts` touches
 `hasKeyword` in both `legalActions` and `battle.ts`. A granted keyword counts
 exactly like a printed one everywhere it matters.
 
-But an **ability's `condition`** is evaluated with `getBasePower`, in all three
-places one is checked: `triggers.ts:84`, `legalActions.ts:110` and
-`activate.ts:47`. An `if` *inside* a script is evaluated with `getPower`
-(`interpreter.ts:487`). So the same `Condition` sees different power depending
-on where it sits, and a `countCards` gated on `powerMin`/`powerMax` is blind to
-continuous effects when it gates an ability and sighted when it branches inside
-one.
+At the time of the sweep, an **ability's `condition`** was evaluated with the
+without-statics reading in all three places one is checked (`triggers.ts`,
+`legalActions.ts`, `activate.ts`), while an `if` *inside* a script read
+`getPower` — the same `Condition` saw different power depending on where it
+sat. The sweep could not tell whether that was deliberate, and left it
+unclassified. `fix/conditions-read-current-power` answered it: accidental. The
+recursion guard that static evaluation needs was applied wider than necessary;
+for a non-static ability there is no re-entry, because `getPower` drops to the
+without-statics reading one level down, inside `forEachStatic`. The three sites
+now pass `getPower`, which is what the Comprehensive Rules describe: one power
+value per card, made higher or lower than printed by effects (2-6-3),
+activation conditions met against the state as it is (8-4-1-1), and the Damage
+Step comparing "the power" of the same card (7-1-4-1).
 
-For `static.affects` this asymmetry is documented and load-bearing — it is the
-recursion guard, and `query.ts:11` explains it. For a *non-static* ability's
-condition there is no recursion to guard against: `getPower` drops to base power
-one level down, inside `forEachStatic`. The choice looks like consistency rather
-than necessity, and it is not commented anywhere.
-
-No card in either starter deck can expose it — it needs a continuous power
-effect and a power-gated condition in the same position, and only five real
-cards have scripts at all. Not classified, because I cannot tell from the code
-whether it is deliberate. It is a question for whoever wrote it.
+What remains, now declared rather than accidental: a `static` whose **own**
+condition asks about power still reads the without-statics value, because there
+the guard is load-bearing. OP06-002 — "[DON!! x1] If this Character has 7000
+power or more, this Character gains [Banish]" — is the printed card behind it:
+its Banish never switches on when the 7000 threshold is only reached through
+another card's continuous effect. The faithful fix is a layered effect system
+that evaluates continuous effects in passes; known, and priced at far more than
+one card justifies. Moved to backlog A.
 
 ### Two coverage gaps
 
@@ -198,12 +202,13 @@ The inventory's ranked table is a list of things **the DSL cannot say**.
 because it is not that kind of problem. It belongs to a second list nobody had
 opened yet.
 
-**Backlog A — missing rules.** The game has a move the engine does not offer.
-Today it has exactly one item:
+**Backlog A — missing rules.** The game has a move the engine does not offer,
+or a behavior it does not reproduce. Today it has two items:
 
 | Missing rule | Cards behind it |
 | --- | --- |
 | Playing a Counter Event from hand during the Counter Step, paying its cost | 184 |
+| Layered evaluation of continuous effects: a `static` whose own condition asks about power reads the without-statics value (the recursion guard), so OP06-002's [Banish] cannot switch on through another card's continuous buff | 1 |
 
 **Backlog B — missing expressiveness.** The trigger is reachable and the move
 exists, but the DSL cannot say what the card does. This is the inventory's
@@ -231,10 +236,11 @@ played*, not what it blocks from being written.
 Not within backlog B. The inventory's order was driven by how many cards each
 gap unlocks, and nothing here moves those numbers.
 
-What changes is that backlog B is no longer the only queue. `counterEvent` is
-the whole of backlog A, it blocks all three `[Counter]` Events of the two
-starter decks, and whenever the engine's own rule set is next opened it belongs
-at the top of that list, ahead of anything in B.
+What changes is that backlog B is no longer the only queue. `counterEvent`
+heads backlog A, it blocks all three `[Counter]` Events of the two starter
+decks, and whenever the engine's own rule set is next opened it belongs at the
+top of that list, ahead of anything in B. The layered-evaluation item sits
+behind it, one printed card against 184.
 
 The methodological correction is worth more than the ordering: **for every card
 from here on, ask both questions.** Can the DSL say it, and can a real card get

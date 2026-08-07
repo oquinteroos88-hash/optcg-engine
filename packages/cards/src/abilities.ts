@@ -80,17 +80,29 @@ export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = O
   // "[Trigger] Up to 1 of your Leader or Character cards gains +1000 power
   //  during this turn."
   //
-  // Only the `[Trigger]` half is written. The `[Counter]` half is expressible —
-  // it is this same script with +3000 and `endOfBattle` — but no real card can
-  // reach the `counterEvent` trigger today: `legalActions` offers PLAY_COUNTER
-  // only for a card with a printed Counter value, and every `[Counter]` Event
-  // in the game is printed without one. See `counterEvent.test.ts`, which fails
-  // the day that changes, and the PR that introduced this file.
+  // Both halves are written now that the engine can play a Counter Event from
+  // hand (PLAY_COUNTER_EVENT). The `[Counter]` effect is reached during the
+  // Counter Step; the `[Trigger]` effect off a life card.
   //
-  // Note the two durations are genuinely different: the Counter effect lasts
-  // the battle, the Trigger effect lasts the turn. They are not the same
-  // ability with a different number.
+  // The two durations are genuinely different: the Counter effect lasts the
+  // battle, the Trigger effect lasts the turn. They are the same shape of script
+  // with a different number and a different duration, not one ability reused.
   'ST01-014': [
+    {
+      id: 'ST01-014-counter',
+      trigger: 'counterEvent',
+      script: [
+        {
+          op: 'select',
+          as: 'ally',
+          from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+          min: 0,
+          max: 1,
+          prompt: 'Give up to 1 of your Leader or Character cards +3000 power',
+        },
+        { op: 'addPower', target: { var: 'ally' }, value: 3000, duration: 'endOfBattle' },
+      ],
+    },
     {
       id: 'ST01-014-trigger',
       trigger: 'trigger',

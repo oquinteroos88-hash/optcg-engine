@@ -326,6 +326,17 @@ export const ABIL_CARDS: CardDefinition[] = [
         trigger: 'onPlay',
         script: [{ op: 'giveDon', target: { self: true }, count: 1 }],
       },
+      // A cost-free activated giveDon, so a test can reach the op with a cost
+      // area the caller controls — an [On Play] always rests its own cost first,
+      // which hides the all-active case the rested-only rule turns on. Once per
+      // turn so the random sweep, which plays until a game ends, cannot loop on
+      // it forever once the rested DON!! run out and it turns into a no-op.
+      {
+        id: 'ABIL-018-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [{ op: 'giveDon', target: { self: true }, count: 1 }],
+      },
     ],
   }),
 

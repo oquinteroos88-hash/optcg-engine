@@ -442,6 +442,35 @@ describe('ABIL-018 — giveDon', () => {
     expect(cost('rested')).toHaveLength(1);
     assertSettled(done);
   });
+
+  it('gives nothing from an all-active cost area', () => {
+    // The rested-only rule lives in interpreter.ts, so its guard belongs in this
+    // package: the ABIL-018 case above always has rested DON!! from paying the
+    // play cost, so it passes whether giveDon takes rested-only or rested-first.
+    // Activating the cost-free giveDon on an untouched, all-active cost area is
+    // the case that separates them — rested-first would hand over an active
+    // DON!! here; rested-only gives none.
+    const staged = buildScenario({
+      decks,
+      p1: { activeDon: 3, characters: [{ cardId: 'ABIL-018' }] },
+    });
+    const source = characterAt(staged, 'p1', 0);
+    const done = applyOk(staged, {
+      type: 'ACTIVATE_ABILITY',
+      player: 'p1',
+      instanceId: source,
+      abilityId: 'ABIL-018-main',
+    }).state;
+
+    expect(done.cards[source]?.attachedDon).toHaveLength(0);
+    expect(done.players.p1.don.filter((d) => d.location.kind === 'attached')).toHaveLength(0);
+    expect(
+      done.players.p1.don.filter(
+        (d) => d.location.kind === 'cost' && d.location.orientation === 'active',
+      ),
+    ).toHaveLength(3);
+    assertSettled(done);
+  });
 });
 
 describe('ABIL-019 — trashSelf cost', () => {

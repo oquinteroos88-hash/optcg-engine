@@ -326,7 +326,17 @@ function moveCard(
   emit(draft, events, { type: 'cardMoved', player: card.owner, instanceId: id, to: to.zone });
 }
 
-/** Attaches DON!! from the controller's cost area, rested ones first. */
+/**
+ * Attaches DON!! from the controller's cost area onto a card they control.
+ *
+ * Only *rested* DON!! qualify. Every printed card that gives DON!! this way says
+ * "give up to N rested DON!! card(s)", and in the game that word is a
+ * restriction, not a search order: an active DON!! is never a legal source, so a
+ * cost area holding only active DON!! gives nothing at all. With fewer than
+ * `count` rested DON!! available the effect gives what there is — "up to X" is a
+ * choice of 0..X, so a short supply is a smaller number, not a failed effect
+ * (CR 4-8-1, 8-4-4-1).
+ */
 function giveDon(
   draft: GameState,
   item: StackItem,
@@ -342,16 +352,14 @@ function giveDon(
     return;
   }
   let remaining = count;
-  for (const orientation of ['rested', 'active'] as const) {
-    for (const don of draft.players[item.controller].don) {
-      if (remaining === 0) {
-        break;
-      }
-      if (don.location.kind === 'cost' && don.location.orientation === orientation) {
-        don.location = { kind: 'attached', to: target };
-        card.attachedDon.push(don.instanceId);
-        remaining -= 1;
-      }
+  for (const don of draft.players[item.controller].don) {
+    if (remaining === 0) {
+      break;
+    }
+    if (don.location.kind === 'cost' && don.location.orientation === 'rested') {
+      don.location = { kind: 'attached', to: target };
+      card.attachedDon.push(don.instanceId);
+      remaining -= 1;
     }
   }
   const given = count - remaining;

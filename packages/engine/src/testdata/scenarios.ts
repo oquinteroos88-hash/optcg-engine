@@ -41,6 +41,12 @@ export interface SideSpec {
   hand?: CardId[];
   /** Active DON!! in the cost area; the rest stay in the DON!! deck. */
   activeDon?: number;
+  /**
+   * Rested DON!! in the cost area, placed after the active ones. Lets a test
+   * stage the spent-DON position that an activated ability with no cost cannot
+   * create on its own — `giveDon` only ever draws from rested DON!!.
+   */
+  restedDon?: number;
   /** Trim life to exactly this many cards; the excess goes back to the deck. */
   life?: number;
   /**
@@ -121,10 +127,19 @@ function applySide(draft: GameState, player: PlayerId, side: SideSpec): void {
     }
   }
 
-  // DON!! layout before attachments, which consume from the active pool.
-  if (side.activeDon !== undefined) {
+  // DON!! layout before attachments, which consume from the active pool: first
+  // the active DON!!, then the rested ones, then the DON!! deck.
+  if (side.activeDon !== undefined || side.restedDon !== undefined) {
+    const active = side.activeDon ?? 0;
+    const rested = side.restedDon ?? 0;
     ps.don.forEach((don, i) => {
-      don.location = i < (side.activeDon ?? 0) ? { kind: 'cost', orientation: 'active' } : { kind: 'donDeck' };
+      if (i < active) {
+        don.location = { kind: 'cost', orientation: 'active' };
+      } else if (i < active + rested) {
+        don.location = { kind: 'cost', orientation: 'rested' };
+      } else {
+        don.location = { kind: 'donDeck' };
+      }
     });
   }
 

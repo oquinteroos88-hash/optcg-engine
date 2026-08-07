@@ -2,7 +2,8 @@ import { deepStrictEqual } from 'node:assert';
 import { describe, expect, it } from 'vitest';
 import { applyAction, legalActions, registerCardSet } from '../src/index.js';
 import type { Action, GameState } from '../src/index.js';
-import { assertInvariants, assertSerializationRoundTrip, checkTurnLeak } from '../src/invariants.js';
+import { assertInvariants, checkTurnLeak } from '../src/invariants.js';
+import { assertSerializationRoundTrip } from '../src/testing/index.js';
 import { advanceToMain, applyFail, applyOk, buildGame, cloneWith, draftSetCostDon } from './helpers.js';
 
 /**

@@ -81,11 +81,14 @@ describe('the normalized set', () => {
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
       'ST01-001',
+      'ST01-004',
       'ST01-005',
       'ST01-007',
       'ST01-011',
+      'ST01-013',
       'ST01-014',
       'ST01-015',
+      'ST02-003',
       'ST02-009',
       'ST02-013',
     ]);

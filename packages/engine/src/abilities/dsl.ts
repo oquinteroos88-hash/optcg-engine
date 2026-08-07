@@ -85,6 +85,22 @@ export interface ZoneRef {
   zone: 'hand' | 'deck' | 'trash' | 'life';
 }
 
+/**
+ * Who a `static` ability applies to.
+ *
+ * Reuses the two `Ref` shapes that mean something for a continuous effect — the
+ * card that carries it, or everything a selector matches — and deliberately
+ * leaves out `{var}` and `{battle}`. A static has no script frame and no
+ * variables, and it is read outside any battle, so those two could only ever
+ * name something that does not exist; making them unspellable here is the point.
+ *
+ * `{self: true}` is the exact inverse of `Selector.excludeSelf`: "only the
+ * source", where `excludeSelf` says "everyone the selector matches but the
+ * source". Neither can be written in terms of the other, which is why both
+ * exist.
+ */
+export type Audience = { self: true } | { selector: Selector };
+
 export type Cost =
   | { kind: 'restDon'; count: number }
   | { kind: 'returnDon'; count: number }
@@ -140,7 +156,7 @@ export interface Ability {
   /** Empty for `trigger: 'static'`. */
   script: Instruction[];
   /** `static` only: who the continuous effect applies to. */
-  affects?: Selector;
+  affects?: Audience;
   /** `static` only: what it grants them. */
   grants?: { power?: number; keyword?: Keyword };
 }

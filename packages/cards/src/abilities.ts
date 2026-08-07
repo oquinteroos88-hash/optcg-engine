@@ -124,6 +124,61 @@ export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = O
     },
   ],
 
+  // ST01-013 Roronoa Zoro
+  // "[DON!! x1] This Character gains +1000 power."
+  // A continuous that names its own source: affects {self: true}, gated on one
+  // attached DON!!.
+  'ST01-013': [
+    {
+      id: 'ST01-013-static',
+      trigger: 'static',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [],
+      affects: { self: true },
+      grants: { power: 1000 },
+    },
+  ],
+
+  // ST01-004 Sanji
+  // "[DON!! x2] This Character gains [Rush]."
+  // The keyword sibling of Zoro: same self-targeting shape, granting Rush once
+  // two DON!! are attached.
+  'ST01-004': [
+    {
+      id: 'ST01-004-static',
+      trigger: 'static',
+      condition: { kind: 'donAttached', min: 2 },
+      script: [],
+      affects: { self: true },
+      grants: { keyword: 'rush' },
+    },
+  ],
+
+  // ST02-003 Urouge
+  // "[DON!! x1] If you have 3 or more Characters, this card gains +2000 power."
+  // Self-targeting again, behind a compound condition: one attached DON!! and a
+  // board of three or more Characters — Urouge counts itself toward the three.
+  'ST02-003': [
+    {
+      id: 'ST02-003-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          {
+            kind: 'countCards',
+            selector: { zone: 'field', owner: 'you', category: ['character'] },
+            min: 3,
+          },
+        ],
+      },
+      script: [],
+      affects: { self: true },
+      grants: { power: 2000 },
+    },
+  ],
+
   // ST01-005 Jinbe
   // "[DON!! x1] [When Attacking] Up to 1 of your Leader or Character cards
   //  other than this card gains +1000 power during this turn."

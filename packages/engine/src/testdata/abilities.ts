@@ -90,14 +90,25 @@ export const ABIL_CARDS: CardDefinition[] = [
     ],
   }),
 
-  // --- continuous power --------------------------------------------------
+  // --- continuous power, to others and to itself -------------------------
   character('ABIL-003', 'Standard Bearer', 2, 3000, 1000, {
     abilities: [
       {
         id: 'ABIL-003-static',
         trigger: 'static',
         script: [],
-        affects: { zone: 'field', owner: 'you', category: ['character'], excludeSelf: true },
+        affects: { selector: { zone: 'field', owner: 'you', category: ['character'], excludeSelf: true } },
+        grants: { power: 1000 },
+      },
+      // The self-targeting counterpart of the same shape: a static that names
+      // its own source with `{self: true}`, gated so the other tests — none of
+      // which attach a DON!! to the bearer — never see it.
+      {
+        id: 'ABIL-003-self',
+        trigger: 'static',
+        condition: { kind: 'donAttached', min: 1 },
+        script: [],
+        affects: { self: true },
         grants: { power: 1000 },
       },
     ],
@@ -110,7 +121,9 @@ export const ABIL_CARDS: CardDefinition[] = [
         id: 'ABIL-004-static',
         trigger: 'static',
         script: [],
-        affects: { zone: 'field', owner: 'you', category: ['character'], costMax: 2, excludeSelf: true },
+        affects: {
+          selector: { zone: 'field', owner: 'you', category: ['character'], costMax: 2, excludeSelf: true },
+        },
         grants: { keyword: 'blocker' },
       },
     ],
@@ -313,6 +326,17 @@ export const ABIL_CARDS: CardDefinition[] = [
         trigger: 'onPlay',
         script: [{ op: 'giveDon', target: { self: true }, count: 1 }],
       },
+      // A cost-free activated giveDon, so a test can reach the op with a cost
+      // area the caller controls — an [On Play] always rests its own cost first,
+      // which hides the all-active case the rested-only rule turns on. Once per
+      // turn so the random sweep, which plays until a game ends, cannot loop on
+      // it forever once the rested DON!! run out and it turns into a no-op.
+      {
+        id: 'ABIL-018-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [{ op: 'giveDon', target: { self: true }, count: 1 }],
+      },
     ],
   }),
 
@@ -410,7 +434,7 @@ export const ABIL_CARDS: CardDefinition[] = [
         id: 'ABIL-024-static',
         trigger: 'static',
         script: [],
-        affects: { zone: 'field', owner: 'you', category: ['character'], types: ['Crew'] },
+        affects: { selector: { zone: 'field', owner: 'you', category: ['character'], types: ['Crew'] } },
         grants: { power: 1000 },
       },
     ],

@@ -10,18 +10,23 @@ section rewritten to how it was closed.
 The rest of this document is that evidence, plus three secondary findings the
 sweep turned up on the way.
 
-**Current as of PR #13.** Two things have changed since the sweep and are worth
-having up front:
+**Current as of PR #15.** Three things have changed since the sweep and are
+worth having up front:
 
 - **Backlog A holds no actionable item.** Both of its entries are settled — one
   built (PR #10), one priced and declined. See
   [Backlog A is empty of actionable work](#backlog-a-is-empty-of-actionable-work--say-it-plainly),
   because the sections above it are written in the voice of a live queue and
   read as though work were outstanding.
-- **Backlog B lost its top three and gained three more.** PRs #11, #12 and #13
-  closed self-targeting statics, rested-DON!! giving and DON!! orientation; PR
-  #11 also uncovered three DON!! mechanics no starter card prints, sized in
-  `docs/starter-card-inventory.md`.
+- **Backlog B lost its top four and gained three more.** PRs #11, #12 and #13
+  closed self-targeting statics, rested-DON!! giving and DON!! orientation, and
+  PR #15 closed resting the source as a cost; PR #11 also uncovered three DON!!
+  mechanics no starter card prints, sized in `docs/starter-card-inventory.md`.
+- **`counterEvent` fires from two sites and one of them is dead.** The trigger
+  is reachable — that has not changed — but only through `PLAY_COUNTER_EVENT`.
+  No printed card can reach the `PLAY_COUNTER` site, which PR #15 measured,
+  documented and pinned rather than deleted. See
+  [one of the trigger's two firing sites is dead](#one-of-the-triggers-two-firing-sites-is-dead--measured-documented-pinned).
 
 Phase 2C notes live at the end of this document, under
 [what the event log does not say](#notes-for-phase-2c--what-the-event-log-does-not-say).
@@ -304,7 +309,7 @@ missing — not that nothing is.
 
 **Backlog B — missing expressiveness.** The trigger is reachable and the move
 exists, but the DSL cannot say what the card does. This is the inventory's
-ranked table, and three of its items have since been built:
+ranked table, and four of its items have since been built:
 
 | Missing expressiveness | Cards | Status |
 | --- | --- | --- |
@@ -315,7 +320,7 @@ ranked table, and three of its items have since been built:
 | `[Blocker]` prohibitions | 146 | open — structural |
 | `orderCards`, and naming "the cards not taken" | 254 | open |
 | Suspendable costs | 197 | open — structural |
-| Resting the source as a cost | 90 | open |
+| Resting the source as a cost | 90 | **done — PR #15** (`restSelf`) |
 | Negation in `Condition` — `[Opponent's Turn]` | 77 | open — *added by this sweep* |
 | A fifth `Keyword` for `[Unblockable]` | 8 | open — *added by this sweep* |
 | Give **active** DON!! as a cost | 5 | open — *added by PR #11* |
@@ -357,12 +362,21 @@ decks — and it has now been built, ahead of anything in B, exactly because an 
 item outranks a same-sized B item. The layered-evaluation item, one printed card
 against 184, is what remains at the head of A.
 
-**Since answered, by PRs #11 through #13.** The inventory's order was followed as
-written: the three-way tie at the top of B was built in the recommended order,
-and it emptied the top of that queue. With A holding no actionable item, backlog
-B is once again the only queue — and its head is now the pair of 3-card gaps
-that were tied for second, of which the `[Blocker]` prohibitions are structural
-and the put-into-play family is the largest in the inventory at 375 cards.
+**Since answered, by PRs #11 through #13, and #15.** The inventory's order was
+followed as written: the three-way tie at the top of B was built in the
+recommended order, then the rest-the-source cost that stood next. With A holding
+no actionable item, backlog B is once again the only queue — and its head is now
+the pair of 3-card gaps that were tied for second, of which the `[Blocker]`
+prohibitions are structural and the put-into-play family is the largest in the
+inventory at 375 cards.
+
+PR #15 left one methodological mark on this list. `restSelf` is the first entry
+in B whose implementation had to reach `legalActions` and not only the
+interpreter — a cost that cannot be paid has to be *invisible*, not merely
+refused, or the affordance contract breaks. Nothing in the ranking changes; it is
+a reminder that a B item's cost is not always confined to the DSL, and that
+"missing expressiveness" and "missing rule" are labels for where a gap *starts*,
+not for everything it touches.
 
 The ranking rule did not change; what changed is that the A column ran out. The
 next time an A item appears it will still outrank everything in B, which is

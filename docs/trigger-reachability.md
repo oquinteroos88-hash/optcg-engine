@@ -10,6 +10,22 @@ section rewritten to how it was closed.
 The rest of this document is that evidence, plus three secondary findings the
 sweep turned up on the way.
 
+**Current as of PR #13.** Two things have changed since the sweep and are worth
+having up front:
+
+- **Backlog A holds no actionable item.** Both of its entries are settled — one
+  built (PR #10), one priced and declined. See
+  [Backlog A is empty of actionable work](#backlog-a-is-empty-of-actionable-work--say-it-plainly),
+  because the sections above it are written in the voice of a live queue and
+  read as though work were outstanding.
+- **Backlog B lost its top three and gained three more.** PRs #11, #12 and #13
+  closed self-targeting statics, rested-DON!! giving and DON!! orientation; PR
+  #11 also uncovered three DON!! mechanics no starter card prints, sized in
+  `docs/starter-card-inventory.md`.
+
+Phase 2C notes live at the end of this document, under
+[what the event log does not say](#notes-for-phase-2c--what-the-event-log-does-not-say).
+
 ## Why this sweep exists
 
 `docs/starter-card-inventory.md` classified 34 cards against the DSL's
@@ -58,19 +74,22 @@ origins of `onKO`.
 
 ## The eleven
 
+Line numbers are as of PR #13; PRs #9–#13 moved several of them, and the ones
+below were re-read rather than carried over.
+
 | Trigger | Fired by | Reachable | What proves it | Cards | Gap |
 | --- | --- | --- | --- | --- | --- |
 | `onPlay` | `applyPlayCard`, `reducer/main.ts:83` (character) and `:108` (stage) | **yes** | `ST02-009` Law, in an unstaged game (`game.test.ts`); ABIL table | 868 | — |
-| `whenAttacking` | `applyDeclareAttack`, `reducer/battle.ts:96` | **yes** | `ST01-005` Jinbe, unstaged game | 250 | — |
-| `onBlock` | `applyDeclareBlock`, `reducer/battle.ts:130` | **yes** | ABIL-022 only (`abilityTable.test.ts`) | 14 | no real-card coverage |
+| `whenAttacking` | `applyDeclareAttack`, `reducer/battle.ts:107` | **yes** | `ST01-005` Jinbe, unstaged game | 250 | — |
+| `onBlock` | `applyDeclareBlock`, `reducer/battle.ts:141` | **yes** | ABIL-022 only (`abilityTable.test.ts`) | 14 | no real-card coverage |
 | `onKO` | `leaveField(cause: 'ko')`, `reducer/helpers.ts:127` | **yes** | ABIL-011 from battle and from a script `ko` | 157 | no real-card coverage |
-| `whenOpponentAttacks` | `applyDeclareAttack`, `reducer/battle.ts:97` | **yes** | ABIL-014 only | 49 | no real-card coverage |
+| `whenOpponentAttacks` | `applyDeclareAttack`, `reducer/battle.ts:108` | **yes** | ABIL-014 only | 49 | no real-card coverage |
 | `activateMain` | `ACTIVATE_ABILITY` → `reducer/activate.ts:38`, gated in `legalActions.ts:101` | **yes** | ABIL-009/010 only | 365 | no real-card coverage |
-| `trigger` | `stepResume` damage step, `abilities/interpreter.ts:747` | **yes** | `ST01-014`, `ST01-015` from life, unstaged games | 501 | see coverage note |
-| `counterEvent` | `applyPlayCounterEvent` (`PLAY_COUNTER_EVENT`), `reducer/battle.ts`, gated in `legalActions.ts` | **yes** | `ST01-014` Guard Point from hand (`counterEvent.test.ts`); ABIL-016 | 184 | **was missing rule — now closed** |
+| `trigger` | life-card damage step, `abilities/interpreter.ts:811` | **yes** | `ST01-014`, `ST01-015` from life, unstaged games | 501 | see coverage note |
+| `counterEvent` | two sites: `applyPlayCounterEvent` (`PLAY_COUNTER_EVENT`), `reducer/battle.ts:254`, gated in `legalActions.ts:185`; and `applyPlayCounter`, `reducer/battle.ts:203` | **yes** | `ST01-014` Guard Point from hand (`counterEvent.test.ts`, `counterEventPlay.test.ts`); ABIL-016 | 184 | **was missing rule — closed by PR #10** |
 | `mainEvent` | `applyPlayCard`, `reducer/main.ts:124` | **yes** | `ST01-015` Jet Pistol, unstaged game | 272 | — |
 | `endOfTurn` | `applyEndTurn`, `reducer/turn.ts:24` | **yes** | `ST02-013` Kid, unstaged game | 50 | — |
-| `static` | not fired — read in `getPower` / `hasKeyword` via `forEachStatic`, `selectors.ts:45` | **yes** | ABIL-003/004/024 (`continuous.test.ts`) | — | see the read-path audit |
+| `static` | not fired — read in `getPower` / `hasKeyword` via `forEachStatic`, `selectors.ts:54` | **yes** | ABIL-003/004/024 (`continuous.test.ts`); `ST01-013`, `ST01-004`, `ST02-003` since PR #12 | — | see the read-path audit |
 
 Precondition notes, since that is what this sweep is actually about:
 
@@ -151,7 +170,7 @@ exactly four members and this is a fifth.
 `getPower` and `hasKeyword` are the only readers of printed power and printed
 keywords — the audit for that is clean. Nothing outside `selectors.ts` touches
 `def.power` or `def.keywords`; combat compares with `getPower`
-(`battle.ts:218-219`); Rush, Blocker, Double Attack and Banish are all asked of
+(`battle.ts:280-281`); Rush, Blocker, Double Attack and Banish are all asked of
 `hasKeyword` in both `legalActions` and `battle.ts`. A granted keyword counts
 exactly like a printed one everywhere it matters.
 
@@ -160,7 +179,8 @@ without-statics reading in all three places one is checked (`triggers.ts`,
 `legalActions.ts`, `activate.ts`), while an `if` *inside* a script read
 `getPower` — the same `Condition` saw different power depending on where it
 sat. The sweep could not tell whether that was deliberate, and left it
-unclassified. `fix/conditions-read-current-power` answered it: accidental. The
+unclassified. **PR #9** (`fix/conditions-read-current-power`) answered it:
+accidental. The
 recursion guard that static evaluation needs was applied wider than necessary;
 for a non-static ability there is no re-entry, because `getPower` drops to the
 without-statics reading one level down, inside `forEachStatic`. The three sites
@@ -169,6 +189,13 @@ value per card, made higher or lower than printed by effects (2-6-3),
 activation conditions met against the state as it is (8-4-1-1), and the Damage
 Step comparing "the power" of the same card (7-1-4-1).
 
+The same PR renamed the guarded reading from `getBasePower` to
+**`getPowerWithoutStatics`**, which is worth recording because the old name was
+a rules term for something else: the Comprehensive Rules use *base power* for a
+value an effect **sets** (4-9-2-1), and the engine will need that name the day a
+card says "this Character's base power becomes X". The function is a recursion
+anchor, not a rules concept.
+
 What remains, now declared rather than accidental: a `static` whose **own**
 condition asks about power still reads the without-statics value, because there
 the guard is load-bearing. OP06-002 — "[DON!! x1] If this Character has 7000
@@ -176,7 +203,9 @@ power or more, this Character gains [Banish]" — is the printed card behind it:
 its Banish never switches on when the 7000 threshold is only reached through
 another card's continuous effect. The faithful fix is a layered effect system
 that evaluates continuous effects in passes; known, and priced at far more than
-one card justifies. Moved to backlog A.
+one card justifies. Moved to backlog A — where, as the backlog section below
+records, it is the only remaining entry and was **rejected on cost**, not
+scheduled.
 
 ### Two coverage gaps
 
@@ -218,20 +247,65 @@ because it is not that kind of problem. It belongs to a second list nobody had
 opened yet.
 
 **Backlog A — missing rules.** The game has a move the engine does not offer,
-or a behavior it does not reproduce. It opened with two items; the first is now
-built.
+or a behavior it does not reproduce. It opened with two items.
 
 | Missing rule | Cards behind it | Status |
 | --- | --- | --- |
-| Playing a Counter Event from hand during the Counter Step, paying its cost | 184 | **done** — `PLAY_COUNTER_EVENT` |
-| Layered evaluation of continuous effects: a `static` whose own condition asks about power reads the without-statics value (the recursion guard), so OP06-002's [Banish] cannot switch on through another card's continuous buff | 1 | open |
+| Playing a Counter Event from hand during the Counter Step, paying its cost | 184 | **done — PR #10** (`PLAY_COUNTER_EVENT`) |
+| Layered evaluation of continuous effects: a `static` whose own condition asks about power reads the without-statics value (the recursion guard), so OP06-002's [Banish] cannot switch on through another card's continuous buff | 1 | open, **rejected on cost** |
+
+### Backlog A is empty of actionable work — say it plainly
+
+One item was built. The other was **priced and declined**: a layered effect
+system evaluating continuous effects in passes, to serve exactly one printed
+card. That is not a queued item waiting for its turn — it is a decision already
+taken, recorded as a **declared divergence** rather than a defect. Nothing in
+backlog A is waiting for anyone.
+
+This is worth stating outright because the sections above are written in the
+voice of a live queue, and a reader skimming them would reasonably conclude
+there is A-ranked work outstanding. There is not. **An empty backlog A is a
+result, not an absence of one**: it means the engine no longer has a move the
+game has, and the games it simulates resemble the game. That was the entire
+point of separating the two lists, and A reaching zero is the first time the
+separation has paid out.
+
+The one qualifier: A is empty *of what has been looked for*. `counterEvent` was
+found by asking a question nobody had asked, and the three DON!! mechanics in
+the inventory's [new-gaps
+section](starter-card-inventory.md#gaps-the-34-cards-could-not-show) were found
+by reading past the 34-card sample. A missing rule is invisible until someone
+asks the right question of the right cards. Empty means nothing is known to be
+missing — not that nothing is.
 
 **Backlog B — missing expressiveness.** The trigger is reachable and the move
 exists, but the DSL cannot say what the card does. This is the inventory's
-ranked table: self-targeting statics, rested-DON!! giving, DON!! orientation,
-putting cards into play, `[Blocker]` prohibitions, `orderCards`, suspendable
-costs, and the two this sweep adds — negation in `Condition` (77 cards) and a
-fifth keyword for `[Unblockable]` (8 cards).
+ranked table, and three of its items have since been built:
+
+| Missing expressiveness | Cards | Status |
+| --- | --- | --- |
+| Self-targeting continuous abilities | 268 | **done — PR #12** (`affects: {self: true}`) |
+| Rested-DON!! giving | 105 | **done — PR #11** |
+| DON!! orientation changes | 71 | **done — PR #13** (`orientDon`) |
+| Putting cards into play | 375 | open |
+| `[Blocker]` prohibitions | 146 | open — structural |
+| `orderCards`, and naming "the cards not taken" | 254 | open |
+| Suspendable costs | 197 | open — structural |
+| Resting the source as a cost | 90 | open |
+| Negation in `Condition` — `[Opponent's Turn]` | 77 | open — *added by this sweep* |
+| A fifth `Keyword` for `[Unblockable]` | 8 | open — *added by this sweep* |
+| Give **active** DON!! as a cost | 5 | open — *added by PR #11* |
+| Add DON!! from the DON!! deck | 140 | open — *added by PR #11* |
+| Move the opponent's DON!! | 2 | open — *added by PR #11* |
+
+The last three are the ones neither this sweep nor the inventory could have
+found: they are printed on no card in either starter deck. They are sized and
+argued in the inventory. Note that the largest of them, 140 cards, would sit
+third in this table — a family the 34-card sample was structurally unable to
+see.
+
+Backlog B, unlike A, is emphatically **not** empty, and that is the expected
+state. B is where a young DSL is supposed to have a queue.
 
 **The two are not interchangeable, and A is worse.**
 
@@ -259,7 +333,89 @@ decks — and it has now been built, ahead of anything in B, exactly because an 
 item outranks a same-sized B item. The layered-evaluation item, one printed card
 against 184, is what remains at the head of A.
 
+**Since answered, by PRs #11 through #13.** The inventory's order was followed as
+written: the three-way tie at the top of B was built in the recommended order,
+and it emptied the top of that queue. With A holding no actionable item, backlog
+B is once again the only queue — and its head is now the pair of 3-card gaps
+that were tied for second, of which the `[Blocker]` prohibitions are structural
+and the put-into-play family is the largest in the inventory at 375 cards.
+
+The ranking rule did not change; what changed is that the A column ran out. The
+next time an A item appears it will still outrank everything in B, which is
+precisely why the two lists stay separate even while one of them is empty.
+
 The methodological correction is worth more than the ordering: **for every card
 from here on, ask both questions.** Can the DSL say it, and can a real card get
 there. The second question is cheap — it is a read of one reducer — and it is
 the one that was never asked.
+
+PR #11 added a third question, from the other direction: **is this gap the whole
+family, or only the part the sample happened to print?** Fixing `giveDon` for
+three starter cards meant reading how all 2665 talk about DON!!, and that turned
+up three mechanics no starter card carries — one of them 140 cards wide. The
+first two questions interrogate a card. This one interrogates the sample.
+
+## Notes for phase 2C — what the event log does not say
+
+Phase 2C owns the UI for choices. Two findings belong to it rather than to
+either backlog, because neither is a missing rule or a missing word: the engine
+behaves correctly and simply does not *say* so. Both surfaced while writing real
+cards, and both are recorded here so 2C does not have to rediscover them from a
+bug report.
+
+### 1. An ability that resolves to nothing emits no event
+
+The engine emits `abilityTriggered` when an ability fires, and then each `op`
+emits its own event only when it actually did something. `giveDon` emits
+`donAttached` **only if `given > 0`**; `orientDon` emits
+`donOrientationChanged` only for DON!! that actually turned, and its own type
+comment says the event "is not emitted at all when nothing moved"; a stale
+target records the `op.targetGone` *mark*, which is instrumentation and never
+reaches the log.
+
+So an ability that legitimately resolves to nothing produces exactly one log
+entry — `abilityTriggered` — and then silence.
+
+This is correct engine behaviour and a genuine UI problem. From the client, the
+player sees something fire and nothing happen, **and cannot distinguish that
+from a bug**. The states are real and reachable: activate `ST01-001` Luffy with
+no rested DON!! in the cost area, or `ST02-008` Apoo against an opponent whose
+cost area is already fully rested. Both are legal plays that correctly do
+nothing.
+
+Worth being precise about what is *not* wrong here. "Up to N" resolving to zero
+is a rule, not a failure — the DSL's most common quantifier, on 15 of the 26
+starter cards with text. The UI needs to render "this resolved to nothing" as an
+outcome, not treat the absence of a follow-up event as an error. Whether that
+needs a new event (an explicit "resolved with no effect") or is better derived
+by the client from `abilityTriggered` with no subsequent effect event before the
+next entry, is 2C's call — the engine currently supports only the second.
+
+### 2. Continuous abilities emit no event at all
+
+Stronger than the first, and structural rather than incidental. `static`
+abilities are not fired: they are **read** through `forEachStatic` inside
+`getPower` and `hasKeyword`, and nothing is ever written to the state when a
+card with a static enters or leaves the field. That is deliberate and it is the
+design's best property — there is nothing to clean up, recalculate, or keep in
+sync. `selectors.ts` contains no `emit` call at all.
+
+The consequence for the UI: **the log will never explain why a Character has
++1000.** There is no event to show, and there never will be under this design;
+`static.powerApplied` and `static.keywordApplied` exist, but they are marks for
+instrumentation, not events. This is not a gap to be closed — emitting on read
+would mean emitting on every power query.
+
+So 2C has to derive it from state rather than from the log: given a card, walk
+the field for `static` abilities whose condition holds and whose `affects`
+names it, and show *which continuous effects are currently live on this card*.
+That is the same walk `forEachStatic` already does, and the display it feeds is
+a hover or an inspector, not a log line.
+
+PR #12 raised the stakes on this. Before it, a static could only buff *other*
+cards, so a player could at least guess at the source. Now that
+`affects: {self: true}` exists — `ST01-013` Zoro and `ST01-004` Sanji buff
+themselves under a `[DON!! xN]` condition — a card's power changes with no
+visible cause anywhere on the board, including on the card itself. The printed
+number, the attached DON!!, and the effective power are three different values
+and the UI shows one.

@@ -7,6 +7,26 @@ can the Phase 2A DSL already say?**
 The project bet was "if the DSL holds these ~40, it holds 400". This measures
 that before the effort is spent.
 
+## Status, as of PR #13
+
+The inventory was written against a DSL that could express 15 of the 34 cards.
+Five gaps have been closed since, each by its own PR, and the count is now
+**24 of 34 playable, 10 still blocked**. The card-by-card table and the gap
+table below both carry the PR that closed each row, because in six months the
+question will be *when and why* a gap was resolved, not merely whether it was.
+
+| Gap | Closed by | Cards it unlocked |
+| --- | --- | --- |
+| Conditions read the *current* power, not the without-statics value | **PR #9** | none directly — a correctness fix; `getBasePower` became `getPowerWithoutStatics` |
+| `counterEvent` reachable — `PLAY_COUNTER_EVENT` | **PR #10** | `ST01-014` (with #12/#13 for the others' halves) |
+| `giveDon` takes **only** rested DON!! | **PR #11** | `ST01-001`, `ST01-007`, `ST01-011` |
+| A `static` may name its own source — `affects: {self: true}` | **PR #12** | `ST01-013`, `ST01-004`, `ST02-003` |
+| `orientDon` — change DON!! orientation by quantity | **PR #13** | `ST02-008`, `ST02-015`, `ST02-016` |
+
+PR #11 also uncovered **three DON!! mechanics the DSL does not model** that this
+inventory never saw, because it only ever looked at 34 cards. They are sized in
+[Gaps the 34 cards could not show](#gaps-the-34-cards-could-not-show).
+
 ## Scope and method
 
 Every base card (no `_` suffix) of packs `569001` (ST-01) and `569002` (ST-02),
@@ -16,8 +36,10 @@ both Leaders included: **34 cards**. Text taken from `effectText` and
 Each card is read against the DSL as it stands in
 `packages/engine/src/abilities/` — `dsl.ts` for the vocabulary, `query.ts` for
 what a `Selector` and a `Condition` can actually filter on, `interpreter.ts` for
-what each op does, `costs.ts` for what a `Cost` can be, `triggers.ts` for when
-things fire, and `selectors.ts` for how `static` abilities are evaluated.
+what each op does, `costs.ts` for what a `Cost` can be, and `triggers.ts` for
+when things fire — plus `packages/engine/src/selectors.ts` for how `static`
+abilities are evaluated. (`selectors.ts` sits beside the abilities folder, not
+inside it; the original text of this sentence put it in the wrong place.)
 
 Where a number is quoted for "the whole set", it comes from a text probe over
 all 2665 cards in `packages/cards/data/cards.en.json`. Those numbers are
@@ -42,68 +64,105 @@ regex counts, not classifications: they size a gap, they do not prove one.
 
 ## The piles
 
-| Pile | Meaning | Cards |
-| --- | --- | --- |
-| **vanilla** | No effect text and no trigger text. No `Ability` at all. | 8 |
-| **A** | The DSL expresses it as it stands. | 7 |
-| **B** | Needs something bounded: one capability the DSL does not have. | 13 |
-| **C** | Hits a structural hole. | 5 |
-| **D** | Honestly ambiguous — the text does not settle what it means. | 1 |
+The piles are the classification as first made, against the DSL as it stood.
+They are not re-cut here — the right-hand column tracks what has since been
+built against them.
+
+| Pile | Meaning | Cards | Playable today |
+| --- | --- | --- | --- |
+| **vanilla** | No effect text and no trigger text. No `Ability` at all. | 8 | 8 |
+| **A** | The DSL expresses it as it stands. | 7 | 7 |
+| **B** | Needs something bounded: one capability the DSL does not have. | 13 | 9 |
+| **C** | Hits a structural hole. | 5 | 0 |
+| **D** | Honestly ambiguous — the text does not settle what it means. | 1 | 0 |
 
 Two of the seven in pile A (`ST01-006`, `ST02-004`) need **no `Ability` at
 all**: their entire text is the `[Blocker]` reminder, and printed keywords are
 already a rule in the engine, carried on `CardDefinition.keywords`. So 10 of 34
-cards need nothing written, 5 more are expressible as they stand, and **19 of 34
-need something the DSL cannot say today**.
+cards need nothing written, 5 more were expressible as they stood, and 19 of 34
+needed something the DSL could not say.
 
-That is the headline. The bet does not pay off yet: a bit over half of a
-starter deck is out of reach, and one Leader of the two is in pile C.
+That was the headline when this was written. **Nine of those 19 have since been
+written** — the three-way tie of bounded gaps, closed by PRs #11, #12 and #13.
+
+**Where the 34 stand today.** Counted from `packages/cards/src/abilities.ts`,
+which holds 14 scripted cards, not estimated:
+
+- **24 playable** — 8 vanilla, 2 keyword-only (`ST01-006`, `ST02-004`), and 14
+  with every printed ability written.
+- **10 still blocked**, and the shape of what is left has changed. Everything
+  cheap is done; what remains is one bounded gap and the structural holes.
+
+| Card | Pile | What still blocks it |
+| --- | --- | --- |
+| `ST01-017` Thousand Sunny | B | rest the source as a cost (gap 6) |
+| `ST02-005` Killer | B | `[On Play]` fits; the `[Trigger]` needs put-into-play (gap 4) |
+| `ST02-014` X.Drake | B | a condition about the source's own orientation (gap 9) |
+| `ST02-017` Straw Sword | B | `[Main]` fits; the `[Trigger]` needs put-into-play (gap 4) |
+| `ST01-002` Usopp | C | `[Blocker]` prohibition + put-into-play |
+| `ST01-012` Monkey.D.Luffy | C | `[Blocker]` prohibition |
+| `ST01-016` Diable Jambe | C | `[Blocker]` prohibition + filter by printed keyword |
+| `ST02-001` Eustass"Captain"Kid (Leader) | C | a cost that requires a decision |
+| `ST02-007` Jewelry Bonney | C | `orderCards` + naming "the rest" + rest-the-source cost |
+| `ST02-010` Basil Hawkins | D | needs a ruling before it needs a trigger |
+
+Two of the four remaining pile-B cards are **half-written cards, not unwritten
+ones**: `ST02-005` and `ST02-017` each have a half the DSL expresses today and a
+`[Trigger]` half behind gap 4. Neither is scripted, because a card whose printed
+text is half-implemented is worse than one that is honestly absent.
+
+The ST-02 Leader is still in pile C, which is the sharpest thing left on this
+list: `ST02-001`'s ability is the deck's whole identity and it has never fired.
 
 ## Card by card
 
 Vanilla cards are listed for completeness and excluded from the analysis.
 
+`Pile` is the original classification and is **not** re-cut. **✅ written**
+marks a card whose printed abilities are scripted in
+`packages/cards/src/abilities.ts` today, with the PR that made it possible.
+
 | Card | Name | Cat | Pile | Trigger(s) | Note |
 | --- | --- | --- | --- | --- | --- |
-| ST01-001 | Monkey.D.Luffy | leader | **B** | `activateMain` + `oncePerTurn` | Select 1 own leader/character, give it DON!!. Everything fits except that the DON!! given must be a **rested** one; the op prefers rested and silently falls back to active. |
+| ST01-001 | Monkey.D.Luffy | leader | **B** | `activateMain` + `oncePerTurn` | Select 1 own leader/character, give it DON!!. Everything fitted except that the DON!! given must be a **rested** one; the op preferred rested and silently fell back to active. **✅ written — PR #11** made `giveDon` rested-only. |
 | ST01-002 | Usopp | char | **C** | `whenAttacking`, `trigger` | Effect is a prohibition ("opponent cannot activate a [Blocker] with 5000+ power"). Trigger needs to **put this card into play** from hand. Two gaps, one structural. |
 | ST01-003 | Karoo | char | vanilla | — | |
-| ST01-004 | Sanji | char | **B** | `static` | `[DON!! x2]` → gains Rush. Condition and grant both exist; there is no way for a continuous ability to say it **applies to its own source only**. |
-| ST01-005 | Jinbe | char | **A** | `whenAttacking` | cond `donAttached 1` → select 0–1 from own field, leader+character, `excludeSelf` → `addPower +1000 endOfTurn`. Fits exactly. |
+| ST01-004 | Sanji | char | **B** | `static` | `[DON!! x2]` → gains Rush. Condition and grant both existed; there was no way for a continuous ability to say it **applies to its own source only**. **✅ written — PR #12** added `affects: {self: true}`. |
+| ST01-005 | Jinbe | char | **A** | `whenAttacking` | cond `donAttached 1` → select 0–1 from own field, leader+character, `excludeSelf` → `addPower +1000 endOfTurn`. Fits exactly. **✅ written** (pile-A pass). |
 | ST01-006 | Tony Tony.Chopper | char | **A** | — | Text is only the `[Blocker]` reminder. No `Ability` needed. |
-| ST01-007 | Nami | char | **B** | `activateMain` + `oncePerTurn` | Same shape and same single gap as ST01-001: the DON!! has to be a rested one. |
+| ST01-007 | Nami | char | **B** | `activateMain` + `oncePerTurn` | Same shape and same single gap as ST01-001: the DON!! has to be a rested one. **✅ written — PR #11**; shares one script with ST01-001, whose text it repeats word for word. |
 | ST01-008 | Nico Robin | char | vanilla | — | |
 | ST01-009 | Nefeltari Vivi | char | vanilla | — | |
 | ST01-010 | Franky | char | vanilla | — | |
-| ST01-011 | Brook | char | **B** | `onPlay` | "Up to 2" is expressible as two opt-in steps. The gap is again the **rested** DON!! constraint. |
+| ST01-011 | Brook | char | **B** | `onPlay` | "Up to 2" is expressible as two opt-in steps. The gap was again the **rested** DON!! constraint. **✅ written — PR #11**. |
 | ST01-012 | Monkey.D.Luffy | char | **C** | `static` (printed Rush) + `whenAttacking` | Rush is a printed keyword, already handled. The ability is a prohibition: "opponent cannot activate [Blocker] during this battle". |
-| ST01-013 | Roronoa Zoro | char | **B** | `static` | `[DON!! x1]` → +1000 to itself. Same gap as ST01-004: a continuous ability cannot name its own source. |
-| ST01-014 | Guard Point | event | **A** | `counterEvent`, `trigger` | Select 0–1 own leader/character → `addPower`, `endOfBattle` for the Counter, `endOfTurn` for the Trigger. Both halves are written: the `[Counter]` half became reachable once `PLAY_COUNTER_EVENT` shipped — see the correction below. |
-| ST01-015 | Gum-Gum Jet Pistol | event | **A** | `mainEvent`, `trigger` | Select 0–1 opponent character with `powerMax: 6000` → `ko`. The Trigger says "activate this card's [Main] effect", which is the same instruction list written twice — a data choice, not a DSL gap. |
+| ST01-013 | Roronoa Zoro | char | **B** | `static` | `[DON!! x1]` → +1000 to itself. Same gap as ST01-004: a continuous ability could not name its own source. **✅ written — PR #12**. |
+| ST01-014 | Guard Point | event | **A** | `counterEvent`, `trigger` | Select 0–1 own leader/character → `addPower`, `endOfBattle` for the Counter, `endOfTurn` for the Trigger. **✅ written**; the `[Counter]` half became reachable once `PLAY_COUNTER_EVENT` shipped in **PR #10** — see the correction below. |
+| ST01-015 | Gum-Gum Jet Pistol | event | **A** | `mainEvent`, `trigger` | Select 0–1 opponent character with `powerMax: 6000` → `ko`. The Trigger says "activate this card's [Main] effect", which is the same instruction list written twice — a data choice, not a DSL gap. **✅ written** (pile-A pass); the two abilities share one list rather than repeating it. |
 | ST01-016 | Diable Jambe | event | **C** | `mainEvent`, `trigger` | Main is a prohibition, and the hardest kind: it attaches to a **chosen card** and lasts the turn, conditioned on that card attacking. The Trigger separately needs to filter a selector **by printed keyword** ("[Blocker] Characters"). |
 | ST01-017 | Thousand Sunny | stage | **B** | `activateMain` | Body fits (select 0–1 own {Straw Hat Crew} → `addPower endOfTurn`). The cost is "rest this Stage", and **resting the source is not one of the four costs**. |
 | ST02-001 | Eustass"Captain"Kid | leader | **C** | `activateMain` + `oncePerTurn` | Cost is `restDon 3` **plus a hand card the player picks**. `discardHand` exists but takes the front of the hand; the interpreter cannot suspend during payment. Structural hole #1, on a Leader. |
 | ST02-002 | Vito | char | vanilla | — | |
-| ST02-003 | Urouge | char | **B** | `static` | Condition is expressible (`donAttached 1` and `countCards ≥ 3`). Same self-reference gap as ST01-004 and ST01-013. |
+| ST02-003 | Urouge | char | **B** | `static` | Condition is expressible (`donAttached 1` and `countCards ≥ 3`). Same self-reference gap as ST01-004 and ST01-013. **✅ written — PR #12**. |
 | ST02-004 | Capone"Gang"Bege | char | **A** | — | `[Blocker]` reminder only. No `Ability` needed. |
 | ST02-005 | Killer | char | **B** | `onPlay`, `trigger` | The `[On Play]` fits exactly (`orientation: 'rested'`, `costMax: 3` → `ko`). The Trigger needs to **put this card into play**. |
 | ST02-006 | Koby | char | vanilla | — | |
 | ST02-007 | Jewelry Bonney | char | **C** | `activateMain` | Look at 5, take 1 by type, **"place the rest at the bottom in any order"** — the deleted `orderCards`. Also needs the rest-the-source cost, and a way to name "the cards I did *not* take". |
-| ST02-008 | Scratchmen Apoo | char | **B** | `whenAttacking` | "Rest up to 1 of your opponent's DON!! cards." DON!! are not cards a selector can reach and no op changes their orientation. |
-| ST02-009 | Trafalgar Law | char | **A** | `onPlay` | Select 0–1 own rested character, `types: ['Supernovas','Heart Pirates']`, `costMax: 5` → `setActive`. Fits exactly. |
+| ST02-008 | Scratchmen Apoo | char | **B** | `whenAttacking` | "Rest up to 1 of your opponent's DON!! cards." DON!! are not cards a selector can reach and no op changed their orientation. **✅ written — PR #13** added `orientDon`, which works by quantity; DON!! still are not selectable entities, and did not need to be. |
+| ST02-009 | Trafalgar Law | char | **A** | `onPlay` | Select 0–1 own rested character, `types: ['Supernovas','Heart Pirates']`, `costMax: 5` → `setActive`. Fits exactly. **✅ written** (pile-A pass). |
 | ST02-010 | Basil Hawkins | char | **D** | ? | "If this Character battles your opponent's Character, set this card as active." See the ambiguity note below. |
 | ST02-011 | Heat | char | vanilla | — | |
 | ST02-012 | Bepo | char | vanilla | — | |
-| ST02-013 | Eustass"Captain"Kid | char | **A** | `static` (printed Blocker) + `endOfTurn` | Blocker is printed. `endOfTurn` fires for both players' field cards, so "End of **Your** Turn" is `isYourTurn` — which exists. `setActive` on `{self: true}`. Fits. |
+| ST02-013 | Eustass"Captain"Kid | char | **A** | `static` (printed Blocker) + `endOfTurn` | Blocker is printed. `endOfTurn` fires for both players' field cards, so "End of **Your** Turn" is `isYourTurn` — which exists. `setActive` on `{self: true}`. Fits. **✅ written** (pile-A pass). |
 | ST02-014 | X.Drake | char | **B** | `static` | Grant and audience both expressible. The condition "if this Character is rested" is not: a condition cannot ask about the **source's own orientation**. |
-| ST02-015 | Scalpel | event | **B** | `counterEvent`, `trigger` | The power half fits. Both halves then "set up to N of your DON!! cards as active" — same DON!! gap as ST02-008. Its `counterEvent` trigger is reachable now (via `PLAY_COUNTER_EVENT`); the DON!! half is what still blocks it — see the correction below. |
-| ST02-016 | Repel | event | **B** | `counterEvent` | As ST02-015: power fits, the DON!! half does not. Its `counterEvent` trigger is reachable now; the DON!! half is the remaining blocker. |
+| ST02-015 | Scalpel | event | **B** | `counterEvent`, `trigger` | The power half fits. Both halves then "set up to N of your DON!! cards as active" — same DON!! gap as ST02-008. **✅ written** — it took two PRs: **#10** made the `counterEvent` trigger reachable (`PLAY_COUNTER_EVENT`), **#13** supplied `orientDon`. See the correction below. |
+| ST02-016 | Repel | event | **B** | `counterEvent` | As ST02-015: power fits, the DON!! half did not. **✅ written — PRs #10 and #13**; the same card as ST02-015 with a different number, so both share one script shape. |
 | ST02-017 | Straw Sword | event | **B** | `mainEvent`, `trigger` | Main fits (`rest` an opponent character). The Trigger needs to **put a card into play from hand**, filtered by type and cost. |
 
 ## Correction — `counterEvent` was unreachable (found while writing pile A; since resolved)
 
 Added after the seven pile-A cards were actually written. One of the seven did
-not survive contact. **Resolved:** the engine now has the move
+not survive contact. **Resolved in PR #10:** the engine now has the move
 (`PLAY_COUNTER_EVENT`), so `ST01-014` Guard Point's `[Counter]` half is written
 and reachable. The rest of this section is the diagnosis as it was found.
 
@@ -123,9 +182,9 @@ What the inventory got wrong is a method error worth naming: it read every card
 against the DSL's *vocabulary* and never asked whether the engine has an
 **action that reaches the trigger**. The two questions are independent, and only
 the first was asked. `ST02-015` Scalpel and `ST02-016` Repel (pile B) were behind
-the same wall. With the wall gone, their `counterEvent` trigger is reachable too;
-their power halves are now expressible, but their DON!! halves stay blocked by
-gap 3 below (DON!! orientation) — a genuine DSL gap, not the reachability one.
+the same wall. With the wall gone, their `counterEvent` trigger became reachable
+too, and their DON!! halves — gap 3 below, a genuine DSL gap and not the
+reachability one — were closed by PR #13. Both cards are written.
 
 `docs/trigger-reachability.md` later asked the reachability question of all
 eleven triggers. `counterEvent` was the only one that answered no, and it has
@@ -152,19 +211,22 @@ is cut wrong; one that serves a family is earned. The right-hand column sizes
 the same gap against all 2665 cards, so a starter-set count of 1 can still be
 recognised as a family — or confirmed as a genuine one-off.
 
-| # | What the cards need | Cards here | Text probe, full set |
-| --- | --- | --- | --- |
-| 1 | **Give DON!! that is specifically rested** — and not quietly hand over an active one when no rested DON!! exists | 3 — ST01-001, ST01-007, ST01-011 | 105 |
-| 2 | **A continuous ability that applies to its own source** ("this Character gains +1000") | 3 — ST01-004, ST01-013, ST02-003 | 268 (35 of them under a `[DON!! xN]`) |
-| 3 | **Change the orientation of DON!! cards**, own or opponent's, by quantity | 3 — ST02-008, ST02-015, ST02-016 | 71 |
-| 4 | **Put a card into play** from hand or from a life card | 3 — ST01-002, ST02-005, ST02-017 | 375 |
-| 5 | **Stop the opponent from using [Blocker]** — a restriction, not a grant | 3 — ST01-002, ST01-012, ST01-016 | 146 |
-| 6 | **Rest the source as the price of an ability** | 2 — ST01-017, ST02-007 | 90 |
-| 7 | **Order cards you are putting back** ("the rest to the bottom in any order") | 1 — ST02-007 | 254 |
-| 8 | **Let the player choose which card a cost discards** | 1 — ST02-001 | 197 |
-| 9 | **A condition about the source's own orientation** ("if this Character is rested") | 1 — ST02-014 | 7 |
-| 10 | **Filter a selection by printed keyword** ("[Blocker] Characters") | 1 — ST01-016 | 6 |
-| 11 | **Fire on "this card is in a battle", and ask what it is battling** | 1 — ST02-010 | 1 |
+The `Status` column is the only thing added to this table; no count in it has
+been recomputed.
+
+| # | What the cards need | Cards here | Text probe, full set | Status |
+| --- | --- | --- | --- | --- |
+| 1 | **Give DON!! that is specifically rested** — and not quietly hand over an active one when no rested DON!! exists | 3 — ST01-001, ST01-007, ST01-011 | 105 | **closed — PR #11** |
+| 2 | **A continuous ability that applies to its own source** ("this Character gains +1000") | 3 — ST01-004, ST01-013, ST02-003 | 268 (35 of them under a `[DON!! xN]`) | **closed — PR #12** |
+| 3 | **Change the orientation of DON!! cards**, own or opponent's, by quantity | 3 — ST02-008, ST02-015, ST02-016 | 71 | **closed — PR #13** |
+| 4 | **Put a card into play** from hand or from a life card | 3 — ST01-002, ST02-005, ST02-017 | 375 | open |
+| 5 | **Stop the opponent from using [Blocker]** — a restriction, not a grant | 3 — ST01-002, ST01-012, ST01-016 | 146 | open |
+| 6 | **Rest the source as the price of an ability** | 2 — ST01-017, ST02-007 | 90 | open |
+| 7 | **Order cards you are putting back** ("the rest to the bottom in any order") | 1 — ST02-007 | 254 | open |
+| 8 | **Let the player choose which card a cost discards** | 1 — ST02-001 | 197 | open |
+| 9 | **A condition about the source's own orientation** ("if this Character is rested") | 1 — ST02-014 | 7 | open |
+| 10 | **Filter a selection by printed keyword** ("[Blocker] Characters") | 1 — ST01-016 | 6 | open |
+| 11 | **Fire on "this card is in a battle", and ask what it is battling** | 1 — ST02-010 | 1 | open |
 
 Read the two columns together, because they disagree in useful ways.
 
@@ -179,6 +241,87 @@ card is exactly how a DSL grows an operator nobody uses twice.
 
 Gap **4** is the largest family in the whole table and only shows up here in
 `[Trigger]` text, which is the one place a starter deck reliably samples it.
+
+## Gaps the 34 cards could not show
+
+Added after PR #11. Fixing `giveDon` meant reading how the full set actually
+talks about DON!!, and that turned up **three mechanics the DSL does not model
+at all**. None appears in the table above, and the reason is not an oversight:
+none of them is printed on any of the 34 cards. A two-deck sample sizes the gaps
+it contains and is silent about the ones it does not — which is a limit of the
+method, not a fault in the reading.
+
+These are sized the same way as the table above, and carry the same warning:
+**the probes overcount**, so every figure is an upper bound.
+
+| Mechanic | Probe | Full set | Cards named |
+| --- | --- | --- | --- |
+| **Give DON!! that is specifically *active*, as a cost** | `give (up to )?N (of your )?active DON!! card` | **5** | `EB04-009`, `OP12-016`, `OP12-017`, `OP12-019`, `OP13-007` |
+| **Add DON!! from the DON!! deck** | `from your DON!! deck` | **140** | `OP09-022`, `OP16-073`, `OP16-075`, … |
+| **Move the opponent's DON!!** | `from your opponent's cost area` | **2** | `OP15-025`, `OP15-028` |
+
+Two of the three counts are stronger than a probe, because they were small
+enough to check by hand:
+
+- **Active DON!! as a cost — 5, hand-verified.** The probe for the loose string
+  `active DON!! card` matches 13; all 13 were read. Eight are a different
+  mechanic (a *condition* on how many active DON!! you have, resting them, or
+  returning them to the DON!! deck). Five actually give active DON!! away, and
+  the fifth — `OP13-007` — the initial list missed, because it says "give 1 of
+  your active DON!! cards" rather than "give 1 active DON!! card".
+- **Opponent's cost area — 2, hand-verified.** Both were read; both really have
+  it. This is a genuine one-off pair, on the same wording, in the same set.
+- **DON!! deck — 140, probe only.** Not hand-checked, but the risk of
+  overcounting is unusually low here: the narrow probe (`add … DON!! card … from
+  your DON!! deck`) and the loose one (`from your DON!! deck`) return the *same
+  140 cards*, and the 146 cards that return DON!! **to** the deck do not
+  contaminate it — 29 cards do both, and they genuinely do both.
+
+### Why each one is a gap, and what shape it has
+
+**1. Give active DON!! as a cost — 5 cards.** Two separate problems, and the
+first is a direct consequence of PR #11.
+
+`giveDon` now takes rested DON!! *only*, because that is what the three starter
+cards say and the printed game agrees. These five cards say the exact opposite:
+"You may give 1 **active** DON!! card to 1 of your [Silvers Rayleigh]". The op
+has no orientation parameter, so the rule PR #11 made correct for ST-01 is now
+the rule that makes these five unsayable. That is not a regression — the engine
+was wrong for both families before and is right for one now — but it does mean
+the fix and the gap are the same seam, and whoever opens it should open it once.
+
+The second problem is that this is a **cost**, not an effect: the clause ends in
+a colon. `Cost` has four members, none of them "give DON!!". So the mechanic
+needs the op to take an orientation *and* the cost union to grow a member that
+calls it. It also targets a card by name (`[Silvers Rayleigh]`), which is
+`Selector` work rather than a new gap.
+
+**2. Add DON!! from the DON!! deck — 140 cards.** The largest of the three by
+two orders of magnitude, and it would rank second in the main table if it were
+in it. The DON!! deck is a zone the engine only ever draws from in one place:
+the DON!! Phase, at a fixed rate. There is no op for it, `ZoneRef` has no member
+for it, and the cards want a granular version — "add up to 1 DON!! card from
+your DON!! deck **and set it as active**, and add up to 1 additional DON!! card
+**and rest it**" (`OP16-073`) — so the op needs a count and an orientation,
+which is `orientDon`'s signature. Worth noting that PR #13 already built the
+half of this that turns DON!! over; what is missing is the half that produces
+them.
+
+**3. Move the opponent's DON!! — 2 cards.** "Give up to 2 DON!! cards from your
+opponent's cost area to 1 of your opponent's Characters" (`OP15-025`). `giveDon`
+is doubly closed against this: it walks `draft.players[item.controller].don`, so
+it cannot see the opponent's cost area, and it returns early unless
+`card.controller === item.controller`, so it cannot attach to an opponent's
+Character. Both guards are deliberate — they are what the DON!! conservation
+invariant checks — which makes this the one of the three that cannot be done by
+widening a parameter.
+
+**Two cards is the whole family**, and by this document's own standard that is
+the argument for *not* building it: gap 11 is one card and the note there says
+building a general mechanism off it "is exactly how a DSL grows an operator
+nobody uses twice". Two cards, printed in one set, on one wording, is the same
+warning with one more card. Recorded so the next reader does not have to
+rediscover it; not recommended.
 
 ## The structural holes
 
@@ -286,6 +429,13 @@ DON!!, self-targeting statics, DON!! orientation — followed by putting cards
 into play and the `[Blocker]` prohibitions, also 3 each. The starter-set count
 badly understates gaps 7 and 8, and badly overstates gap 11.
 
+*Since answered:* **the entire three-way tie is closed** — PRs #11, #12 and #13.
+What now heads the list is the other pair of 3-card gaps, putting cards into
+play and the `[Blocker]` prohibitions, and the second of those is structural. The
+answer's real lesson survived the work: the three gaps that tied at 3 cards each
+diverged sharply in the full set (105, 268, 71), and building the 268 first was
+the right call for reasons the starter-set column could not see.
+
 **5. Which `Trigger` members appear, and which do not?**
 
 | Trigger | In these 34 | Printed marker, full set |
@@ -335,6 +485,11 @@ test set uses `min: 0` — the only `min: 0` in the test tree is a hand-built
 simulation sweep *would* cover the empty answer the moment one real ability
 uses it, but today no path in the corpus does.
 
+*Caveat since resolved.* `packages/cards/tests/minZero.test.ts` exists and covers
+it against real cards — the recommendation two sections down ("put a `min: 0`
+ability under test before anything else") was carried out. The reading above
+still holds; it is no longer the only evidence.
+
 This matters more than it looks: **"up to"** is the single most common
 quantifier on these cards. It appears in `ST01-001`, `ST01-005`, `ST01-007`,
 `ST01-011`, `ST01-014`, `ST01-015`, `ST01-016`, `ST01-017`, `ST02-005`,
@@ -343,6 +498,11 @@ the 26 cards that carry any text at all. The first ability written will depend
 on it.
 
 **7. Does giving DON!! account for the rested state?** — *the code check*
+
+**It does now — PR #11.** `giveDon` skips anything that is not
+`{kind: 'cost', orientation: 'rested'}`, so with no rested DON!! in the cost
+area it gives none and the ability resolves to nothing. The answer as first
+found is kept below, because the diagnosis is what made the fix small.
 
 No. `giveDon` in `interpreter.ts` walks the controller's cost area
 `['rested', 'active']` in that order and takes whatever it finds until the count
@@ -359,6 +519,18 @@ Note also that a DON!! stops having an orientation once attached: `DonCard`'s
 location union is `{kind: 'cost', orientation}` or `{kind: 'attached', to}`. The
 question is therefore only about which DON!! may be **taken**, not about what
 state it lands in.
+
+That last paragraph is why the fix was a one-line filter rather than a model
+change, and it is also what made `orientDon` (PR #13) exclude attached DON!!
+without argument two PRs later: there is no orientation on that side of the
+union to change. One reading, two gaps closed by it.
+
+A guard was needed to keep it closed. Reverting `giveDon` to the old walk left
+the engine suite **green**, because the ABIL case that exercised it always had
+rested DON!! from paying its own play cost — the two behaviours agree in that
+state. The rule now has a case that separates them: a cost-free `[Activate:
+Main]` `giveDon` fired against an untouched, all-active cost area, where
+rested-first hands over a DON!! and rested-only gives none.
 
 ## Ambiguous — pile D
 
@@ -391,55 +563,50 @@ Derived from the table above, not from prior assumptions. The ordering
 principle is: **most cards unlocked per capability, cheapest first, and
 structural holes only when a card actually blocks on them.**
 
-**First — write the seven pile-A cards.** `ST01-005`, `ST01-014`, `ST01-015`,
-`ST02-009`, `ST02-013`, and the two keyword-only cards that need nothing. They
-need no new capability and they are the proof that the existing machinery
-survives contact with real text. Two of them are Events, which exercises
-`counterEvent` and `mainEvent` — neither has ever run against a real card.
+The first three items are done. The order below is the original one with those
+struck off — it is not re-derived, because nothing that has happened since
+changes the counts it was derived from.
 
-**Second — put a `min: 0` ability under test before anything else.** 15 of the
-26 cards with text say "up to". The path is verified by reading and unexercised
-in practice, and it is load-bearing for nearly everything that follows. This is
-the cheapest de-risking available: `ST01-005` or `ST01-014` alone covers it.
+### Done
 
-**Third — the three-way tie of bounded gaps, in this order:**
+- ~~**Write the seven pile-A cards.**~~ `ST01-005`, `ST01-014`, `ST01-015`,
+  `ST02-009`, `ST02-013`, plus the two keyword-only cards that need nothing.
+  Both Events did what they were picked for: `counterEvent` and `mainEvent` have
+  now run against real cards — and `counterEvent` failed on contact, which is
+  the whole reason `docs/trigger-reachability.md` exists.
+- ~~**Put a `min: 0` ability under test.**~~ `packages/cards/tests/minZero.test.ts`.
+- ~~**The three-way tie of bounded gaps**~~, built in the order recommended:
+  self-targeting statics (**PR #12**), rested-DON!! giving (**PR #11**), DON!!
+  orientation (**PR #13**).
 
-1. **Self-targeting continuous abilities** (3 cards, 268 in the full set). The
-   largest family of the three by a wide margin, and the only one whose fix
-   touches an existing seam rather than adding surface: instructions can already
-   name their own source, continuous abilities cannot. Fixing the asymmetry
-   unlocks `ST01-004`, `ST01-013`, `ST02-003`.
-2. **Rested-DON!! giving** (3 cards, 105). Small, and it is a *correctness*
-   fix as much as a feature: the op is silently wrong on all three cards today.
-   It unlocks both remaining ST-01 `activateMain` cards and Brook.
-3. **DON!! orientation changes** (3 cards, 71). Unlocks both ST-02 Counter
-   events and Apoo. Worth noting that these three cards do **not** need DON!!
-   to become addressable targets — any DON!! of the right orientation is
-   interchangeable, so the requirement is about quantities, not identities.
-   Deciding that DON!! must become selectable entities on the strength of these
-   three cards would be over-building.
+The prediction attached to the third item held exactly: **24 of 34 cards are
+done** — the 15 that needed nothing new plus these 9 — both decks are
+meaningfully playable, and nothing structural has been touched.
 
-At that point **24 of 34 cards are done** — the 15 that need nothing new plus
-these 9 — both decks are meaningfully playable, and nothing structural has been
-touched.
+So did the warning inside it. DON!! did **not** need to become addressable
+targets: `orientDon` takes a player, an orientation and a count, and never asks
+which DON!! — because any DON!! of the right orientation is interchangeable.
+The over-building the note warned against was avoided by taking the note.
 
-**Fourth — resting the source as a cost** (2 cards, 90). Small, and it is the
+### What remains
+
+**First — resting the source as a cost** (2 cards, 90). Small, and it is the
 last thing standing between `ST01-017` and playability. Bonney still will not
 work; that is a `orderCards` card.
 
-**Fifth — decide the `[Blocker]` prohibitions.** Structural hole #4, 3 cards, 2
+**Second — decide the `[Blocker]` prohibitions.** Structural hole #4, 3 cards, 2
 of them in ST-01, 146 in the full set. This is the first thing on the list that
 needs a design conversation rather than an implementation, and the inventory
 now has enough shape to have it: three cards spanning unconditional, predicated,
 and attacker-scoped-for-a-turn. Do not design it from `ST01-012` alone — that
 is the easy one, and building for it would leave `ST01-016` stranded.
 
-**Sixth — putting cards into play** (3 cards, 375 in the full set). The largest
+**Third — putting cards into play** (3 cards, 375 in the full set). The largest
 family in the whole inventory, and the one whose cost is most likely to be
 underestimated, because it drags in the full-field decision and therefore the
 suspension limit.
 
-**Seventh — suspendable costs** (structural hole #1), driven by `ST02-001`. It
+**Fourth — suspendable costs** (structural hole #1), driven by `ST02-001`. It
 blocks exactly one card here, but that card is a Leader, and a Leader whose
 ability never fires is not a deck. Anyone who wants ST-02 whole has to pay this.
 
@@ -449,6 +616,14 @@ instruction *and* a way to name "the cards not taken", and Hawkins needs a
 ruling before it needs a trigger. 254 cards in the full set want `orderCards`,
 so it will be built eventually — but not for Bonney alone, and not before the
 things above it that unlock three cards apiece.
+
+Two gaps in the ranked table are named by no item here and never were: gap 9
+(`ST02-014`, a condition about the source's own orientation, 7 cards) and gap 10
+(`ST01-016`'s printed-keyword filter, 6 cards, which arrives with the `[Blocker]`
+prohibitions anyway). That is not an omission introduced by this update — the
+order was built around capabilities unlocking three cards apiece, and these
+unlock one each. Noted because `ST02-014` is now one of only four pile-B cards
+left, so its gap is more visible than its rank.
 
 ## What this says about the bet
 
@@ -467,3 +642,32 @@ single OPTCG card does constantly. And the fourth structural hole, that the DSL
 can only add and never forbid, is not a gap in the vocabulary but in its shape.
 "Cannot" appears on 146 cards. Nothing in the current design has a place to put
 it.
+
+### What five PRs of closing gaps actually taught
+
+The encouraging half held up better than expected. Every one of the five gaps
+closed since was closed roughly where this document said it would be, and none
+of them turned out to be a disguised structural hole. Three of the five were
+**one seam each**: a filter in `giveDon`, an `Audience` member for statics, one
+new op. The DSL was cut about right.
+
+The sobering half got sharper, and in a way the sample could not show. This
+document sized 11 gaps from 34 cards; PR #11 sized three more from the other
+2631, and one of them (**140 cards, DON!! from the DON!! deck**) would rank
+second in the whole table. The method's real limit is not that it overcounts —
+that is declared, bounded, and always in the same direction. It is that **a
+34-card sample is silent about what it does not contain**, and silence reads
+exactly like absence. The upper-bound warning protects the numbers that are
+here. Nothing protects the rows that are not.
+
+Which is the same lesson `counterEvent` taught, one level up: the first miss was
+a question never asked of the cards that *were* in the sample; the second is a
+question never asked of the cards that were not.
+
+## Notes for phase 2C
+
+Two things the engine does not tell the UI, both found while writing these
+cards, both recorded in
+[`trigger-reachability.md`](trigger-reachability.md#notes-for-phase-2c--what-the-event-log-does-not-say):
+an ability that resolves to nothing emits no event, and continuous abilities
+emit no event at all.

@@ -616,7 +616,7 @@ therefore rests on unit tests, not on the simulation.
 
 ## Test suite
 
-198 tests across 25 files. The Phase 2A acceptance cases live in:
+217 tests across 28 files. The Phase 2A acceptance cases live in:
 
 | Mandated case | File |
 | ------------- | ---- |
@@ -854,7 +854,10 @@ the drawn instance id. Per-player hidden-information views are out of scope.
 - **Real card data.** Phase 2B. Everything here is the synthetic ABIL set.
 - **UI for answering choices.** Phase 2C. The engine opens choices and the bot
   answers them; the client has no control for it and never sees one, because the
-  default decks have no abilities.
+  default decks have no abilities. Two things the event log does not say — an
+  ability that resolves to nothing emits no event, and continuous abilities emit
+  none at all — are written up for 2C in
+  `docs/trigger-reachability.md`, under "Notes for phase 2C".
 - **Player-chosen trigger order** and **player-chosen discards** — both fixed
   deterministic policies today, both flagged `TODO phase 2B` above.
 - **`PLAY_CARD.trashCharacter` as a `PendingChoice`** — the machinery now exists

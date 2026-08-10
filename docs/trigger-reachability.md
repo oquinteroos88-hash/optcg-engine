@@ -86,7 +86,7 @@ below were re-read rather than carried over.
 | `whenOpponentAttacks` | `applyDeclareAttack`, `reducer/battle.ts:108` | **yes** | ABIL-014 only | 49 | no real-card coverage |
 | `activateMain` | `ACTIVATE_ABILITY` → `reducer/activate.ts:38`, gated in `legalActions.ts:101` | **yes** | ABIL-009/010 only | 365 | no real-card coverage |
 | `trigger` | life-card damage step, `abilities/interpreter.ts:811` | **yes** | `ST01-014`, `ST01-015` from life, unstaged games | 501 | see coverage note |
-| `counterEvent` | two sites: `applyPlayCounterEvent` (`PLAY_COUNTER_EVENT`), `reducer/battle.ts:254`, gated in `legalActions.ts:185`; and `applyPlayCounter`, `reducer/battle.ts:203` | **yes** | `ST01-014` Guard Point from hand (`counterEvent.test.ts`, `counterEventPlay.test.ts`); ABIL-016 | 184 | **was missing rule — closed by PR #10** |
+| `counterEvent` | two sites, one of them dead: `applyPlayCounterEvent` (`PLAY_COUNTER_EVENT`), gated in `legalActions.ts`; and `applyPlayCounter`, which **no printed card can reach** — see below | **yes**, through the first site | `ST01-014` Guard Point from hand (`counterEvent.test.ts`, `counterEventPlay.test.ts`); ABIL-016 | 184 | **was missing rule — closed by PR #10** |
 | `mainEvent` | `applyPlayCard`, `reducer/main.ts:124` | **yes** | `ST01-015` Jet Pistol, unstaged game | 272 | — |
 | `endOfTurn` | `applyEndTurn`, `reducer/turn.ts:24` | **yes** | `ST02-013` Kid, unstaged game | 50 | — |
 | `static` | not fired — read in `getPower` / `hasKeyword` via `forEachStatic`, `selectors.ts:54` | **yes** | ABIL-003/004/024 (`continuous.test.ts`); `ST01-013`, `ST01-004`, `ST02-003` since PR #12 | — | see the read-path audit |
@@ -146,6 +146,30 @@ ABIL-016 is now the shape the game prints: `counter: null`, its whole text a
 printed fields (category and whether a Counter value is printed) and asserts
 every ABIL card's shape has a counterpart in `cards.en.json` — so no synthetic
 card can fake a printed shape, and stand in for reachability, unnoticed again.
+
+### One of the trigger's two firing sites is dead — measured, documented, pinned
+
+The table above named two sites for `counterEvent` and left it there. Counted
+since: **zero cards of the 2665 can reach the second one.**
+
+`applyPlayCounter` fires the trigger after a card is discarded for its printed
+Counter value, on the rule that a Counter card carrying an effect resolves it.
+Taking that path needs `counter !== null` *and* a `[Counter]` ability, and the
+two sets do not intersect: 184 cards carry the `[Counter]` marker, **all 184 are
+Events, and none of them prints a Counter value**. It is the same fact that made
+`PLAY_COUNTER_EVENT` necessary in PR #10, asked the other way round.
+
+**The line stays.** Deleting it would be encoding "no such card exists" as an
+absence — precisely the failure mode ABIL-016 demonstrated, where a shape nobody
+had written down was assumed and hid a missing move for a year. Instead the fact
+is now a test: `abilCardShapes.test.ts` asserts the empty intersection from the
+printed text, from the engine's own `getAbilities` predicate, and across the ABIL
+set. The day a card prints both, the guard fails and the path is announced
+rather than discovered.
+
+The engine keeps the rule because the rule is right. What was missing was a
+statement of *why* it never runs, in a place that fails when that stops being
+true.
 
 ## Secondary findings
 

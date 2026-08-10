@@ -25,6 +25,7 @@ function aff(
       canPass: false,
       canConcede: true,
       mustAnswerMulligan: false,
+      mustAnswerChoice: false,
       ...globals,
     },
     whoActs: 'p1',

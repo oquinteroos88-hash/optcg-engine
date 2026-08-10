@@ -30,6 +30,9 @@ importers:
 
   packages/client:
     dependencies:
+      '@optcg/cards':
+        specifier: workspace:*
+        version: link:../cards
       '@optcg/engine':
         specifier: workspace:*
         version: link:../engine

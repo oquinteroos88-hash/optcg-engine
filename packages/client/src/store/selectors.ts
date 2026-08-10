@@ -331,6 +331,7 @@ const NO_GLOBALS: Affordances['global'] = Object.freeze({
   canPass: false,
   canConcede: false,
   mustAnswerMulligan: false,
+  mustAnswerChoice: false,
 });
 
 export function useGlobalAffordances(): Affordances['global'] {

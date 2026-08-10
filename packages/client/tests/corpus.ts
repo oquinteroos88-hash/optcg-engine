@@ -1,10 +1,20 @@
 import { applyAction } from '@optcg/engine';
 import type { GameState, InstanceId } from '@optcg/engine';
 import { buildScenario, characterAt, handCard } from '@optcg/engine/testdata/scenarios';
-import { playout } from './driver';
+import { playout, starterPlayout } from './driver';
 
 export const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 export const MAX_STEPS = 150;
+
+/**
+ * Seeds carried over from `packages/cards/tests/game.test.ts`, where they were
+ * searched for reaching every scripted ability in ST-01/ST-02 at least once —
+ * including the two [Counter] Events, which are the hardest to reach unprompted.
+ */
+export const STARTER_SEEDS = [20260806, 5, 99, 2, 12, 9, 224] as const;
+/** A short second pass answering every selection at its minimum — see AnswerPolicy. */
+export const STARTER_MIN_ANSWER_SEEDS = [5, 12] as const;
+export const STARTER_MAX_STEPS = 400;
 
 function mustApply(state: GameState, action: Parameters<typeof applyAction>[1]): GameState {
   const result = applyAction(state, action);
@@ -58,7 +68,22 @@ export function attachedDonScenario(): GameState {
   });
 }
 
-/** Random-playout corpus plus targeted scenario states. */
+/**
+ * Playouts over the real starter decks. Kept separate from `corpusStates` only
+ * so a test can talk about them by name; `corpusStates` includes them.
+ */
+export function starterCorpusStates(): GameState[] {
+  const states: GameState[] = [];
+  for (const seed of STARTER_SEEDS) {
+    states.push(...starterPlayout(seed, STARTER_MAX_STEPS, 'max'));
+  }
+  for (const seed of STARTER_MIN_ANSWER_SEEDS) {
+    states.push(...starterPlayout(seed, STARTER_MAX_STEPS, 'min'));
+  }
+  return states;
+}
+
+/** Random-playout corpus (TEST and starter decks) plus targeted scenarios. */
 export function corpusStates(): GameState[] {
   const states: GameState[] = [];
   for (const seed of SEEDS) {
@@ -67,5 +92,6 @@ export function corpusStates(): GameState[] {
   states.push(fullBoardScenario().state);
   states.push(counterStepScenario().state);
   states.push(attachedDonScenario());
+  states.push(...starterCorpusStates());
   return states;
 }

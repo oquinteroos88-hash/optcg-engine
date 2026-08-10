@@ -50,9 +50,34 @@ function assertBackward(state: GameState): void {
       case 'END_TURN':
         expect(aff.global.canEndTurn).toBe(true);
         break;
+      case 'PLAY_COUNTER_EVENT':
+        // Its own flag, not counterTargets: this action names no target.
+        expect(byCard(action.instanceId).canPlayCounterEvent).toBe(true);
+        break;
+      case 'ACTIVATE_ABILITY': {
+        const card = byCard(action.instanceId);
+        expect(card.canActivate).toBe(true);
+        expect(card.activatableAbilities).toContain(action.abilityId);
+        break;
+      }
+      case 'ANSWER_CHOICE':
+        // The marker carries no answer, so this is all an affordance can say.
+        // What a legal answer looks like is read from `state.pending` — the one
+        // documented exception, see affordances.ts.
+        expect(aff.global.mustAnswerChoice).toBe(true);
+        break;
       case 'CONCEDE':
         expect(aff.global.canConcede).toBe(true);
         break;
+      default: {
+        // Exhaustive on purpose: a new Action variant fails to compile here
+        // rather than slipping through an empty branch, which is how
+        // PLAY_COUNTER_EVENT went unnoticed. tests/actionCoverage.test.ts is
+        // the other half — this one says "somebody wrote a branch", that one
+        // says "the corpus actually reached it".
+        const never: never = action;
+        throw new Error(`unhandled action ${JSON.stringify(never)}`);
+      }
     }
   }
 }

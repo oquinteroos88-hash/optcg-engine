@@ -16,6 +16,22 @@ export interface CardAffordance {
   canBlock: boolean;
   canCounter: boolean;
   counterTargets: readonly InstanceId[];
+  /** True when at least one ability of this card can be activated right now. */
+  canActivate: boolean;
+  /**
+   * Ability ids offered by ACTIVATE_ABILITY for this card, in legalActions
+   * order. A list rather than a boolean because a card may print more than one
+   * activated ability, and the contextual menu offers one entry per id.
+   */
+  activatableAbilities: readonly string[];
+  /**
+   * PLAY_COUNTER_EVENT: a [Counter] Event activated from hand for its printed
+   * cost. Deliberately NOT folded into `canCounter`/`counterTargets` — that pair
+   * describes PLAY_COUNTER, whose action names its target. A [Counter] Event
+   * carries no `target`; its effect picks its own through `pending`. Sharing the
+   * target list would invent a target the action has no field for.
+   */
+  canPlayCounterEvent: boolean;
 }
 
 export interface Affordances {
@@ -25,11 +41,26 @@ export interface Affordances {
     canPass: boolean;
     canConcede: boolean;
     mustAnswerMulligan: boolean;
+    /**
+     * A choice is open and this player owns it. While true, every other
+     * affordance is false by construction: `legalActions` returns exactly the
+     * ANSWER_CHOICE marker plus CONCEDE, so nothing else can be indexed.
+     *
+     * ARCHITECTURAL EXCEPTION. This flag is the gate, not the answer space. The
+     * shape of a legal answer — candidates, min, max, kind, prompt — is data in
+     * `state.pending`, and reading it is the single place where the client takes
+     * legality from the state instead of from `legalActions`. See
+     * `pendingChoiceView` in `store/selectors.ts`, the engine README section
+     * "Choices are data, not enumeration", and `packages/client/README.md`.
+     */
+    mustAnswerChoice: boolean;
   };
   whoActs: PlayerId;
 }
 
 const EMPTY_IDS: readonly InstanceId[] = Object.freeze([]);
+
+const EMPTY_ABILITY_IDS: readonly string[] = Object.freeze([]);
 
 export const EMPTY_AFFORDANCE: CardAffordance = Object.freeze({
   canPlay: false,
@@ -41,6 +72,9 @@ export const EMPTY_AFFORDANCE: CardAffordance = Object.freeze({
   canBlock: false,
   canCounter: false,
   counterTargets: EMPTY_IDS,
+  canActivate: false,
+  activatableAbilities: EMPTY_ABILITY_IDS,
+  canPlayCounterEvent: false,
 });
 
 /** Safe accessor so noUncheckedIndexedAccess never leaks undefined into the UI. */
@@ -58,6 +92,9 @@ interface CardBuilder {
   canBlock: boolean;
   canCounter: boolean;
   counterTargets: Set<InstanceId>;
+  /** Insertion-ordered, deduplicated: legalActions order is the menu order. */
+  activatableAbilities: Set<string>;
+  canPlayCounterEvent: boolean;
 }
 
 function builderFor(byCard: Map<InstanceId, CardBuilder>, id: InstanceId): CardBuilder {
@@ -73,6 +110,8 @@ function builderFor(byCard: Map<InstanceId, CardBuilder>, id: InstanceId): CardB
       canBlock: false,
       canCounter: false,
       counterTargets: new Set(),
+      activatableAbilities: new Set(),
+      canPlayCounterEvent: false,
     };
     byCard.set(id, builder);
   }
@@ -89,6 +128,7 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
   let canEndTurn = false;
   let canConcede = false;
   let mustAnswerMulligan = false;
+  let mustAnswerChoice = false;
 
   for (const action of legalActions(state, whoActs)) {
     switch (action.type) {
@@ -122,6 +162,18 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
         builder.counterTargets.add(action.target);
         break;
       }
+      case 'PLAY_COUNTER_EVENT': {
+        builderFor(byCard, action.instanceId).canPlayCounterEvent = true;
+        break;
+      }
+      case 'ACTIVATE_ABILITY': {
+        builderFor(byCard, action.instanceId).activatableAbilities.add(action.abilityId);
+        break;
+      }
+      case 'ANSWER_CHOICE': {
+        mustAnswerChoice = true;
+        break;
+      }
       case 'PASS': {
         canPass = true;
         break;
@@ -144,6 +196,7 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
   const result: Record<InstanceId, CardAffordance> = {};
   for (const [id, builder] of byCard) {
     const trashCandidates = [...builder.trashCandidates];
+    const activatableAbilities = [...builder.activatableAbilities];
     result[id] = {
       canPlay: builder.canPlay,
       playRequiresTrash: builder.canPlay && !builder.sawPlainPlay && trashCandidates.length > 0,
@@ -154,12 +207,15 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
       canBlock: builder.canBlock,
       canCounter: builder.canCounter,
       counterTargets: [...builder.counterTargets],
+      canActivate: activatableAbilities.length > 0,
+      activatableAbilities,
+      canPlayCounterEvent: builder.canPlayCounterEvent,
     };
   }
 
   return {
     byCard: result,
-    global: { canEndTurn, canPass, canConcede, mustAnswerMulligan },
+    global: { canEndTurn, canPass, canConcede, mustAnswerMulligan, mustAnswerChoice },
     whoActs,
   };
 }

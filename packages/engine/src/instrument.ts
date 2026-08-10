@@ -76,6 +76,7 @@ export const MARK_NAMES = [
   'trigger.chained',
   'cost.returnDon',
   'cost.trashSelf',
+  'cost.restSelf',
   'cost.discardHand',
 
   // Instructions.

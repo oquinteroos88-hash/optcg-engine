@@ -186,12 +186,18 @@ describe('a real game, ST-01 against ST-02', () => {
     // switches on — the hardest of the three continuous effects to reach.
     //
     // Seed 9 attacks with Scratchmen Apoo carrying a DON!!, which is the only
-    // way its [When Attacking] reaches the opponent's cost area. Seed 107 is the
+    // way its [When Attacking] reaches the opponent's cost area. Seed 224 is the
     // one that spends both Counter Events in the same game — Scalpel and Repel
     // are the rarest abilities in this deck to reach unprompted, because they
     // need a battle the driver chooses to answer with an Event rather than a
-    // Counter card.
-    const SEEDS = [20260806, 5, 99, 2, 12, 9, 107];
+    // Counter card. Seeds 12 and 9 both play Thousand Sunny and rest it.
+    //
+    // Seed 224 replaced seed 107 when `ST01-017` was written, and the reason is
+    // worth recording: the driver picks by index out of `legalActions`, so a new
+    // activatable ability shifts every later choice in every game. These seeds
+    // are a search result over a fixed driver, not a property of the cards —
+    // adding an ability re-runs the search rather than invalidating the test.
+    const SEEDS = [20260806, 5, 99, 2, 12, 9, 224];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {
@@ -212,6 +218,7 @@ describe('a real game, ST-01 against ST-02', () => {
       'ST01-014-trigger',
       'ST01-015-main',
       'ST01-015-trigger',
+      'ST01-017-main',
       'ST02-008-whenAttacking',
       'ST02-009-onPlay',
       'ST02-013-endOfTurn',
@@ -222,6 +229,44 @@ describe('a real game, ST-01 against ST-02', () => {
     // The three self-targeting statics have no event to fire; they are affirmed
     // by having been read off the board while in effect during a real game.
     expect([...manifested].sort()).toEqual(['ST01-004', 'ST01-013', 'ST02-003']);
+  });
+
+  it('rests Thousand Sunny to pay, and the +1000 lands, in an unstaged game', () => {
+    // Membership in the set above only says the script resolved. This says the
+    // board moved, which is the claim worth making about a cost that spends the
+    // source: in seed 12's game the Stage really turned sideways to pay, and the
+    // power really went somewhere.
+    const game = run(12);
+    expect(game.fired['ST01-017-main']).toBeGreaterThan(0);
+
+    const at = game.state.log.findIndex(
+      (event) => event.type === 'abilityTriggered' && event.abilityId === 'ST01-017-main',
+    );
+    expect(at).toBeGreaterThan(0);
+
+    // The cost is paid before the ability announces itself (CR 8-4-1-3 before
+    // 8-4-1-4), so the event immediately before is the Stage resting.
+    const paid = game.state.log[at - 1];
+    const announced = game.state.log[at];
+    expect(paid?.type).toBe('orientationChanged');
+    if (paid?.type === 'orientationChanged' && announced?.type === 'abilityTriggered') {
+      expect(paid.orientation).toBe('rested');
+      expect(paid.instanceId).toBe(announced.source);
+      expect(game.state.cards[paid.instanceId]?.cardId).toBe('ST01-017');
+    }
+
+    // And inside this ability's own window — up to whatever fires next — a
+    // +1000 that lasts the turn was granted.
+    const nextAbility = game.state.log.findIndex(
+      (event, index) => index > at && event.type === 'abilityTriggered',
+    );
+    const window = game.state.log.slice(at, nextAbility === -1 ? undefined : nextAbility);
+    expect(
+      window.some(
+        (event) =>
+          event.type === 'powerGranted' && event.value === 1000 && event.duration === 'endOfTurn',
+      ),
+    ).toBe(true);
   });
 
   it('reaches the [Trigger] half of an event from a life card', () => {

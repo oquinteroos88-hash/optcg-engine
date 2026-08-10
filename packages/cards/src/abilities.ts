@@ -10,12 +10,23 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: the seven cards `docs/starter-card-inventory.md`
- * put in pile A — the ones the DSL expresses as it stands. Two of the seven
- * (`ST01-006`, `ST02-004`) are absent on purpose: their whole printed text is
- * the `[Blocker]` reminder, and a printed keyword is already a rule the engine
- * applies from `CardDefinition.keywords`. Writing an ability for them would be
- * writing the same rule twice.
+ * Scope of this file today: **15 cards** — every base card of the two starter
+ * decks whose printed abilities the DSL can currently express. It opened with
+ * the pile-A cards of `docs/starter-card-inventory.md` and has grown one closed
+ * gap at a time (PRs #11, #12, #13, and the rest-the-source cost), so the pile
+ * labels no longer describe its contents. The inventory's card-by-card table is
+ * the map; this file is the code.
+ *
+ * Four cards are absent on purpose, so their absence is not read as an
+ * oversight:
+ *
+ * - `ST01-006` and `ST02-004` — their whole printed text is the `[Blocker]`
+ *   reminder, and a printed keyword is already a rule the engine applies from
+ *   `CardDefinition.keywords`. Writing an ability for them would be writing the
+ *   same rule twice.
+ * - `ST02-005` and `ST02-017` — one printed half each fits the DSL today and
+ *   the other needs a card *put into play*. A card whose printed text is half
+ *   implemented is worse than one that is honestly missing.
  *
  * Every script here is a transcription of the card's printed text. Where the
  * text and the inventory disagreed, the text won.
@@ -309,6 +320,47 @@ export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = O
   'ST01-015': [
     { id: 'ST01-015-main', trigger: 'mainEvent', script: JET_PISTOL },
     { id: 'ST01-015-trigger', trigger: 'trigger', script: JET_PISTOL },
+  ],
+
+  // ST01-017 Thousand Sunny (Stage)
+  // "[Activate: Main] You may rest this Stage: Up to 1 {Straw Hat Crew} type
+  //  Leader or Character card on your field gains +1000 power during this turn."
+  //
+  // The first card in the set whose price is the card itself staying put. The
+  // cost is `restSelf`, and it does the work `[Once Per Turn]` does elsewhere:
+  // the Stage comes back active only in its controller's Refresh Phase
+  // (CR 6-2-4), so the ability is once per turn without printing the keyword —
+  // and it is not printed here, so it is not written here either.
+  //
+  // "You may rest this Stage" is a cost worded with "may" (CR 8-3-1-4): the
+  // player can decline to pay, in which case the effect is not activated. In
+  // this engine declining *is* not taking the ACTIVATE_ABILITY action, so
+  // `optional: true` would ask the same question a second time, after the fact.
+  //
+  // The printed text says "Leader or Character card", not "Character" — the
+  // {Straw Hat Crew} Leader is a legal target and the selector says so.
+  'ST01-017': [
+    {
+      id: 'ST01-017-main',
+      trigger: 'activateMain',
+      cost: [{ kind: 'restSelf' }],
+      script: [
+        {
+          op: 'select',
+          as: 'ally',
+          from: {
+            zone: 'field',
+            owner: 'you',
+            category: ['leader', 'character'],
+            types: ['Straw Hat Crew'],
+          },
+          min: 0,
+          max: 1,
+          prompt: 'Give up to 1 of your {Straw Hat Crew} Leader or Character cards +1000 power',
+        },
+        { op: 'addPower', target: { var: 'ally' }, value: 1000, duration: 'endOfTurn' },
+      ],
+    },
   ],
 
   // ST02-009 Trafalgar Law

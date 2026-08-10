@@ -27,11 +27,11 @@ not behaviour — nothing is derived from it. The scripts live in
 attached to the matching definitions as they load. Every other card plays as
 vanilla.
 
-**14 of the 34 base cards of ST-01 and ST-02 are scripted today**, and two more
+**15 of the 34 base cards of ST-01 and ST-02 are scripted today**, and two more
 (`ST01-006`, `ST02-004`) need no script at all: their whole printed text is the
 `[Blocker]` reminder, which the engine already applies from
-`CardDefinition.keywords`. Together with the 8 vanilla cards, 24 of the 34 play
-their printed text. `docs/starter-card-inventory.md` tracks the remaining 10 and
+`CardDefinition.keywords`. Together with the 8 vanilla cards, 25 of the 34 play
+their printed text. `docs/starter-card-inventory.md` tracks the remaining 9 and
 what blocks each.
 
 ## Nothing here touches the network

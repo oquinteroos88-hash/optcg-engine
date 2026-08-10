@@ -455,6 +455,41 @@ export const ABIL_CARDS: CardDefinition[] = [
         affects: { selector: { zone: 'field', owner: 'you', category: ['character'], types: ['Crew'] } },
         grants: { power: 1000 },
       },
+      // --- restSelf cost, on a Stage ---------------------------------------
+      // Hung on the Stage rather than given a card of its own for two reasons.
+      // A new ABIL id changes the deck list and reshuffles every seeded scenario
+      // in the package, which is why ABIL-018 already carries four abilities.
+      // And a Stage is the shape the real card has (ST01-017 Thousand Sunny),
+      // so the two continuous/activated abilities sit on one source and a test
+      // can rest it and still read the static — which is the rules question the
+      // cost raises.
+      //
+      // No `oncePerTurn`: the cost is the limiter. The Stage returns to active
+      // only in its controller's Refresh Phase (CR 6-2-4), so this cannot loop,
+      // which is exactly the property the sweep's action cap watches for.
+      //
+      // The draw is deliberately behind a condition that asks whether this
+      // Stage is *already rested*. CR 8-4-1 pays the activation cost (8-4-1-3)
+      // before activating (8-4-1-4) and resolving (8-4-1-5) the effect, so the
+      // condition holds and the card is drawn. A payment that leaked past the
+      // start of the script would show up as no draw — an ordering rule with a
+      // behavioural witness rather than an event-order proxy.
+      {
+        id: 'ABIL-024-main',
+        trigger: 'activateMain',
+        cost: [{ kind: 'restSelf' }],
+        script: [
+          {
+            op: 'if',
+            cond: {
+              kind: 'countCards',
+              selector: { zone: 'field', owner: 'you', category: ['stage'], orientation: 'rested' },
+              min: 1,
+            },
+            then: [{ op: 'draw', player: 'you', count: 1 }],
+          },
+        ],
+      },
     ],
   },
 

@@ -101,10 +101,31 @@ export interface ZoneRef {
  */
 export type Audience = { self: true } | { selector: Selector };
 
+/**
+ * `restSelf` is "rest this card" as the price of its own ability, and it is the
+ * one cost whose payability depends on the source's *orientation* rather than
+ * on a pool of resources.
+ *
+ * A rested card cannot pay it. Resting is a state change, and a card already in
+ * that state has none to make — the same reason CR 7-1-1-1 has an attack rest
+ * "their active Leader card or 1 active Character card", never a rested one.
+ * Official Q&A groups the two outright: an effect reading "cannot be rested"
+ * stops "any actions that require them to be rested, such as attacking or
+ * activating [Blocker]", and names "[Activate: Main] You may rest this
+ * Character:" as one of them. An unpayable part of an activation cost makes the
+ * whole cost unpayable (CR 8-3-1-3), so the ability is not activatable at all —
+ * which `canPayCosts` reports and `legalActions` therefore honours for free.
+ *
+ * The consequence is the card's own limiter: the source only returns to active
+ * in its controller's Refresh Phase (CR 6-2-4, which names the Stage area), so
+ * the ability is once per turn without printing [Once Per Turn]. Cards that
+ * print the keyword as well still say so; this is not a substitute for it.
+ */
 export type Cost =
   | { kind: 'restDon'; count: number }
   | { kind: 'returnDon'; count: number }
   | { kind: 'trashSelf' }
+  | { kind: 'restSelf' }
   | { kind: 'discardHand'; count: number };
 
 export type Condition =

@@ -34,6 +34,7 @@ export function canPayCosts(
   let returnTotal = 0;
   let discardTotal = 0;
   let trashSelf = false;
+  let restSelf = false;
   for (const cost of costs) {
     switch (cost.kind) {
       case 'restDon':
@@ -48,6 +49,9 @@ export function canPayCosts(
       case 'trashSelf':
         trashSelf = true;
         break;
+      case 'restSelf':
+        restSelf = true;
+        break;
     }
   }
   if (getActiveCostDon(state, ctx.controller).length < restTotal) {
@@ -61,6 +65,17 @@ export function canPayCosts(
   }
   if (trashSelf && !isOnField(state, ctx.source)) {
     return false;
+  }
+  // The only cost whose price is the source's own orientation. A card that is
+  // already rested has no resting left to do, so the cost cannot be paid and the
+  // ability is not activatable (CR 8-3-1-3) — the same rule that stops a rested
+  // card attacking (CR 7-1-1-1). `legalActions` calls this function, so the gate
+  // shows up in the enumeration and not only in `applyAction`.
+  if (restSelf) {
+    const source = state.cards[ctx.source];
+    if (source === undefined || !isOnField(state, ctx.source) || source.orientation !== 'active') {
+      return false;
+    }
   }
   return true;
 }

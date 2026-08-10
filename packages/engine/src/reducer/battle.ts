@@ -200,6 +200,22 @@ export function applyPlayCounter(
   });
   // A Counter card with an effect resolves it from the trash, where the card
   // now is. Only the printed Counter value gates the play itself.
+  //
+  // **No printed card can reach this line.** Discarding a card for its Counter
+  // value needs `counter !== null`, and a [Counter] ability needs the marker in
+  // the text — and across all 2665 cards those two sets do not intersect: all
+  // 184 [Counter] cards are Events, and no Event carries a printed Counter
+  // value. So this is the second of the trigger's two firing sites and the
+  // unreachable one; `applyPlayCounterEvent` is the live one.
+  //
+  // Kept rather than deleted, and pinned by
+  // `packages/cards/tests/abilCardShapes.test.ts`, which fails the day a card
+  // prints both. The rule the card text states — "a Counter card with an effect
+  // resolves it" — is correct whether or not the game has printed such a card;
+  // removing the line would encode "no such card exists" as an absence nobody
+  // can see, which is how ABIL-016's invented shape hid a missing engine move
+  // for a year. An unreachable path with a guard and a reason beats a deleted
+  // one.
   fireTriggers(draft, 'counterEvent', [action.instanceId]);
 }
 

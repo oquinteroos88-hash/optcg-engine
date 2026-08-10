@@ -172,3 +172,61 @@
   font-size: 10px;
   color: var(--color-muted);
 }
+
+/* ---------------------------------------------------------------------------
+   Card art.
+
+   A layer UNDER everything the engine derives. None of the indicators the
+   player needs is printed on the card - the power is effective, not printed;
+   the DON!! badge, the rested rotation, the continuous badge and the affordance
+   highlight are all board state - so the art may never sit on top of them, and
+   may never take a click.
+
+   `inset: 0` covers the padding box only, so the border and the box-shadow that
+   carry the affordance highlight stay outside the image by construction. */
+.art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+.header,
+.stats {
+  position: relative;
+  z-index: 1;
+}
+
+.donBadge,
+.staticBadge,
+.textMark {
+  z-index: 2;
+}
+
+/* Only once a picture really loaded: over art, plain text is unreadable, so the
+   two rows that carry numbers get their own backing. */
+.withArt .header,
+.withArt .stats {
+  background: rgba(8, 12, 20, 0.72);
+  border-radius: var(--radius-sm);
+  padding: 1px 3px;
+  margin: -1px -3px;
+}
+
+.withArt .name {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* Over art the muted grey vanishes into whatever colour is behind it. The mark
+   gets the same dark chip the other badges already carry. */
+.withArt .textMark {
+  background: rgba(8, 12, 20, 0.8);
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+  color: var(--color-text);
+}

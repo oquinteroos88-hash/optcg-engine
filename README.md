@@ -41,6 +41,16 @@ its artwork — is the property of its respective owners and is not licensed her
 
 The card data under `packages/cards/data/` is derived from a public dataset
 generated from the official card site; the source commit is pinned in
-[`packages/cards/data/PROVENANCE.md`](packages/cards/data/PROVENANCE.md). No card
-images are redistributed — the client draws its own placeholder tiles instead of
-using card art.
+[`packages/cards/data/PROVENANCE.md`](packages/cards/data/PROVENANCE.md).
+
+**No card images are redistributed.** This repository contains none, and
+`packages/cards/tests/noTrackedArt.test.ts` fails if one is ever committed. The
+client can show real card art, but only from a **local cache you download
+yourself** from the official card site, into a gitignored directory:
+
+```bash
+pnpm --filter @optcg/cards run images
+```
+
+Without it the client draws its own tiles, which is what a fresh clone does and
+what every screenshot of this project should be assumed to show.

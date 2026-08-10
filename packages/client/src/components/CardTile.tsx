@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { MouseEvent, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
+import { cardImageSrc, hasCardImage } from '../game/cardImage';
 import {
   useCardView,
   useClickState,
@@ -27,6 +29,12 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const highlighted = useIsHighlighted(id);
   const power = usePowerBreakdown(id);
   const uiEvent = useStore((s) => s.uiEvent);
+  /**
+   * The art is a local cache that a fresh clone does not have, so "no image" is
+   * the normal state and not an error. `failed` stops asking; `ok` is what
+   * turns on the scrim, and only once a picture is really behind the text.
+   */
+  const [art, setArt] = useState<'unknown' | 'ok' | 'failed'>('unknown');
 
   if (view === null) {
     return null;
@@ -50,6 +58,7 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const stateClass = styles[clickState] ?? '';
   const dimClass = targeting && clickState === 'inert' ? styles.dimmed : '';
   const animClass = highlighted ? styles.animating : '';
+  const artClass = art === 'ok' ? styles.withArt : '';
 
   const counterLabel = view.counter === null ? 'sin contraataque' : `contraataque ${view.counter}`;
   const costLabel = view.cost === null ? '' : `coste ${view.cost}, `;
@@ -90,11 +99,27 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   return (
     <button
       type="button"
-      className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass}`}
+      className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass} ${artClass}`}
       onClick={handleClick}
       title={tooltip}
       aria-label={`${view.name}, ${costLabel}poder ${view.power}, ${counterLabel}${view.rested ? ', agotada' : ''}${boostLabel}`}
     >
+      {/* Underneath everything, and never a click target: every indicator the
+          engine derives - power, DON!!, rested, the continuous badge, the
+          affordance highlight - has to stay readable ON TOP of the art, because
+          none of it is printed on the card. An onError drops back to the CSS
+          tile this component has always drawn. */}
+      {art === 'failed' || !hasCardImage(view.cardId) ? null : (
+        <img
+          className={styles.art}
+          src={cardImageSrc(view.cardId)}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          onLoad={() => setArt('ok')}
+          onError={() => setArt('failed')}
+        />
+      )}
       <div className={styles.header}>
         {view.cost === null ? null : <span className={styles.cost}>{view.cost}</span>}
         <span className={styles.name}>{view.name}</span>

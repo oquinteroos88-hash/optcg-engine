@@ -148,6 +148,28 @@ has nothing left in flight.
 1.5 MB of JSON with `node:fs`, which is right on Node and unavailable in a
 bundle. The TEST decks print no text and show none.
 
+## Card art
+
+Optional, and a local cache: `pnpm --filter @optcg/cards run images` downloads
+the 34 starter cards into `public/cards/`, which is gitignored. Nothing is ever
+committed, and a clone without it is the normal case.
+
+`CardTile` draws the art as a layer **underneath** everything else. That is the
+whole design constraint, and the reason is that none of what the player has to
+read is printed on the card: the power is effective rather than printed, and the
+DON!! count, the rested rotation, the continuous badge and the affordance
+highlight are all board state. So the art goes at `z-index: 0` with
+`pointer-events: none`, `inset: 0` keeps it off the border and box-shadow that
+carry the highlight, and the two rows with numbers get a scrim once a picture
+really loaded.
+
+The fallback is not an error path: `onError` drops back to the CSS tile this
+component has always drawn, and `tests/cardArt.test.tsx` asserts that the tile
+after a failed image is the tile from before there was ever an art layer.
+
+The printed text stays in the tooltip. At 56-92 px there is no reading effect
+text off a picture.
+
 ## Running the suites
 
 ```bash

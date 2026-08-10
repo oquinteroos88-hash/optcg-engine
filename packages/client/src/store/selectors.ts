@@ -27,6 +27,8 @@ export function playerLabel(player: PlayerId): string {
 // Card view
 
 export interface CardView {
+  /** The printed card, not the instance. Only the art layer needs it. */
+  cardId: string;
   name: string;
   /** null when the card has no printed cost (leaders) — no badge is drawn. */
   cost: number | null;
@@ -64,6 +66,7 @@ function cardViewOf(state: GameState, id: InstanceId): CardView | null {
   }
   const def = getCardDef(card.cardId);
   const view: CardView = {
+    cardId: card.cardId,
     name: def.name,
     // Leaders are printed without a cost; the engine stores 0 for them.
     cost: def.category === 'leader' ? null : def.cost,

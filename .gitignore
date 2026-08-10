@@ -8,3 +8,9 @@ dist/
 
 # Coverage output
 coverage-report/
+
+# Card art, downloaded on demand by
+# `pnpm --filter @optcg/cards run images`. Never committed: the art belongs to
+# its owners and this repository redistributes none of it. A clone without it
+# is the normal case - the client falls back to its own text tiles.
+packages/client/public/cards/

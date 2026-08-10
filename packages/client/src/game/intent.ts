@@ -27,6 +27,17 @@ export function toAction(intent: ActionIntent, player: PlayerId): Action {
       return { type: 'DECLARE_BLOCK', player, blocker: intent.blocker };
     case 'PLAY_COUNTER':
       return { type: 'PLAY_COUNTER', player, instanceId: intent.instanceId, target: intent.target };
+    case 'PLAY_COUNTER_EVENT':
+      return { type: 'PLAY_COUNTER_EVENT', player, instanceId: intent.instanceId };
+    case 'ACTIVATE_ABILITY':
+      return {
+        type: 'ACTIVATE_ABILITY',
+        player,
+        instanceId: intent.instanceId,
+        abilityId: intent.abilityId,
+      };
+    case 'ANSWER_CHOICE':
+      return { type: 'ANSWER_CHOICE', player, choiceId: intent.choiceId, answer: intent.answer };
     case 'PASS':
       return { type: 'PASS', player };
     case 'END_TURN':

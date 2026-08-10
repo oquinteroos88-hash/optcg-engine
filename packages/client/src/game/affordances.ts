@@ -1,5 +1,5 @@
 import { legalActions } from '@optcg/engine';
-import type { GameState, InstanceId, PlayerId } from '@optcg/engine';
+import type { GameState, InstanceId, PendingChoice, PlayerId } from '@optcg/engine';
 
 /**
  * What the acting player can do with one card, derived purely from legalActions.
@@ -34,8 +34,42 @@ export interface CardAffordance {
   canPlayCounterEvent: boolean;
 }
 
+/**
+ * The open choice, as much of it as the UI needs to build a legal answer.
+ *
+ * THE ARCHITECTURAL EXCEPTION, and the only one. Every other field on
+ * `Affordances` is an index over `legalActions`. This one is copied out of
+ * `state.pending`, because with a choice open `legalActions` returns a single
+ * `ANSWER_CHOICE` marker with no payload — enumerating the valid answers would
+ * mean enumerating subsets, and a "select 2 of 7" already has 21 of them.
+ *
+ * So the engine publishes the *shape* of a legal answer as data — candidates,
+ * min, max, kind, prompt — and every client, this one and the random bot alike,
+ * reads it from there. Confining the exception to one field of one object keeps
+ * it checkable: nothing else in the client is allowed to open `state.pending`.
+ *
+ * See the engine README, "Choices are data, not enumeration", and
+ * `packages/client/README.md`.
+ */
+export interface ChoiceView {
+  id: string;
+  /**
+   * The engine's own union. Only `selectCards` and `yesNo` are ever produced —
+   * `selectOption` and `orderCards` are vestigial in the type and pinned as
+   * unproduced by `tests/choiceShapes.test.ts` — but narrowing here would make
+   * the client silently wrong the day one of them comes back.
+   */
+  kind: PendingChoice['kind'];
+  prompt: string;
+  candidates: readonly InstanceId[];
+  min: number;
+  max: number;
+}
+
 export interface Affordances {
   byCard: Record<InstanceId, CardAffordance>;
+  /** Non-null exactly while `global.mustAnswerChoice` — see ChoiceView. */
+  pendingChoice: ChoiceView | null;
   global: {
     canEndTurn: boolean;
     canPass: boolean;
@@ -213,8 +247,24 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
     };
   }
 
+  // Read off the state, not off the list — see ChoiceView. Guarded by the
+  // marker so it stays null for anyone who is not the one being asked.
+  const pending = state.pending;
+  const pendingChoice: ChoiceView | null =
+    mustAnswerChoice && pending !== null
+      ? {
+          id: pending.id,
+          kind: pending.kind,
+          prompt: pending.prompt,
+          candidates: [...pending.candidates],
+          min: pending.min,
+          max: pending.max,
+        }
+      : null;
+
   return {
     byCard: result,
+    pendingChoice,
     global: { canEndTurn, canPass, canConcede, mustAnswerMulligan, mustAnswerChoice },
     whoActs,
   };

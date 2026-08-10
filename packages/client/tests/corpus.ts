@@ -83,6 +83,27 @@ export function starterCorpusStates(): GameState[] {
   return states;
 }
 
+/**
+ * The first state in the starter corpus whose open choice matches `accept`.
+ *
+ * Real positions rather than hand-built ones: `pending` is written by the
+ * interpreter mid-script, and a literal would be a guess about a shape the
+ * engine owns.
+ */
+export function firstPendingState(
+  accept: (pending: NonNullable<GameState['pending']>) => boolean,
+): GameState {
+  for (const seed of STARTER_SEEDS) {
+    for (const state of starterPlayout(seed, STARTER_MAX_STEPS, 'max')) {
+      const pending = state.pending;
+      if (pending !== null && accept(pending)) {
+        return state;
+      }
+    }
+  }
+  throw new Error('corpus bug: no state in the starter playouts opens such a choice');
+}
+
 /** Random-playout corpus (TEST and starter decks) plus targeted scenarios. */
 export function corpusStates(): GameState[] {
   const states: GameState[] = [];

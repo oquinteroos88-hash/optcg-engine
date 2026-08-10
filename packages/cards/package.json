@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./starters": "./dist/starters.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "gen:starters": "node --experimental-strip-types scripts/gen-starters.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "ingest": "node --experimental-strip-types scripts/ingest.ts"

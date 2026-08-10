@@ -10,7 +10,7 @@ section rewritten to how it was closed.
 The rest of this document is that evidence, plus three secondary findings the
 sweep turned up on the way.
 
-**Current as of PR #15.** Three things have changed since the sweep and are
+**Current as of the phase 2C client work.** Three things have changed since the sweep and are
 worth having up front:
 
 - **Backlog A holds no actionable item.** Both of its entries are settled — one
@@ -394,6 +394,28 @@ up three mechanics no starter card carries — one of them 140 cards wide. The
 first two questions interrogate a card. This one interrogates the sample.
 
 ## Notes for phase 2C — what the event log does not say
+
+**Both findings below are now answered, in the client rather than the engine.**
+Nothing in the engine changed; the record of the problems is kept because the
+reasoning is what justifies the client's answers, and because a future engine
+change would have to revisit them.
+
+- *Resolved to nothing*: derived, which is the option this document says the
+  engine currently supports. `store/selectors.ts` marks an `abilityTriggered`
+  with no effect event before the next window boundary as "sin efecto" — and
+  only once the engine has nothing left in flight, so an ability that is
+  mid-choice is not labelled before the player has answered it.
+- *Continuous abilities*: derived from the board, as suggested, but by
+  subtraction rather than by re-walking the field. `getPower -
+  getPowerWithoutStatics` is the engine's own definition of the continuous
+  contribution, so the amount is exact without the client reimplementing
+  `forEachStatic`. Attribution is the weaker half: `{self: true}` statics name
+  their own card, selector-based ones would need the engine's internal
+  `resolveSelector` and are left unnamed. Every static in ST-01/ST-02 is
+  self-targeting, which `packages/client/tests/continuousBadge.test.ts` pins so
+  the fallback becomes visible the day one is not.
+
+The original notes follow.
 
 Phase 2C owns the UI for choices. Two findings belong to it rather than to
 either backlog, because neither is a missing rule or a missing word: the engine

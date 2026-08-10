@@ -31,7 +31,7 @@ function loadState(state: GameState): void {
     screen: 'playing',
     gameState: state,
     animQueue: [],
-    ui: { mode: { kind: 'idle' }, veilOpponentHand: false },
+    ui: { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null },
     deviceAckFor: state.priority,
   });
 }
@@ -86,36 +86,37 @@ afterEach(() => {
 // No class names and no test ids: every lookup below starts from an accessible
 // name and walks the structure the components actually render.
 
-/** A side board's field row — the DON!! area's parent — for one player. */
-function fieldOf(player: PlayerId): HTMLElement {
-  const label = playerLabel(player);
-  for (const donArea of screen.getAllByRole('button', { name: /^DON!!/ })) {
-    const fieldRow = donArea.parentElement;
-    if (fieldRow?.parentElement?.textContent?.startsWith(label) === true) {
-      return fieldRow;
-    }
-  }
-  throw new Error(`no field row rendered for ${label}`);
+/**
+ * One player's half of the table.
+ *
+ * The board is addressed through accessible names rather than through the
+ * element tree, and this is where that changed: the phase 1 helpers walked
+ * `donArea.parentElement.parentElement` and broke the moment the playmat layout
+ * split one field row into three. Names survive a re-layout; parent chains do
+ * not. The assertions below are untouched.
+ */
+function sideOf(player: PlayerId): HTMLElement {
+  return screen.getByRole('region', { name: playerLabel(player) });
 }
 
-/** A side board's hand row for one player. */
+/** Everything of a player's board except their hand: characters, Leader, Stage, DON!!. */
+function fieldOf(player: PlayerId): HTMLElement {
+  return within(sideOf(player)).getByRole('group', {
+    name: `Campo de ${playerLabel(player)}`,
+  });
+}
+
+/** A side board's hand, fanned or not. */
 function handOf(player: PlayerId): HTMLElement {
-  const sideBoard = fieldOf(player).parentElement;
-  if (sideBoard === null) {
-    throw new Error(`no side board rendered for ${playerLabel(player)}`);
-  }
-  const handRow = within(sideBoard).getByText(/^Mano \(/).parentElement;
-  if (handRow === null) {
-    throw new Error(`no hand row rendered for ${playerLabel(player)}`);
-  }
-  return handRow;
+  return within(sideOf(player)).getByRole('group', {
+    name: `Mano de ${playerLabel(player)}`,
+  });
 }
 
 /** The table background: the element that owns both side boards. */
 function tableBackground(): HTMLElement {
-  const table = fieldOf('p1').parentElement?.parentElement ?? null;
-  const otherSide = fieldOf('p2').parentElement;
-  if (table === null || otherSide === null || !table.contains(otherSide)) {
+  const table = sideOf('p1').parentElement;
+  if (table === null || !table.contains(sideOf('p2'))) {
     throw new Error('table background not found');
   }
   return table;

@@ -6,12 +6,15 @@
   min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-2);
 }
 
+/* The battle line. The two Character rows sit against it, which is where an
+   attack is drawn — the phase 1 layout left a hole here instead. */
 .divider {
   height: 2px;
   background: var(--color-border);
-  margin: var(--space-2) var(--space-5);
+  margin: var(--space-1) var(--space-5);
   border-radius: 1px;
+  flex: 0 0 auto;
 }

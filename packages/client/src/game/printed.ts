@@ -27,14 +27,25 @@ const NONE: PrintedText = Object.freeze({
   attributes: Object.freeze([]),
 });
 
+/**
+ * The dataset stores the printed text verbatim, and verbatim includes the three
+ * `<br>` the official site uses to split a two-ability card. `@optcg/cards`
+ * documents that text as unparsed and it should stay that way — turning it into
+ * a line break is a display decision, so it is made here, once, where both the
+ * tooltip and the preview panel read it.
+ */
+function lines(text: string | null): string | null {
+  return text === null ? null : text.replace(/<br\s*\/?>/gi, '\n');
+}
+
 export function printedTextOf(cardId: CardId): PrintedText {
   const card = findStarterCard(cardId);
   if (card === undefined) {
     return NONE;
   }
   return {
-    effectText: card.effectText,
-    triggerText: card.triggerText,
+    effectText: lines(card.effectText),
+    triggerText: lines(card.triggerText),
     types: card.types,
     attributes: card.attributes,
   };

@@ -34,7 +34,7 @@ function loadState(state: GameState): void {
     screen: 'playing',
     gameState: state,
     animQueue: [],
-    ui: { mode: { kind: 'idle' }, veilOpponentHand: false },
+    ui: { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null },
     deviceAckFor: state.priority,
   });
 }

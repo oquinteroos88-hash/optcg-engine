@@ -1,6 +1,12 @@
 import type { MouseEvent, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
-import { useCardView, useClickState, useIsHighlighted, useTargeting } from '../store/selectors';
+import {
+  useCardView,
+  useClickState,
+  useIsHighlighted,
+  usePowerBreakdown,
+  useTargeting,
+} from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './CardTile.module.css';
 
@@ -19,6 +25,7 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const clickState = useClickState(id);
   const targeting = useTargeting();
   const highlighted = useIsHighlighted(id);
+  const power = usePowerBreakdown(id);
   const uiEvent = useStore((s) => s.uiEvent);
 
   if (view === null) {
@@ -47,22 +54,71 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const counterLabel = view.counter === null ? 'sin contraataque' : `contraataque ${view.counter}`;
   const costLabel = view.cost === null ? '' : `coste ${view.cost}, `;
 
+  // Why this card shows the power it shows. Continuous effects emit no events,
+  // so the log can never explain one — the only place a player can find out is
+  // on the card itself. Printed text goes in the same tooltip: with real cards
+  // a player cannot play what they cannot read.
+  const powerLines: string[] = [];
+  if (power.fromDon > 0) {
+    powerLines.push(`+${power.fromDon} por DON!! adjuntados`);
+  }
+  if (power.fromModifiers !== 0) {
+    const from =
+      power.modifierSources.length > 0 ? ` (${power.modifierSources.join(', ')})` : '';
+    powerLines.push(`${power.fromModifiers > 0 ? '+' : ''}${power.fromModifiers} temporal${from}`);
+  }
+  if (power.fromStatics !== 0) {
+    const from =
+      power.staticSources.length > 0 ? ` (${power.staticSources.join(', ')})` : ' (efecto continuo)';
+    powerLines.push(`${power.fromStatics > 0 ? '+' : ''}${power.fromStatics} continuo${from}`);
+  }
+  if (power.grantedKeywords.length > 0) {
+    powerLines.push(`Otorgado: ${power.grantedKeywords.join(', ')}`);
+  }
+
+  const tooltip = [
+    view.name,
+    powerLines.length > 0 ? `Poder ${power.printed} base · ${powerLines.join(' · ')}` : '',
+    view.effectText ?? '',
+    view.triggerText === null ? '' : `[Trigger] ${view.triggerText}`,
+  ]
+    .filter((line) => line !== '')
+    .join('\n');
+
+  const boostLabel = powerLines.length > 0 ? `, ${powerLines.join(', ')}` : '';
+
   return (
     <button
       type="button"
       className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass}`}
       onClick={handleClick}
-      aria-label={`${view.name}, ${costLabel}poder ${view.power}, ${counterLabel}${view.rested ? ', agotada' : ''}`}
+      title={tooltip}
+      aria-label={`${view.name}, ${costLabel}poder ${view.power}, ${counterLabel}${view.rested ? ', agotada' : ''}${boostLabel}`}
     >
       <div className={styles.header}>
         {view.cost === null ? null : <span className={styles.cost}>{view.cost}</span>}
         <span className={styles.name}>{view.name}</span>
       </div>
       <div className={styles.stats}>
-        <span className={styles.power}>{view.power}</span>
+        <span className={`${styles.power} ${power.fromStatics !== 0 ? styles.boosted : ''}`}>
+          {view.power}
+        </span>
         <span className={styles.counter}>{view.counter === null ? '—' : `+${view.counter}`}</span>
       </div>
       {view.donCount > 0 ? <span className={styles.donBadge}>DON ×{view.donCount}</span> : null}
+      {/* A continuous effect writes nothing to the state and emits no event, so
+          this marker is the only trace of it anywhere in the UI. */}
+      {power.fromStatics !== 0 ? (
+        <span className={styles.staticBadge} aria-hidden="true">
+          {power.fromStatics > 0 ? '+' : ''}
+          {power.fromStatics}
+        </span>
+      ) : null}
+      {view.effectText === null && view.triggerText === null ? null : (
+        <span className={styles.textMark} aria-hidden="true">
+          ★
+        </span>
+      )}
     </button>
   );
 }

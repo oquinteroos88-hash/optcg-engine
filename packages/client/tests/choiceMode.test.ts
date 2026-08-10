@@ -143,7 +143,7 @@ describe('answeringChoice cannot be escaped', () => {
   // There is no "decline": while the engine holds a choice open, its owner has
   // exactly one legal action. Escape used to reset any mode to idle, which here
   // would drop the player into a board that refuses every click.
-  it('ignores escape, background clicks and board clicks alike', () => {
+  it('ignores escape, background clicks and clicks on non-candidates alike', () => {
     const a = aff({ c1: card({ canAttack: true, attackTargets: ['L2'] }) }, selectCards());
     const mode = answering(['a']);
     for (const ev of [
@@ -157,6 +157,16 @@ describe('answeringChoice cannot be escaped', () => {
       expect(result.mode).toBe(mode);
       expect(result.intent).toBeUndefined();
     }
+  });
+
+  // Candidates are cards on the board, so clicking one there has to mean what
+  // clicking it in the overlay means. The tile keeps firing its zone event.
+  it('treats a board click on a candidate as a toggle', () => {
+    const a = aff({}, selectCards({ max: 2 }));
+    const on = reduceUiMode(answering(), { kind: 'clickFieldCard', instanceId: 'b', mine: true }, a);
+    expect(on.mode).toEqual(answering(['b']));
+    const off = reduceUiMode(on.mode, { kind: 'clickFieldCard', instanceId: 'b', mine: false }, a);
+    expect(off.mode).toEqual(answering([]));
   });
 
   it('falls back to idle when the choice it names is gone', () => {

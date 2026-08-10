@@ -267,15 +267,27 @@ function reduceAnsweringChoice(
   if (choice === null || choice.id !== mode.choiceId) {
     return { mode: IDLE };
   }
+  // Candidates are cards on the board, so a click on the board is a click on a
+  // candidate. Routing it here rather than in the tile keeps the components
+  // rule-blind: they keep firing the same zone events they always did.
+  const target =
+    ev.kind === 'toggleChoiceCandidate'
+      ? ev.instanceId
+      : ev.kind === 'clickFieldCard' || ev.kind === 'clickHandCard'
+        ? ev.instanceId
+        : null;
+
   switch (ev.kind) {
+    case 'clickFieldCard':
+    case 'clickHandCard':
     case 'toggleChoiceCandidate': {
-      if (choice.kind === 'yesNo' || !choice.candidates.includes(ev.instanceId)) {
+      if (target === null || choice.kind === 'yesNo' || !choice.candidates.includes(target)) {
         return { mode };
       }
-      const already = mode.selected.includes(ev.instanceId);
+      const already = mode.selected.includes(target);
       const selected = already
-        ? mode.selected.filter((id) => id !== ev.instanceId)
-        : [...mode.selected, ev.instanceId];
+        ? mode.selected.filter((id) => id !== target)
+        : [...mode.selected, target];
       // Past the ceiling the click is refused rather than silently evicting an
       // earlier pick: which one left would be invisible.
       if (selected.length > choice.max) {

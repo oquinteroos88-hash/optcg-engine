@@ -4,6 +4,8 @@ import { ActionBar } from '../components/ActionBar';
 import { AnimationDriver } from '../components/AnimationDriver';
 import { Banner } from '../components/Banner';
 import { BattleOverlay } from '../components/BattleOverlay';
+import { CardMenu } from '../components/CardMenu';
+import { ChoiceOverlay } from '../components/ChoiceOverlay';
 import { EventLog } from '../components/EventLog';
 import { GameOverOverlay } from '../components/GameOverOverlay';
 import { MulliganOverlay } from '../components/MulliganOverlay';
@@ -40,6 +42,10 @@ export function GameScreen(): ReactElement {
       <ActionBar />
       <BattleOverlay />
       {cardToPlay === null ? null : <TrashChoiceModal cardToPlay={cardToPlay} />}
+      <CardMenu />
+      {/* Above the menu and the battle panel: an open choice is the only legal
+          move its owner has, so nothing may sit on top of it. */}
+      <ChoiceOverlay />
       <MulliganOverlay />
       <GameOverOverlay />
       <PassDeviceScreen />

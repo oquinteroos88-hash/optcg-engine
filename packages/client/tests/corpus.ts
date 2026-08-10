@@ -1,10 +1,20 @@
 import { applyAction } from '@optcg/engine';
 import type { GameState, InstanceId } from '@optcg/engine';
 import { buildScenario, characterAt, handCard } from '@optcg/engine/testdata/scenarios';
-import { playout } from './driver';
+import { playout, starterPlayout } from './driver';
 
 export const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 export const MAX_STEPS = 150;
+
+/**
+ * Seeds carried over from `packages/cards/tests/game.test.ts`, where they were
+ * searched for reaching every scripted ability in ST-01/ST-02 at least once —
+ * including the two [Counter] Events, which are the hardest to reach unprompted.
+ */
+export const STARTER_SEEDS = [20260806, 5, 99, 2, 12, 9, 224] as const;
+/** A short second pass answering every selection at its minimum — see AnswerPolicy. */
+export const STARTER_MIN_ANSWER_SEEDS = [5, 12] as const;
+export const STARTER_MAX_STEPS = 400;
 
 function mustApply(state: GameState, action: Parameters<typeof applyAction>[1]): GameState {
   const result = applyAction(state, action);
@@ -58,7 +68,55 @@ export function attachedDonScenario(): GameState {
   });
 }
 
-/** Random-playout corpus plus targeted scenario states. */
+/**
+ * Playouts over the real starter decks. Kept separate from `corpusStates` only
+ * so a test can talk about them by name; `corpusStates` includes them.
+ */
+export function starterCorpusStates(): GameState[] {
+  const states: GameState[] = [];
+  for (const seed of STARTER_SEEDS) {
+    states.push(...starterPlayout(seed, STARTER_MAX_STEPS, 'max'));
+  }
+  for (const seed of STARTER_MIN_ANSWER_SEEDS) {
+    states.push(...starterPlayout(seed, STARTER_MAX_STEPS, 'min'));
+  }
+  return states;
+}
+
+/**
+ * The first state in the starter corpus whose open choice matches `accept`.
+ *
+ * Real positions rather than hand-built ones: `pending` is written by the
+ * interpreter mid-script, and a literal would be a guess about a shape the
+ * engine owns.
+ */
+export function firstPendingState(
+  accept: (pending: NonNullable<GameState['pending']>) => boolean,
+): GameState {
+  for (const seed of STARTER_SEEDS) {
+    for (const state of starterPlayout(seed, STARTER_MAX_STEPS, 'max')) {
+      const pending = state.pending;
+      if (pending !== null && accept(pending)) {
+        return state;
+      }
+    }
+  }
+  throw new Error('corpus bug: no state in the starter playouts opens such a choice');
+}
+
+/** The first starter-corpus state matching `accept`. Real positions only. */
+export function firstStarterStateWhere(accept: (state: GameState) => boolean): GameState {
+  for (const seed of STARTER_SEEDS) {
+    for (const state of starterPlayout(seed, STARTER_MAX_STEPS, 'max')) {
+      if (accept(state)) {
+        return state;
+      }
+    }
+  }
+  throw new Error('corpus bug: no starter state matches');
+}
+
+/** Random-playout corpus (TEST and starter decks) plus targeted scenarios. */
 export function corpusStates(): GameState[] {
   const states: GameState[] = [];
   for (const seed of SEEDS) {
@@ -67,5 +125,6 @@ export function corpusStates(): GameState[] {
   states.push(fullBoardScenario().state);
   states.push(counterStepScenario().state);
   states.push(attachedDonScenario());
+  states.push(...starterCorpusStates());
   return states;
 }

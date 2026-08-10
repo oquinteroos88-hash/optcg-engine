@@ -9,7 +9,7 @@ plus a card dataset and a local web client to play against it.
 | --- | --- |
 | [`@optcg/engine`](packages/engine/README.md) | The rules core: a pure reducer, no UI, no I/O. `packages/engine/SPEC.md` is the binding contract. |
 | [`@optcg/cards`](packages/cards/README.md) | Normalized card data and the abilities that bind it to the engine. |
-| `@optcg/client` | A React client for playing a local game against the engine. |
+| [`@optcg/client`](packages/client/README.md) | A React client for playing a local hot-seat game, ST-01 against ST-02. |
 
 ## Quick start
 

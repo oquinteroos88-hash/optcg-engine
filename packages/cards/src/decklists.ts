@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { CardId, Decklist as EngineDecklist } from '@optcg/engine';
+import type { CardId } from '@optcg/engine';
 import { findCard } from './cards.js';
 import type { Decklist } from './types.js';
 
@@ -62,14 +62,7 @@ export function validateDecklist(deck: Decklist): string[] {
   return problems;
 }
 
-/** Expands the authored multiplicities into the flat 50 ids the engine takes. */
-export function toEngineDecklist(deck: Decklist): EngineDecklist {
-  const cards: CardId[] = [];
-  for (const { cardId, qty } of deck.cards) {
-    for (let i = 0; i < qty; i += 1) cards.push(cardId);
-  }
-  return { leader: deck.leader, cards };
-}
+export { toEngineDecklist } from './expand.js';
 
 function loadDecklist(file: string): Decklist {
   const deck = JSON.parse(

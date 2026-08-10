@@ -1,11 +1,22 @@
 // View-model layer: besides game/, the only place allowed to import engine
 // VALUES. Components consume these hooks and stay rule-blind.
-import { getCardDef, getPower, PRINTED_KEYWORD } from '@optcg/engine';
+import {
+  getAbilities,
+  getCardDef,
+  getPower,
+  getPowerWithoutStatics,
+  hasKeyword,
+  KEYWORDS,
+  PRINTED_KEYWORD,
+} from '@optcg/engine';
 import type { GameEvent, GameState, InstanceId, PlayerId } from '@optcg/engine';
 import { getAffordances } from '../game/affordances';
-import type { Affordances } from '../game/affordances';
+import type { Affordances, ChoiceView } from '../game/affordances';
 import { clickStateOf } from '../game/clickState';
 import type { ClickState } from '../game/clickState';
+import { printedTextOf } from '../game/printed';
+import { menuOptions } from '../game/uiMode';
+import type { MenuOption, UiMode } from '../game/uiMode';
 import { useStore } from './store';
 
 export function playerLabel(player: PlayerId): string {
@@ -24,6 +35,14 @@ export interface CardView {
   colorClass: string;
   rested: boolean;
   donCount: number;
+  /** Printed text. Null on the TEST cards, which print none. */
+  effectText: string | null;
+  triggerText: string | null;
+}
+
+function printedText(cardId: string): { effectText: string | null; triggerText: string | null } {
+  const text = printedTextOf(cardId);
+  return { effectText: text.effectText, triggerText: text.triggerText };
 }
 
 const cardViewCache = new WeakMap<GameState, Map<InstanceId, CardView | null>>();
@@ -55,6 +74,7 @@ function cardViewOf(state: GameState, id: InstanceId): CardView | null {
     colorClass: def.color,
     rested: card.orientation === 'rested',
     donCount: card.attachedDon.length,
+    ...printedText(card.cardId),
   };
   perState.set(id, view);
   return view;
@@ -73,8 +93,14 @@ export interface BannerView {
   activePlayer: PlayerId;
   priority: PlayerId;
   phase: PhaseKey;
-  /** True when the non-active player holds priority during a battle. */
+  /** True when the non-active player holds priority — battle or open choice. */
   defenderResponds: boolean;
+  /**
+   * True while a choice is open. Priority follows `pending.player`, so this is
+   * also how a life card's [Trigger] hands control to the damaged player: the
+   * phase 1 defender banner already covered the crossing, this names it.
+   */
+  choiceOpen: boolean;
   winner: PlayerId | null;
 }
 
@@ -102,6 +128,7 @@ function bannerOf(state: GameState): BannerView {
     priority: state.priority,
     phase,
     defenderResponds: state.status === 'playing' && state.priority !== state.activePlayer,
+    choiceOpen: state.pending !== null,
     winner: state.winner,
   };
   bannerCache.set(state, view);
@@ -289,6 +316,69 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
   }
 }
 
+/**
+ * Events that count as "something happened" inside an ability's window, and the
+ * ones that close that window without anything having happened.
+ *
+ * A resolved ability emits `abilityTriggered` and then, if it resolves into
+ * nothing — an "up to 1" answered with nothing, a K.O. with no legal target —
+ * emits nothing else. On the board that is indistinguishable from a bug: the
+ * player sees the effect fire and sees no change. Naming it in the log is the
+ * cheapest honest fix. `choiceOpened`/`choiceAnswered` are neither: an ability
+ * that only asked a question still has not done anything.
+ */
+const EFFECT_EVENTS = new Set<GameEvent['type']>([
+  'powerGranted',
+  'keywordGranted',
+  'koed',
+  'cardMoved',
+  'cardDiscarded',
+  'cardsRevealed',
+  'cardDrawn',
+  'donAttached',
+  'donGained',
+  'donReturned',
+  'donOrientationChanged',
+  'donReturnedToDeck',
+  'orientationChanged',
+  'lifeTaken',
+  'lifeBanished',
+  'stageReplaced',
+  'characterTrashedForRoom',
+]);
+
+const WINDOW_CLOSERS = new Set<GameEvent['type']>([
+  'abilityTriggered',
+  'abilityDeclined',
+  'cardPlayed',
+  'attackDeclared',
+  'blockDeclared',
+  'counterPlayed',
+  'battleResolved',
+  'turnStarted',
+  'turnEnded',
+  'gameEnded',
+]);
+
+function resolvedIntoNothing(state: GameState, at: number): boolean {
+  const log = state.log;
+  for (let i = at + 1; i < log.length; i += 1) {
+    const type = log[i]?.type;
+    if (type === undefined || WINDOW_CLOSERS.has(type)) {
+      return true;
+    }
+    if (EFFECT_EVENTS.has(type)) {
+      return false;
+    }
+  }
+  // Ran off the end of the log: the ability is the last thing that happened, so
+  // it has only finished if the engine has nothing left in flight. Mid-choice it
+  // has not — labelling it "sin efecto" while the player is still being asked
+  // what it should do would be wrong, and it is exactly what a choice-opening
+  // ability looks like at the moment the overlay comes up.
+  return state.pending === null && state.stack.length === 0 && state.resume.length === 0;
+}
+
 const logCache = new WeakMap<GameState, LogEntry[]>();
 
 function logEntriesOf(state: GameState): LogEntry[] {
@@ -302,7 +392,11 @@ function logEntriesOf(state: GameState): LogEntry[] {
       turn = event.turn;
     }
     const { player, text } = formatEvent(event, state);
-    return { id: index, turn, player, text };
+    const suffix =
+      event.type === 'abilityTriggered' && resolvedIntoNothing(state, index)
+        ? ' — sin efecto'
+        : '';
+    return { id: index, turn, player, text: text + suffix };
   });
   logCache.set(state, entries);
   return entries;
@@ -331,6 +425,7 @@ const NO_GLOBALS: Affordances['global'] = Object.freeze({
   canPass: false,
   canConcede: false,
   mustAnswerMulligan: false,
+  mustAnswerChoice: false,
 });
 
 export function useGlobalAffordances(): Affordances['global'] {
@@ -510,6 +605,282 @@ export function useChoosingTrash(): InstanceId | null {
 export function useTargeting(): boolean {
   return useStore((s) => {
     const kind = s.ui.mode.kind;
-    return kind === 'attacking' || kind === 'attachingDon' || kind === 'countering';
+    return (
+      kind === 'attacking' ||
+      kind === 'attachingDon' ||
+      kind === 'countering' ||
+      kind === 'answeringChoice'
+    );
   });
+}
+
+// ---------------------------------------------------------------------------
+// Choice
+
+/**
+ * Single-entry memo over the inputs a view is derived from.
+ *
+ * `useStore` re-runs its selector on every snapshot read and compares the
+ * result by reference, so a selector that builds a fresh object each call makes
+ * React see a changed store forever: "Maximum update depth exceeded", a blank
+ * screen. The rest of this file dodges it with `WeakMap<GameState, …>` caches,
+ * which is not enough here — these two views also depend on `ui.mode`, which is
+ * not a key a WeakMap can be built on alone. So: remember the last inputs by
+ * identity and hand back the same object while they hold. Both the engine state
+ * and the UI mode are replaced rather than mutated, so identity is exact.
+ */
+function memoize1<A extends readonly unknown[], R>(compute: (...args: A) => R): (...args: A) => R {
+  let lastArgs: A | null = null;
+  let lastResult: R;
+  return (...args: A): R => {
+    if (
+      lastArgs !== null &&
+      lastArgs.length === args.length &&
+      lastArgs.every((a, i) => a === args[i])
+    ) {
+      return lastResult;
+    }
+    lastArgs = args;
+    lastResult = compute(...args);
+    return lastResult;
+  };
+}
+
+export interface ChoiceOverlayView {
+  choiceId: string;
+  kind: ChoiceView['kind'];
+  /** The engine's prompt, verbatim. It is card text, and card text is English. */
+  prompt: string;
+  /** Who is answering — not always the player whose turn it is. */
+  player: PlayerId;
+  candidates: readonly InstanceId[];
+  min: number;
+  max: number;
+  selected: readonly InstanceId[];
+  canConfirm: boolean;
+  /** The card whose ability is asking, so the prompt is not a bare ability id. */
+  sourceName: string | null;
+  sourceText: string | null;
+}
+
+/**
+ * The open choice, or null.
+ *
+ * Null while the animation queue is draining, which is the whole of the
+ * ordering decision: the board finishes showing what happened, and only then is
+ * the player asked to decide about it. Deciding on top of a board that has not
+ * caught up yet is how a player answers a question about a state they cannot
+ * see. The queue always drains — AnimationDriver runs unconditionally and every
+ * group has a finite duration — so a choice cannot be buried by it.
+ */
+const choiceOverlayOf = memoize1(
+  (state: GameState | null, mode: UiMode, blocked: boolean): ChoiceOverlayView | null => {
+    if (state === null || blocked) {
+      return null;
+    }
+    const choice = getAffordances(state).pendingChoice;
+    if (choice === null || mode.kind !== 'answeringChoice' || mode.choiceId !== choice.id) {
+      return null;
+    }
+    // The ability that is asking sits on top of the stack. Naming it turns
+    // "Activate ST01-014-trigger?" into a question about a card.
+    const top = state.stack[state.stack.length - 1];
+    const source = top === undefined ? undefined : state.cards[top.source];
+    const selected = mode.selected;
+    return {
+      choiceId: choice.id,
+      kind: choice.kind,
+      prompt: choice.prompt,
+      player: state.priority,
+      candidates: choice.candidates,
+      min: choice.min,
+      max: choice.max,
+      selected,
+      canConfirm: selected.length >= choice.min && selected.length <= choice.max,
+      sourceName: source === undefined ? null : getCardDef(source.cardId).name,
+      sourceText:
+        source === undefined
+          ? null
+          : (printedTextOf(source.cardId).effectText ?? printedTextOf(source.cardId).triggerText),
+    };
+  },
+);
+
+export function useChoiceOverlay(): ChoiceOverlayView | null {
+  return useStore((s) => choiceOverlayOf(s.gameState, s.ui.mode, s.animQueue.length > 0));
+}
+
+// ---------------------------------------------------------------------------
+// Contextual menu
+
+export interface CardMenuView {
+  card: InstanceId;
+  name: string;
+  options: readonly { label: string; hint: string | null }[];
+}
+
+/** Spanish labels for the N entries; ability entries carry their printed text. */
+function labelFor(option: MenuOption, cardId: string): { label: string; hint: string | null } {
+  switch (option.kind) {
+    case 'play':
+      return { label: 'Jugar', hint: null };
+    case 'attack':
+      return { label: 'Atacar', hint: null };
+    case 'block':
+      return { label: 'Bloquear', hint: null };
+    case 'counter':
+      return { label: 'Usar de contraataque', hint: null };
+    case 'counterEvent':
+      return { label: 'Jugar como evento [Counter]', hint: printedTextOf(cardId).effectText };
+    case 'activate':
+      return { label: 'Activar habilidad', hint: printedTextOf(cardId).effectText };
+  }
+}
+
+const cardMenuOf = memoize1((state: GameState | null, mode: UiMode): CardMenuView | null => {
+  if (state === null || mode.kind !== 'cardMenu') {
+    return null;
+  }
+  const card = state.cards[mode.card];
+  if (card === undefined) {
+    return null;
+  }
+  const options = menuOptions(getAffordances(state), mode.card);
+  // Numbered only when there is more than one to tell apart: a card with a
+  // single activated ability should not read as "Activar habilidad 1".
+  const activatedCount = options.filter((option) => option.kind === 'activate').length;
+  let seen = 0;
+  return {
+    card: mode.card,
+    name: getCardDef(card.cardId).name,
+    options: options.map((option) => {
+      const entry = labelFor(option, card.cardId);
+      if (option.kind !== 'activate' || activatedCount < 2) {
+        return entry;
+      }
+      seen += 1;
+      return { ...entry, label: `${entry.label} ${seen}` };
+    }),
+  };
+});
+
+export function useCardMenu(): CardMenuView | null {
+  return useStore((s) => cardMenuOf(s.gameState, s.ui.mode));
+}
+
+// ---------------------------------------------------------------------------
+// Why this card has that power
+
+export interface PowerBreakdown {
+  printed: number;
+  fromDon: number;
+  /** Temporary grants — counters, resolved effects — with what granted them. */
+  fromModifiers: number;
+  modifierSources: readonly string[];
+  /** Continuous (`static`) contribution. Never an event, never a modifier. */
+  fromStatics: number;
+  staticSources: readonly string[];
+  /** Keywords the card does not print but currently has. */
+  grantedKeywords: readonly string[];
+}
+
+const EMPTY_BREAKDOWN: PowerBreakdown = Object.freeze({
+  printed: 0,
+  fromDon: 0,
+  fromModifiers: 0,
+  modifierSources: Object.freeze([]),
+  fromStatics: 0,
+  staticSources: Object.freeze([]),
+  grantedKeywords: Object.freeze([]),
+});
+
+/**
+ * Why a Character shows +1000.
+ *
+ * Continuous effects emit no events at all — they are read at lookup time and
+ * write nothing to the state — so the log can never explain one. The only way
+ * to answer the question is to derive it from the board, which is what this
+ * does: the static contribution is exactly `getPower - getPowerWithoutStatics`,
+ * a subtraction the engine's own definition guarantees.
+ *
+ * Attribution is separate from the amount, and deliberately weaker. A `static`
+ * whose `affects` is `{self: true}` names its own card and is attributed
+ * exactly; one that reaches other cards through a selector would need the
+ * engine's internal `resolveSelector` to attribute, so it is left unnamed
+ * rather than guessed at. Every static in ST-01/ST-02 is self-targeting today,
+ * which is why the fallback is rarely reached — `continuousBadge.test.ts` pins
+ * that, so the day a foreign static arrives it reads as unattributed instead of
+ * as the wrong card.
+ */
+function breakdownOf(state: GameState, id: InstanceId): PowerBreakdown {
+  const card = state.cards[id];
+  if (card === undefined) {
+    return EMPTY_BREAKDOWN;
+  }
+  const def = getCardDef(card.cardId);
+  const nameOfCard = (instanceId: InstanceId): string => nameOf(state, instanceId);
+
+  let fromModifiers = 0;
+  const modifierSources: string[] = [];
+  for (const modifier of state.modifiers) {
+    if (modifier.kind === 'power' && modifier.target === id) {
+      fromModifiers += modifier.value;
+      modifierSources.push(nameOfCard(modifier.source));
+    }
+  }
+
+  const fromStatics = getPower(state, id) - getPowerWithoutStatics(state, id);
+  const staticSources: string[] = [];
+  if (fromStatics !== 0) {
+    for (const ability of getAbilities(card.cardId)) {
+      if (
+        ability.trigger === 'static' &&
+        ability.affects !== undefined &&
+        'self' in ability.affects
+      ) {
+        staticSources.push(def.name);
+      }
+    }
+  }
+
+  const grantedKeywords: string[] = [];
+  for (const keyword of KEYWORDS) {
+    const printed = def.keywords.includes(PRINTED_KEYWORD[keyword]);
+    if (!printed && hasKeyword(state, id, keyword)) {
+      grantedKeywords.push(PRINTED_KEYWORD[keyword]);
+    }
+  }
+
+  return {
+    printed: def.power,
+    fromDon: card.attachedDon.length * 1000,
+    fromModifiers,
+    modifierSources: [...new Set(modifierSources)],
+    fromStatics,
+    staticSources: [...new Set(staticSources)],
+    grantedKeywords,
+  };
+}
+
+const breakdownCache = new WeakMap<GameState, Map<InstanceId, PowerBreakdown>>();
+
+export function powerBreakdown(state: GameState, id: InstanceId): PowerBreakdown {
+  let perState = breakdownCache.get(state);
+  if (perState === undefined) {
+    perState = new Map();
+    breakdownCache.set(state, perState);
+  }
+  const cached = perState.get(id);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const value = breakdownOf(state, id);
+  perState.set(id, value);
+  return value;
+}
+
+export function usePowerBreakdown(id: InstanceId): PowerBreakdown {
+  return useStore((s) =>
+    s.gameState === null ? EMPTY_BREAKDOWN : powerBreakdown(s.gameState, id),
+  );
 }

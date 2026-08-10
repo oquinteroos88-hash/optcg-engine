@@ -144,3 +144,31 @@
   border-radius: var(--radius-sm);
   padding: 1px 4px;
 }
+
+/* Continuous effects write nothing to the state and emit no event: this badge
+   and the tinted power number are the only trace of one anywhere in the UI. */
+.boosted {
+  color: var(--color-accent);
+}
+
+.staticBadge {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  background: var(--color-accent);
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+
+/* Marks a card that prints text, so a player knows there is something to read
+   before hovering it. */
+.textMark {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  font-size: 10px;
+  color: var(--color-muted);
+}

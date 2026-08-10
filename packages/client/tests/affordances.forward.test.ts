@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction } from '@optcg/engine';
-import type { Action, GameState } from '@optcg/engine';
+import type { Action, ChoiceAnswer, GameState } from '@optcg/engine';
 import { computeAffordances } from '../src/game/affordances';
 import { attachedDonScenario, corpusStates, counterStepScenario, fullBoardScenario } from './corpus';
 
@@ -8,6 +8,30 @@ function expectApplies(state: GameState, action: Action): void {
   const result = applyAction(state, action);
   if (!result.ok) {
     expect.fail(`affordance produced an illegal action ${JSON.stringify(action)}: ${result.reason}`);
+  }
+}
+
+/**
+ * The smallest answer `pending` admits.
+ *
+ * Built the way the UI builds one — from `state.pending`, not from
+ * `legalActions` — because that is the whole point of the exception: the marker
+ * carries no payload, so soundness of `mustAnswerChoice` can only mean "an
+ * answer assembled from the published shape is accepted".
+ */
+function minimalAnswer(state: GameState): ChoiceAnswer {
+  const pending = state.pending;
+  if (pending === null) {
+    throw new Error('test bug: no pending choice');
+  }
+  switch (pending.kind) {
+    case 'yesNo':
+      return { kind: 'yesNo', value: false };
+    case 'selectOption':
+      return { kind: 'option', index: 0 };
+    case 'selectCards':
+    case 'orderCards':
+      return { kind: 'cards', selected: pending.candidates.slice(0, pending.min) };
   }
 }
 
@@ -22,10 +46,31 @@ function assertForward(state: GameState): void {
   // which is why the pass control lives in BattleOverlay and the ActionBar has
   // no generic one.
   //
+  // The `pending` half is not a relaxation, it is the same rule stated for a
+  // state class the TEST-deck corpus could not produce: an open choice pre-empts
+  // the whole action list, battle or no battle, so there is no pass to offer
+  // while one is open. The BattleOverlay's button disappears for exactly as
+  // long as the choice overlay is up.
+  //
   // If this ever fails, the engine has grown a pass outside battle and the UI
   // needs a control it does not have today - add it to ActionBar rather than
   // relaxing this assertion.
-  expect(aff.global.canPass).toBe(state.battle !== null);
+  expect(aff.global.canPass).toBe(state.battle !== null && state.pending === null);
+
+  // An open choice is exclusive: it is the only thing its owner can do.
+  expect(aff.global.mustAnswerChoice).toBe(state.pending !== null);
+  if (aff.global.mustAnswerChoice) {
+    expect(state.pending?.player).toBe(player);
+    expectApplies(state, {
+      type: 'ANSWER_CHOICE',
+      player,
+      choiceId: state.pending?.id ?? '',
+      answer: minimalAnswer(state),
+    });
+    expect(aff.global.canEndTurn).toBe(false);
+    expect(aff.global.mustAnswerMulligan).toBe(false);
+    expect(Object.keys(aff.byCard)).toEqual([]);
+  }
 
   if (aff.global.mustAnswerMulligan) {
     expectApplies(state, { type: 'MULLIGAN', player, accept: true });
@@ -71,6 +116,16 @@ function assertForward(state: GameState): void {
       if (target !== undefined) {
         expectApplies(state, { type: 'PLAY_COUNTER', player, instanceId, target });
       }
+    }
+    // A [Counter] Event carries no target: the action is complete without one.
+    if (card.canPlayCounterEvent) {
+      expectApplies(state, { type: 'PLAY_COUNTER_EVENT', player, instanceId });
+    }
+    // Every entry of the menu must be playable, not just the first: a card with
+    // two activated abilities would otherwise offer one that does not apply.
+    expect(card.canActivate).toBe(card.activatableAbilities.length > 0);
+    for (const abilityId of card.activatableAbilities) {
+      expectApplies(state, { type: 'ACTIVATE_ABILITY', player, instanceId, abilityId });
     }
   }
 }

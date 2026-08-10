@@ -21,7 +21,11 @@ export function Banner(): ReactElement | null {
       <span className={styles.turn}>
         Turno de {playerLabel(banner.activePlayer)} — {PHASE_LABELS[banner.phase]}
       </span>
-      {banner.defenderResponds ? (
+      {/* The choice label wins: a [Trigger] is answered by the damaged player,
+          who is not "responding" to a battle in any sense they would recognise. */}
+      {banner.choiceOpen ? (
+        <span className={styles.defender}>{playerLabel(banner.priority)} decide un efecto</span>
+      ) : banner.defenderResponds ? (
         <span className={styles.defender}>{playerLabel(banner.priority)} responde</span>
       ) : null}
       {banner.phase === 'finished' && banner.winner !== null ? (

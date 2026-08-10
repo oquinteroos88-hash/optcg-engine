@@ -3,7 +3,7 @@ import { applyAction } from '@optcg/engine';
 import type { InstanceId } from '@optcg/engine';
 import { characterAt } from '@optcg/engine/testdata/scenarios';
 import { EMPTY_AFFORDANCE, getAffordances } from '../src/game/affordances';
-import type { Affordances, CardAffordance } from '../src/game/affordances';
+import type { Affordances, CardAffordance, ChoiceView } from '../src/game/affordances';
 import { clickStateOf } from '../src/game/clickState';
 import { toAction } from '../src/game/intent';
 import { ensureModeValid, reduceUiMode } from '../src/game/uiMode';
@@ -17,14 +17,17 @@ function card(overrides: Partial<CardAffordance>): CardAffordance {
 function aff(
   byCard: Record<InstanceId, CardAffordance>,
   globals: Partial<Affordances['global']> = {},
+  pendingChoice: ChoiceView | null = null,
 ): Affordances {
   return {
     byCard,
+    pendingChoice,
     global: {
       canEndTurn: false,
       canPass: false,
       canConcede: true,
       mustAnswerMulligan: false,
+      mustAnswerChoice: false,
       ...globals,
     },
     whoActs: 'p1',

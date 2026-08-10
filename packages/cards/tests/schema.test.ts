@@ -88,6 +88,7 @@ describe('the normalized set', () => {
       'ST01-013',
       'ST01-014',
       'ST01-015',
+      'ST01-017',
       'ST02-003',
       'ST02-008',
       'ST02-009',

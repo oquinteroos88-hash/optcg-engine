@@ -104,6 +104,18 @@ export function firstPendingState(
   throw new Error('corpus bug: no state in the starter playouts opens such a choice');
 }
 
+/** The first starter-corpus state matching `accept`. Real positions only. */
+export function firstStarterStateWhere(accept: (state: GameState) => boolean): GameState {
+  for (const seed of STARTER_SEEDS) {
+    for (const state of starterPlayout(seed, STARTER_MAX_STEPS, 'max')) {
+      if (accept(state)) {
+        return state;
+      }
+    }
+  }
+  throw new Error('corpus bug: no starter state matches');
+}
+
 /** Random-playout corpus (TEST and starter decks) plus targeted scenarios. */
 export function corpusStates(): GameState[] {
   const states: GameState[] = [];

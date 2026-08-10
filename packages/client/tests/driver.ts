@@ -1,7 +1,9 @@
 import { applyAction, createGame, legalActions, nextInt } from '@optcg/engine';
-import type { Action, ChoiceAnswer, GameState, PendingChoice } from '@optcg/engine';
+import type { Action, ChoiceAnswer, GameEvent, GameState, PendingChoice } from '@optcg/engine';
 import { GREEN_DECK, RED_DECK } from '@optcg/engine/testdata/decks';
-import { registerEnglishCards, ST01_DECK, ST02_DECK, toEngineDecklist } from '@optcg/cards';
+// The browser-safe entry, not the package root: the root loads 1.5 MB of JSON
+// through `node:fs`, which the jsdom suites cannot resolve. Same cards.
+import { registerStarterCards, starterDecklists, toEngineDecklist } from '@optcg/cards/starters';
 
 /**
  * Seeded random playout mirroring the engine's (unexported) bot policy:
@@ -94,18 +96,40 @@ function answerFor(pending: PendingChoice, step: number, policy: AnswerPolicy): 
   }
 }
 
-export function starterPlayout(
+function starterDecks(): { p1: ReturnType<typeof toEngineDecklist>; p2: ReturnType<typeof toEngineDecklist> } {
+  const [st01, st02] = starterDecklists;
+  if (st01 === undefined || st02 === undefined) {
+    throw new Error('the starter entry publishes fewer than two decklists');
+  }
+  return { p1: toEngineDecklist(st01), p2: toEngineDecklist(st02) };
+}
+
+/** One move of a starter playout: the position, the action, what it emitted. */
+export interface PlayoutStep {
+  before: GameState;
+  action: Action;
+  events: readonly GameEvent[];
+  after: GameState;
+}
+
+export function starterPlayoutSteps(
   seed: number,
   maxSteps: number,
   policy: AnswerPolicy = 'max',
-): GameState[] {
-  registerEnglishCards();
-  let state = createGame({
-    seed,
-    decks: { p1: toEngineDecklist(ST01_DECK), p2: toEngineDecklist(ST02_DECK) },
-    firstPlayer: 'p1',
-  });
-  const states: GameState[] = [state];
+): PlayoutStep[] {
+  const steps: PlayoutStep[] = [];
+  runStarter(seed, maxSteps, policy, (step) => steps.push(step));
+  return steps;
+}
+
+function runStarter(
+  seed: number,
+  maxSteps: number,
+  policy: AnswerPolicy,
+  onStep: (step: PlayoutStep) => void,
+): void {
+  registerStarterCards();
+  let state = createGame({ seed, decks: starterDecks(), firstPlayer: 'p1' });
 
   for (let step = 0; step < maxSteps; step += 1) {
     if (state.status === 'finished') {
@@ -129,9 +153,20 @@ export function starterPlayout(
     if (!result.ok) {
       throw new Error(`driver bug: legal action rejected (${action.type}: ${result.reason})`);
     }
+    onStep({ before: state, action, events: result.events, after: result.state });
     state = result.state;
-    states.push(state);
   }
+}
 
+export function starterPlayout(
+  seed: number,
+  maxSteps: number,
+  policy: AnswerPolicy = 'max',
+): GameState[] {
+  registerStarterCards();
+  const initial = createGame({ seed, decks: starterDecks(), firstPlayer: 'p1' });
+  // Every state visited, initial included.
+  const states: GameState[] = [initial];
+  runStarter(seed, maxSteps, policy, (step) => states.push(step.after));
   return states;
 }

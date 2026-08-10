@@ -151,6 +151,25 @@ function payCosts(draft: GameState, item: StackItem, ability: Ability, events: G
           leaveField(draft, item.source, 'cost', events);
         }
         break;
+      case 'restSelf': {
+        // Paid here, before `status` becomes 'running', so by the time the first
+        // instruction executes the source is already rested — CR 8-4-1 runs
+        // "pay all activation costs" (8-4-1-3) ahead of activation (8-4-1-4) and
+        // resolution (8-4-1-5). A script that reads its own orientation, or a
+        // selector that filters on it, sees the paid state.
+        const source = draft.cards[item.source];
+        if (source === undefined || !isOnField(draft, item.source) || source.orientation !== 'active') {
+          throw new Error('Engine bug: rest-self cost paid by a source that cannot rest');
+        }
+        mark('cost.restSelf');
+        source.orientation = 'rested';
+        emit(draft, events, {
+          type: 'orientationChanged',
+          instanceId: item.source,
+          orientation: 'rested',
+        });
+        break;
+      }
       case 'discardHand': {
         const ps = draft.players[item.controller];
         for (let i = 0; i < cost.count; i += 1) {

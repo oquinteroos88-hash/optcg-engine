@@ -130,7 +130,7 @@ interface Ability {
   optional?: boolean;        // "you may" rather than "you must"
   oncePerTurn?: boolean;
   script: Instruction[];     // empty for trigger: 'static'
-  affects?: Selector;        // static only
+  affects?: Audience;        // static only: {self: true} or {selector}
   grants?: { power?: number; keyword?: Keyword };  // static only
 }
 ```
@@ -158,6 +158,19 @@ paid means the same thing.** Costs are checked before the ability triggers at
 all, re-checked at the moment of payment, and never paid halfway. An
 `activateMain` ability whose cost cannot be met does not appear in
 `legalActions`.
+
+`Cost` has five members: `restDon`, `returnDon`, `trashSelf`, `restSelf` and
+`discardHand`. Four of them spend a pool — DON!!, or the hand — and
+`trashSelf`/`restSelf` spend the source itself. `restSelf` is the only one whose
+payability turns on the source's **orientation**: a rested card has no resting
+left to do, so it cannot pay (CR 8-3-1-3, the same rule that stops a rested card
+attacking under 7-1-1-1), and the ability disappears from `legalActions` until
+the controller's Refresh Phase sets the source active again (CR 6-2-4). That
+makes such an ability once per turn without printing `[Once Per Turn]`.
+
+Costs are paid before the script starts — CR 8-4-1 pays (8-4-1-3), then
+activates (8-4-1-4), then resolves (8-4-1-5) — so a script that reads its own
+source sees the paid state.
 
 ### The interpreter is a program counter
 
@@ -552,10 +565,17 @@ guaranteed to make progress.
 ### The ABIL set
 
 `src/testdata/abilities.ts` adds a second synthetic set whose only purpose is to
-exercise the effect system. Between its 24 cards it covers **every `op`, every
+exercise the effect system. Between its 26 cards it covers **every `op`, every
 `Trigger`, every `Cost`, every `Condition` kind and all four keywords**, plus an
 `if` nested inside a `forEach`, a `oncePerTurn`, an `optional`, two continuous
 sources, and a K.O. that wakes an `[On K.O.]` on the card it just killed.
+
+New coverage is added to an existing card wherever it can be. A new `ABIL-` id
+changes `abilityDecks.ts`'s deck list and reshuffles every seeded scenario in the
+package, so `ABIL-018` carries four abilities and the `ABIL-024` Stage two — the
+`restSelf` cost sits on the Stage because that is the shape the real card has
+(`ST01-017`), and because it lets one test rest the source and still read its
+continuous effect.
 
 It registers through the public registry exactly like the TEST set, and lives in
 `testdata/abilityDecks.ts` so that **`testdata/decks.ts` has no import path to

@@ -148,6 +148,81 @@ has nothing left in flight.
 1.5 MB of JSON with `node:fs`, which is right on Node and unavailable in a
 bundle. The TEST decks print no text and show none.
 
+## The board
+
+Two rails and a board: the card preview on the left, the table in the middle,
+the event log on the right. Both rails are a constant width and both are always
+rendered, so nothing on the board moves when the pointer does.
+
+The table follows the official playmat, read from the centre line outwards:
+
+```
+        opponent's hand
+        DON!! deck · cost area · trash
+        Life · Leader · Stage · Deck
+        opponent's Characters
+   ──────────────── battle line ────────────────
+        your Characters
+        Life · Leader · Stage · Deck
+        DON!! deck · cost area · trash
+        your hand
+```
+
+The two Character rows sit against the divider, which is where an attack is
+drawn.
+
+**The top half is mirrored by row order, never by rotation.** Phase 1 used
+`transform: rotate(180deg)`, which bought the facing Character rows at the cost
+of every label on that half reading upside down. `flex-direction: column-reverse`
+buys the same ordering, leaves every glyph upright, and — because it reverses
+paint order rather than DOM order — leaves every accessible name and every test
+that walks them untouched. `tests/boardLayout.test.tsx` fails if a half-turn
+comes back.
+
+Both halves are addressed by accessible name: each side board is a region named
+after its player, containing a group `Campo de <player>` and a group
+`Mano de <player>`. The click-routing tests address the DOM through those names,
+which is what let this re-layout happen without touching a single assertion.
+
+## The hand fan
+
+An arc: each card tilts a little, lifts with the square of its distance from the
+middle, and overlaps its neighbour. Hovering one straightens it, lifts it and
+raises it above the rest.
+
+The overlap is solved from a width budget rather than picked: the fan may not
+occupy more than 7.5 card widths, so it compresses instead of overflowing. Up to
+seven cards there is no overlap at all; at twenty-eight — which a game of
+nothing but End Turn really produces — the same footprint holds. It is capped at
+80% so every card keeps a sliver, and because cards stack left-to-right with the
+later ones on top, the sliver that survives is the **left** edge: the cost badge
+and the affordance border. A playable card still reads as playable inside the
+arc.
+
+The geometry reaches CSS as custom properties, never as an inline `transform`.
+An inline transform cannot be overridden by a `:hover` rule, and straightening
+the hovered card is the whole reason an overlapped fan is usable.
+
+The fan rotation and the 90° `rested` rotation cannot collide: the fan is on the
+wrapper, `rested` is on the tile inside it. They never meet anyway —
+`tests/handFan.test.ts` measures that no card in any hand of the corpus is
+rested, over more than ten thousand hand cards.
+
+## The preview panel
+
+One place, one size. Hovering any card — either hand, either field, or a
+candidate inside the choice overlay — fills it with the art, the printed text
+and the derived power broken down. Scaling a card where it sits was the
+alternative, and it moves the row and covers the neighbours a player is in the
+middle of comparing it against.
+
+It also fills itself with no pointer involved: while a choice is open it shows
+the card whose ability is asking, so a prompt like `Activate ST01-014-trigger?`
+is read next to Guard Point rather than next to nothing.
+
+With no art it draws the same text card the tiles fall back to, at a size where
+the printed text is the point rather than a tooltip.
+
 ## Card art
 
 Optional, and a local cache: `pnpm --filter @optcg/cards run images` downloads

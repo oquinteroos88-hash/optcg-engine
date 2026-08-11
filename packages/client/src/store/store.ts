@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { applyAction } from '@optcg/engine';
-import type { Action, GameState, PlayerId } from '@optcg/engine';
+import type { Action, GameState, InstanceId, PlayerId } from '@optcg/engine';
 import { getAffordances } from '../game/affordances';
 import { groupEvents } from '../game/animQueue';
 import type { AnimGroup } from '../game/animQueue';
@@ -15,6 +15,12 @@ export type { SetupConfig } from '../game/newGame';
 export interface UiState {
   mode: UiMode;
   veilOpponentHand: boolean;
+  /**
+   * The card under the pointer, for the preview panel. Presentation only: it
+   * never gates an action and is deliberately not part of `mode`, because a
+   * mode is a step of an interaction and hovering is not one.
+   */
+  hovered: InstanceId | null;
 }
 
 export interface StoreState {
@@ -43,10 +49,12 @@ export interface StoreState {
   toggleVeil: () => void;
   /** Confirms the handoff to the player who holds priority. */
   ackDevice: () => void;
+  /** Points the preview panel at a card, or clears it. Never blocked. */
+  hover: (instanceId: InstanceId | null) => void;
 }
 
 function idleUi(): UiState {
-  return { mode: { kind: 'idle' }, veilOpponentHand: false };
+  return { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null };
 }
 
 export const useStore = create<StoreState>()((set, get) => {
@@ -170,6 +178,17 @@ export const useStore = create<StoreState>()((set, get) => {
     toggleVeil: () => {
       const ui = get().ui;
       set({ ui: { ...ui, veilOpponentHand: !ui.veilOpponentHand } });
+    },
+
+    hover: (instanceId) => {
+      // Not gated on the animation queue: the queue blocks *input*, and looking
+      // at a card is not input. Freezing the preview mid-animation would hide
+      // the one thing a player wants to read while the board settles.
+      const ui = get().ui;
+      if (ui.hovered === instanceId) {
+        return;
+      }
+      set({ ui: { ...ui, hovered: instanceId } });
     },
 
     ackDevice: () => {

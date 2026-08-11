@@ -714,6 +714,80 @@ export function useChoiceOverlay(): ChoiceOverlayView | null {
 }
 
 // ---------------------------------------------------------------------------
+// Preview panel
+
+export interface PreviewView {
+  instanceId: InstanceId;
+  cardId: string;
+  name: string;
+  cost: number | null;
+  power: number;
+  counter: number | null;
+  colorClass: string;
+  effectText: string | null;
+  triggerText: string | null;
+  /** The same lines the tile puts in its tooltip, at a readable size. */
+  powerLines: readonly string[];
+  printedPower: number;
+  /** True when this card is on show because an effect of it is resolving. */
+  fromEffect: boolean;
+}
+
+/**
+ * Which card the preview panel shows.
+ *
+ * Two sources, in this order: the card under the pointer, and — when nothing is
+ * hovered — the card whose ability is currently asking a question. The second
+ * one is why the panel is not simply a hover tooltip: an open choice is exactly
+ * the moment a player needs to read the card that opened it, and they are about
+ * to move the pointer onto a candidate, not onto the source.
+ *
+ * Hover wins, because a player who moves the pointer is asking about that card.
+ */
+const previewOf = memoize1(
+  (state: GameState | null, hovered: InstanceId | null, mode: UiMode): PreviewView | null => {
+    if (state === null) {
+      return null;
+    }
+    let instanceId = hovered;
+    let fromEffect = false;
+    if (instanceId === null && mode.kind === 'answeringChoice') {
+      const top = state.stack[state.stack.length - 1];
+      if (top !== undefined) {
+        instanceId = top.source;
+        fromEffect = true;
+      }
+    }
+    if (instanceId === null) {
+      return null;
+    }
+    const view = cardViewOf(state, instanceId);
+    if (view === null) {
+      return null;
+    }
+    const parts = powerBreakdown(state, instanceId);
+    return {
+      instanceId,
+      cardId: view.cardId,
+      name: view.name,
+      cost: view.cost,
+      power: view.power,
+      counter: view.counter,
+      colorClass: view.colorClass,
+      effectText: view.effectText,
+      triggerText: view.triggerText,
+      powerLines: powerLinesOf(parts),
+      printedPower: parts.printed,
+      fromEffect,
+    };
+  },
+);
+
+export function usePreview(): PreviewView | null {
+  return useStore((s) => previewOf(s.gameState, s.ui.hovered, s.ui.mode));
+}
+
+// ---------------------------------------------------------------------------
 // Contextual menu
 
 export interface CardMenuView {
@@ -863,6 +937,33 @@ function breakdownOf(state: GameState, id: InstanceId): PowerBreakdown {
     staticSources: [...new Set(staticSources)],
     grantedKeywords,
   };
+}
+
+/**
+ * The breakdown as lines a person can read.
+ *
+ * Lives here rather than in `CardTile` because two places show it now — the
+ * tile's tooltip and the preview panel — and the day they disagree is the day
+ * one of them is lying about the board.
+ */
+export function powerLinesOf(parts: PowerBreakdown): string[] {
+  const lines: string[] = [];
+  if (parts.fromDon > 0) {
+    lines.push(`+${parts.fromDon} por DON!! adjuntados`);
+  }
+  if (parts.fromModifiers !== 0) {
+    const from = parts.modifierSources.length > 0 ? ` (${parts.modifierSources.join(', ')})` : '';
+    lines.push(`${parts.fromModifiers > 0 ? '+' : ''}${parts.fromModifiers} temporal${from}`);
+  }
+  if (parts.fromStatics !== 0) {
+    const from =
+      parts.staticSources.length > 0 ? ` (${parts.staticSources.join(', ')})` : ' (efecto continuo)';
+    lines.push(`${parts.fromStatics > 0 ? '+' : ''}${parts.fromStatics} continuo${from}`);
+  }
+  if (parts.grantedKeywords.length > 0) {
+    lines.push(`Otorgado: ${parts.grantedKeywords.join(', ')}`);
+  }
+  return lines;
 }
 
 const breakdownCache = new WeakMap<GameState, Map<InstanceId, PowerBreakdown>>();

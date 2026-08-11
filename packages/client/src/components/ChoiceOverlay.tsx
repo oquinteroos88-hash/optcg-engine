@@ -49,6 +49,11 @@ export function ChoiceOverlay(): ReactElement | null {
             {view.sourceText}
           </p>
         )}
+        {/* The card doing the asking is already on show in the preview rail —
+            `usePreview` falls back to the top of the stack while a choice is
+            open. This is the pointer to it, so the question reads as being
+            about a card rather than about a prompt string. */}
+        <span className={styles.previewHint}>La carta está en la vista de la izquierda</span>
 
         {view.kind === 'yesNo' ? (
           <div className={styles.actions}>

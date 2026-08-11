@@ -84,3 +84,8 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+.previewHint {
+  font-size: 11px;
+  color: var(--color-muted);
+}

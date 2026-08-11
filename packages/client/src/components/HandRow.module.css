@@ -3,6 +3,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .label {
@@ -13,7 +14,50 @@
 
 .cards {
   display: flex;
-  gap: clamp(var(--space-1), 0.5vw, var(--space-2));
   justify-content: center;
-  flex-wrap: wrap;
+  min-width: 0;
+  /* The arc lifts cards out of the row, and the hovered one lifts further.
+     Reserving the space here keeps the fan from clipping and, more to the
+     point, keeps it from pushing the rest of the board around. */
+  padding: var(--space-3) var(--space-2);
+}
+
+.slot {
+  flex: 0 0 auto;
+  transform-origin: center bottom;
+  transform: rotate(var(--fan-rot, 0deg)) translateY(var(--fan-lift, 0px));
+  transition:
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+
+/* The opponent's hand fans the other way and pivots from the top, so the arc
+   opens away from the centre line on both halves. */
+.down .slot {
+  transform-origin: center top;
+}
+
+/*
+  Hover: straighten, lift, come to the front.
+
+  This is why the fan geometry arrives as custom properties rather than as an
+  inline `transform` — an inline style wins over any stylesheet rule, and this
+  rule has to win. `z-index` is raised well past the per-card index so the
+  hovered card is above every neighbour, not only the ones after it.
+*/
+.slot:hover,
+.slot:focus-within {
+  transform: rotate(0deg) translateY(-14px) scale(1.05);
+  z-index: 100 !important;
+}
+
+.down .slot:hover,
+.down .slot:focus-within {
+  transform: rotate(0deg) translateY(14px) scale(1.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot {
+    transition: none;
+  }
 }

@@ -3,6 +3,7 @@ import type { MouseEvent, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
 import { cardImageSrc, hasCardImage } from '../game/cardImage';
 import {
+  powerLinesOf,
   useCardView,
   useClickState,
   useIsHighlighted,
@@ -29,6 +30,7 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const highlighted = useIsHighlighted(id);
   const power = usePowerBreakdown(id);
   const uiEvent = useStore((s) => s.uiEvent);
+  const hover = useStore((s) => s.hover);
   /**
    * The art is a local cache that a fresh clone does not have, so "no image" is
    * the normal state and not an error. `failed` stops asking; `ok` is what
@@ -64,26 +66,10 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const costLabel = view.cost === null ? '' : `coste ${view.cost}, `;
 
   // Why this card shows the power it shows. Continuous effects emit no events,
-  // so the log can never explain one — the only place a player can find out is
-  // on the card itself. Printed text goes in the same tooltip: with real cards
-  // a player cannot play what they cannot read.
-  const powerLines: string[] = [];
-  if (power.fromDon > 0) {
-    powerLines.push(`+${power.fromDon} por DON!! adjuntados`);
-  }
-  if (power.fromModifiers !== 0) {
-    const from =
-      power.modifierSources.length > 0 ? ` (${power.modifierSources.join(', ')})` : '';
-    powerLines.push(`${power.fromModifiers > 0 ? '+' : ''}${power.fromModifiers} temporal${from}`);
-  }
-  if (power.fromStatics !== 0) {
-    const from =
-      power.staticSources.length > 0 ? ` (${power.staticSources.join(', ')})` : ' (efecto continuo)';
-    powerLines.push(`${power.fromStatics > 0 ? '+' : ''}${power.fromStatics} continuo${from}`);
-  }
-  if (power.grantedKeywords.length > 0) {
-    powerLines.push(`Otorgado: ${power.grantedKeywords.join(', ')}`);
-  }
+  // so the log can never explain one - the only place a player can find out is
+  // on the card itself, and now also in the preview panel, which is why the
+  // lines are built once in the view-model layer rather than here.
+  const powerLines = powerLinesOf(power);
 
   const tooltip = [
     view.name,
@@ -101,6 +87,11 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
       type="button"
       className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass} ${artClass}`}
       onClick={handleClick}
+      onMouseEnter={() => hover(id)}
+      onMouseLeave={() => hover(null)}
+      // Keyboard parity: tabbing through the board previews too.
+      onFocus={() => hover(id)}
+      onBlur={() => hover(null)}
       title={tooltip}
       aria-label={`${view.name}, ${costLabel}poder ${view.power}, ${counterLabel}${view.rested ? ', agotada' : ''}${boostLabel}`}
     >

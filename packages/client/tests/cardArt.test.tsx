@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { GameState, InstanceId } from '@optcg/engine';
 import { CardTile } from '../src/components/CardTile';
-import { cardImageSrc, hasCardImage } from '../src/game/cardImage';
+import { cardArtSrc, cardImageSrc, hasCardImage } from '../src/game/cardImage';
 import { powerBreakdown } from '../src/store/selectors';
 import { useStore } from '../src/store/store';
 import { firstStarterStateWhere } from './corpus';
@@ -55,11 +55,14 @@ function characterWithDon(state: GameState): InstanceId {
 }
 
 describe('the art layer sits under the tile, never in place of it', () => {
-  it('asks for art by card id, from the client-owned base', () => {
-    // Not the upstream URL: the client reads its own local cache. Changing
-    // where that is, is a change of `config.cardImageBase` and nothing else.
-    expect(cardImageSrc('ST01-001')).toBe('/cards/ST01-001.png');
-    expect(cardImageSrc('ST01-001')).not.toContain('onepiece-cardgame.com');
+  it('derives both sizes from the card id alone', () => {
+    // The two files the local archive keeps per card, mapped to the two uses
+    // that already existed: the 6 KB thumbnail on a 56-92 px tile, the full PNG
+    // in the preview panel. No table, no manifest, no address stored anywhere.
+    expect(cardImageSrc('ST01-001')).toBe('/cards/ST01-001_small.jpg');
+    expect(cardArtSrc('ST01-001')).toBe('/cards/ST01-001.png');
+    // Local cache, never somebody else's origin.
+    expect(cardImageSrc('ST01-001')).not.toContain('//');
   });
 
   it('only asks for cards the dataset actually has art for', () => {
@@ -81,6 +84,31 @@ describe('the art layer sits under the tile, never in place of it', () => {
     // cannot, and a screen reader gaining "image" here would be noise.
     expect(img?.getAttribute('alt')).toBe('');
     expect(img?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('puts the thumbnail on the tile and the full art in the preview', () => {
+    // The two sizes are not interchangeable, and getting them backwards is the
+    // easy mistake: a 190 KB PNG behind every one of twenty tiles, or a 120 px
+    // thumbnail blown up to fill the preview panel.
+    loadState(boardWithDon);
+    const id = characterWithDon(boardWithDon);
+    const cardId = boardWithDon.cards[id]?.cardId ?? '';
+    const { container } = render(<CardTile id={id} zone="field" mine />);
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(cardImageSrc(cardId));
+    expect(container.querySelector('img')?.getAttribute('src')).toContain('_small.jpg');
+    // And the address the panel would ask for is the large one.
+    expect(cardArtSrc(cardId)).toBe(`/cards/${cardId}.png`);
+  });
+
+  it('knows which cards the archive can have art for, from the set alone', () => {
+    // Was a generated table of upstream URLs; it is now the question it always
+    // was — is this a printed card of the two starters?
+    for (const card of ['ST01-001', 'ST01-017', 'ST02-001', 'ST02-017']) {
+      expect(hasCardImage(card), card).toBe(true);
+    }
+    for (const card of ['TEST-001', 'ABIL-001', 'OP01-001']) {
+      expect(hasCardImage(card), card).toBe(false);
+    }
   });
 
   it('keeps every engine indicator readable with the art present', () => {

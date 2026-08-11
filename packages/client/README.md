@@ -225,9 +225,17 @@ the printed text is the point rather than a tooltip.
 
 ## Card art
 
-Optional, and a local cache: `pnpm --filter @optcg/cards run images` downloads
-the 34 starter cards into `public/cards/`, which is gitignored. Nothing is ever
-committed, and a clone without it is the normal case.
+Optional, and local: `pnpm --filter @optcg/cards run art` copies the 34 starter
+cards out of a local archive into `public/cards/`, which is gitignored. Nothing
+is ever committed, and a clone without it is the normal case.
+
+Two sizes, mapped to the two places a card is drawn, both addressed by card id
+alone:
+
+| | file | shown at |
+| --- | --- | --- |
+| tiles | `<id>_small.jpg`, 120x167, ~6 KB | 56-92 px |
+| preview panel | `<id>.png`, 480x671, ~167 KB | ~135 px |
 
 `CardTile` draws the art as a layer **underneath** everything else. That is the
 whole design constraint, and the reason is that none of what the player has to
@@ -238,12 +246,16 @@ highlight are all board state. So the art goes at `z-index: 0` with
 carry the highlight, and the two rows with numbers get a scrim once a picture
 really loaded.
 
+The DON!! cost area gets the DON!! card as a dimmed CSS background rather than
+an `<img>`, because a background that 404s simply does not paint — no fallback
+logic, no broken-image box.
+
 The fallback is not an error path: `onError` drops back to the CSS tile this
 component has always drawn, and `tests/cardArt.test.tsx` asserts that the tile
 after a failed image is the tile from before there was ever an art layer.
 
-The printed text stays in the tooltip. At 56-92 px there is no reading effect
-text off a picture.
+The printed text stays in the tooltip and in the preview panel. At 56-92 px
+there is no reading effect text off a picture.
 
 ## Running the suites
 

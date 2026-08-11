@@ -45,12 +45,15 @@ generated from the official card site; the source commit is pinned in
 
 **No card images are redistributed.** This repository contains none, and
 `packages/cards/tests/noTrackedArt.test.ts` fails if one is ever committed. The
-client can show real card art, but only from a **local cache you download
-yourself** from the official card site, into a gitignored directory:
+client can show real card art, but only from a **local archive you supply
+yourself**, copied into a gitignored directory:
 
 ```bash
-pnpm --filter @optcg/cards run images
+pnpm --filter @optcg/cards run art
 ```
+
+See [`packages/cards/README.md`](packages/cards/README.md) for where that
+archive is expected and how to point at your own copy.
 
 Without it the client draws its own tiles, which is what a fresh clone does and
 what every screenshot of this project should be assumed to show.

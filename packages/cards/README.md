@@ -56,52 +56,69 @@ pnpm --filter @optcg/cards run build
 pnpm --filter @optcg/cards run gen:starters
 ```
 
-## Card art: a local cache, never committed
+## Card art: copied from a local archive, never committed
 
-This package ships no images and never will. It knows *where* the art of the 34
-starter cards lives — `STARTER_IMAGE_URLS`, generated from the same pinned
-upstream commit as the rest of the data — and it has a script that fetches it
-into a gitignored directory the client serves:
-
-```bash
-pnpm --filter @optcg/cards run images
-```
-
-Destination: `packages/client/public/cards/`, which Vite serves verbatim at
-`/cards/<id>.png`. It is in `.gitignore`, and
-`tests/noTrackedArt.test.ts` fails if any image file anywhere enters the git
-index — the root README's promise not to redistribute artwork was, until that
-test, a claim nobody checked.
-
-The script is idempotent: a file already on disk is skipped, not re-fetched. It
-reports how many it downloaded, how many it skipped and which ones failed, and
-a failure is reported rather than thrown, because a partial cache is a usable
-cache. **A clone with no images at all is the normal case** — `CardTile` falls
-back to the text tile it has always drawn, and nothing in the client treats that
-as an error.
-
-The 34 files come to about 6.5 MB, roughly 190 KB each at 600x838. They are
-stored exactly as downloaded: no resizing, no WebP, no `sharp`. The tiles render
-at 56-92 px and the browser downscales, which costs nothing worth a native
-dependency and a `pnpm approve-builds` step to install it.
-
-The addresses are regenerated, rarely, with:
+This package ships no images and never will. What it has is a script that
+publishes the 34 starter cards' art out of a **local archive** into the
+directory the client serves:
 
 ```bash
-pnpm --filter @optcg/cards run build
-pnpm --filter @optcg/cards run gen:starter-images
+pnpm --filter @optcg/cards run art
 ```
 
-They are read from the dataset rather than templated from the card id: the real
-record carries a version query (`ST01-001.png?260731`) and nothing here knows
-whether it is optional.
+### Where the archive is
+
+The archive is laid out by set, with two files per card:
+
+```
+<archive>/ST01/ST01-004.png          480x671, ~167 KB   -> preview panel
+<archive>/ST01/ST01-004_small.jpg    120x167, ~6 KB     -> board tiles
+<archive>/Don/Don.png                480x670            -> the DON!! zones
+```
+
+It is hundreds of megabytes of artwork that belongs to its owners, so its
+location is a per-machine setting rather than a constant. Three ways to say
+where it is, first one wins:
+
+1. `OPTCG_CARD_ART_DIR` in the environment.
+2. `packages/cards/card-art.local.json` — `{ "dir": "D:/wherever" }`. Gitignored.
+3. `packages/cards/card-art/`, the default. Also gitignored.
+
+**There is no mapping table.** The filename is the card id and the folder is the
+id's own prefix, so `ST01-004` is `ST01/ST01-004.png`. Nothing in this
+repository stores an image address, and `CardDefinition` gains no presentation
+field.
+
+### What the script does
+
+Copies both sizes for the 34 cards, plus the DON!! art, into
+`packages/client/public/cards/`, which Vite serves verbatim at `/cards/`. It is
+idempotent — a file already there with the right size is skipped — and it
+reports how many it placed, how many it skipped, and **which cards the archive
+does not have**. That last list is the point: a missing card is a hole a player
+finds mid-game, and it should be named here first.
+
+It tries a symbolic link and falls back to copying. On Windows a symlink needs
+Developer Mode or an elevated shell and fails with `EPERM` otherwise, which is a
+setting of the machine and not a failure of this script; 69 files of 6 KB and
+190 KB are not worth telling anyone to change their Windows settings over.
+
+### None of it is committed
+
+Source and destination are both gitignored, and `tests/noTrackedArt.test.ts`
+fails if any image file anywhere reaches the git index — the root README's
+promise not to redistribute artwork is checked, not assumed.
+
+**A machine with no archive is a normal machine.** The script says so and exits
+without failing, and the client falls back to the text tiles it has always
+drawn. Deleting the destination is a supported thing to do.
 
 ## Nothing here touches the network
 
-`data/cards.en.json` is committed and is the only thing read at runtime. The
-three scripts are the exceptions — `scripts/ingest.ts`,
-`scripts/gen-starter-images.ts` and `scripts/download-card-images.ts`. All three
-are run by hand and none is ever part of build, test or CI:
+`data/cards.en.json` is committed and is the only thing read at runtime.
+`scripts/ingest.ts` is the sole thing here that ever touches the network, it is
+run by hand, and it is never part of build, test or CI (`scripts/card-art.ts`
+reads a local directory and makes no requests at all):
 
 ```bash
 pnpm --filter @optcg/cards ingest

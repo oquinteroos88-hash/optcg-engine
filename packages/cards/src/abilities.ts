@@ -1,4 +1,4 @@
-import type { Ability, CardId, Instruction } from '@optcg/engine';
+import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
 
 /**
  * Card effects for the real cards, written in the engine's DSL.
@@ -10,8 +10,8 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **31 cards** — the 15 starter cards whose printed
- * abilities the DSL can express, plus 16 from OP-01 in two batches. It
+ * Scope of this file today: **46 cards** — the 15 starter cards whose printed
+ * abilities the DSL can express, plus 31 from OP-01 in three batches. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -192,6 +192,83 @@ function minusPower(value: number, category: ('leader' | 'character')[]): Instru
  * its list with a [Trigger] at all.
  */
 const RAFFLESIA: Instruction[] = minusPower(2000, ['leader', 'character']);
+
+/**
+ * "K.O. up to 1 of your opponent's Characters with a cost of N or less."
+ *
+ * `as` is a parameter because OP01-096 King runs two of these back to back and
+ * the two selections must not share a variable — the second would overwrite the
+ * first before the first K.O. ran.
+ */
+function koOpponentByCost(costMax: number, as = 'victim'): Instruction[] {
+  return [
+    {
+      op: 'select',
+      as,
+      from: { zone: 'field', owner: 'opponent', category: ['character'], costMax },
+      min: 0,
+      max: 1,
+      prompt: `K.O. up to 1 of your opponent's Characters with a cost of ${costMax} or less`,
+    },
+    { op: 'ko', target: { var: as } },
+  ];
+}
+
+/**
+ * "Return up to 1 … Character with a cost of N or less to the owner's hand."
+ *
+ * `owner: 'any'` because the printed text says "1 Character", not "1 of your
+ * opponent's Characters" — these cards can bounce their controller's own board,
+ * and OP01-089 in particular is sometimes played to save a Character from a
+ * battle it would lose. `moveCard` always moves to the *owner's* zones, which is
+ * the physical rule and why the destination needs no side.
+ */
+function bounceByCost(costMax: number, orientation?: 'active' | 'rested'): Instruction[] {
+  const which = orientation === undefined ? '' : `${orientation} `;
+  return [
+    {
+      op: 'select',
+      as: 'bounced',
+      from: {
+        zone: 'field',
+        owner: 'any',
+        category: ['character'],
+        costMax,
+        ...(orientation === undefined ? {} : { orientation }),
+      },
+      min: 0,
+      max: 1,
+      prompt: `Return up to 1 ${which}Character with a cost of ${costMax} or less to the owner's hand`,
+    },
+    { op: 'moveCard', target: { var: 'bounced' }, to: { zone: 'hand' } },
+  ];
+}
+
+/**
+ * OP01-078 Boa Hancock's one printed sentence, reachable from two triggers.
+ *
+ * "[DON!! x1] [When Attacking]/[On Block] Draw 1 card if you have 5 or less
+ * cards in your hand." The slash is the card saying one effect twice over, so
+ * the condition and the script are each written once and shared.
+ */
+const HANCOCK_CONDITION: Condition = {
+  kind: 'and',
+  of: [
+    { kind: 'donAttached', min: 1 },
+    { kind: 'countCards', selector: { zone: 'hand', owner: 'you' }, max: 5 },
+  ],
+};
+
+const HANCOCK_DRAW: Instruction[] = [{ op: 'draw', player: 'you', count: 1 }];
+
+/** "If your Leader has the {T} type" — a `countCards` over the Leader slot. */
+function leaderHasType(type: string): Condition {
+  return {
+    kind: 'countCards',
+    selector: { zone: 'field', owner: 'you', category: ['leader'], types: [type] },
+    min: 1,
+  };
+}
 
 export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
   // ST01-001 Monkey.D.Luffy (Leader)
@@ -1064,6 +1141,372 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
           min: 0,
           max: 1,
           prompt: "Rest up to 1 of your opponent's Characters",
+        },
+        { op: 'rest', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  /* ------------------------------------------------------------------------
+   * OP-01, batch 3 — activated abilities, statics, [On K.O.], [On Block],
+   * and the blue/purple half of the set.
+   *
+   * Two things about costs run through this block:
+   *
+   * - **"You may" on an *activated* ability is not `optional`.** Activating is
+   *   already the player's choice (`ACTIVATE_ABILITY`), so the flag would be
+   *   the same question asked twice — the rule Thousand Sunny set.
+   * - **"You may" on an *auto* ability is.** An `[On Play]`, `[On K.O.]` or
+   *   `[On Block]` fires by itself, so "DON!! −N (You may return…)" can only be
+   *   modelled as an opt-in (CR 8-1-2: where a word indicating choice is
+   *   included, players may choose not to activate the effect). Every DON!! −N
+   *   card below therefore carries `optional: true`, and the two activated ones
+   *   carry none.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-003 Monkey.D.Luffy (Leader)
+  // "[Activate: Main] [Once Per Turn] ➃: Set up to 1 of your {Supernovas} or
+  //  {Straw Hat Crew} type Character cards with a cost of 5 or less as active.
+  //  It gains +1000 power during this turn."
+  //
+  // "It" is the card just chosen, so both ops read one variable. The cost is
+  // four rested DON!!, which `canPayCosts` gates in `legalActions` — the
+  // ability is not offered at all below four active DON!! in the cost area.
+  'OP01-003': [
+    {
+      id: 'OP01-003-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      cost: [{ kind: 'restDon', count: 4 }],
+      script: [
+        {
+          op: 'select',
+          as: 'waking',
+          from: {
+            zone: 'field',
+            owner: 'you',
+            category: ['character'],
+            types: ['Supernovas', 'Straw Hat Crew'],
+            costMax: 5,
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Set up to 1 of your {Supernovas} or {Straw Hat Crew} Character cards with a cost of 5 or less as active',
+        },
+        { op: 'setActive', target: { var: 'waking' } },
+        { op: 'addPower', target: { var: 'waking' }, value: 1000, duration: 'endOfTurn' },
+      ],
+    },
+  ],
+
+  // OP01-020 Hyogoro
+  // "[Activate: Main] You may rest this Character: Up to 1 of your Leader or
+  //  Character cards gains +2000 power during this turn."
+  //
+  // `restSelf`, the ST01-017 cost. It prints no [Once Per Turn] and needs none:
+  // a rested card cannot pay, and it wakes only in its controller's Refresh
+  // Phase (CR 6-2-4).
+  'OP01-020': [
+    {
+      id: 'OP01-020-main',
+      trigger: 'activateMain',
+      cost: [{ kind: 'restSelf' }],
+      script: [
+        {
+          op: 'select',
+          as: 'ally',
+          from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+          min: 0,
+          max: 1,
+          prompt: 'Give up to 1 of your Leader or Character cards +2000 power',
+        },
+        { op: 'addPower', target: { var: 'ally' }, value: 2000, duration: 'endOfTurn' },
+      ],
+    },
+  ],
+
+  // OP01-068 Gecko Moria
+  // "[Your Turn] This Character gains [Double Attack] if you have 5 or more
+  //  cards in your hand."
+  //
+  // A keyword static rather than a power one, which is the shape `hasKeyword`
+  // reads. It does **not** touch the declared OP06-002 divergence: that one is a
+  // static whose own condition asks about *power*, and this asks about hand
+  // size, which `countCards` answers without re-entering `getPower`.
+  'OP01-068': [
+    {
+      id: 'OP01-068-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'isYourTurn' },
+          { kind: 'countCards', selector: { zone: 'hand', owner: 'you' }, min: 5 },
+        ],
+      },
+      affects: { self: true },
+      grants: { keyword: 'doubleAttack' },
+      script: [],
+    },
+  ],
+
+  // OP01-070 Dracule Mihawk
+  // "[On Play] Place up to 1 Character with a cost of 7 or less at the bottom
+  //  of the owner's deck."
+  //
+  // "1 Character", not "1 of your opponent's": `owner: 'any'`. Mihawk costs 9
+  // and so cannot bottom-deck itself, but the gate is the printed cost and not
+  // an `excludeSelf` — writing the exclusion would be encoding a coincidence.
+  'OP01-070': [
+    {
+      id: 'OP01-070-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'bottomed',
+          from: { zone: 'field', owner: 'any', category: ['character'], costMax: 7 },
+          min: 0,
+          max: 1,
+          prompt: "Place up to 1 Character with a cost of 7 or less at the bottom of the owner's deck",
+        },
+        { op: 'moveCard', target: { var: 'bottomed' }, to: { zone: 'deck' }, position: 'bottom' },
+      ],
+    },
+  ],
+
+  // OP01-078 Boa Hancock
+  // "[Blocker]" — printed keyword.
+  // "[DON!! x1] [When Attacking]/[On Block] Draw 1 card if you have 5 or less
+  //  cards in your hand."
+  //
+  // One printed sentence, two triggers, one shared list — the same encoding as
+  // ST01-015's two halves, and for the same reason: the card states one effect
+  // reachable two ways, and two hand-written copies are two copies that drift.
+  'OP01-078': [
+    {
+      id: 'OP01-078-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: HANCOCK_CONDITION,
+      script: HANCOCK_DRAW,
+    },
+    {
+      id: 'OP01-078-onBlock',
+      trigger: 'onBlock',
+      condition: HANCOCK_CONDITION,
+      script: HANCOCK_DRAW,
+    },
+  ],
+
+  // OP01-079 Ms. All Sunday
+  // "[Blocker]" — printed keyword.
+  // "[On K.O.] If your Leader has the {Baroque Works} type, add up to 1 Event
+  //  from your trash to your hand."
+  //
+  // The condition is checked when the ability fires, which is after this card
+  // has already reached the trash (`leaveField` trashes, then wakes [On K.O.]).
+  // That does not matter here — it asks about the Leader — but it is why the
+  // selector says `category: ['event']`: this Character is in the same trash and
+  // would otherwise be a candidate to add to hand.
+  'OP01-079': [
+    {
+      id: 'OP01-079-onKO',
+      trigger: 'onKO',
+      condition: leaderHasType('Baroque Works'),
+      script: [
+        {
+          op: 'select',
+          as: 'recovered',
+          from: { zone: 'trash', owner: 'you', category: ['event'] },
+          min: 0,
+          max: 1,
+          prompt: 'Add up to 1 Event from your trash to your hand',
+        },
+        { op: 'moveCard', target: { var: 'recovered' }, to: { zone: 'hand' } },
+      ],
+    },
+  ],
+
+  // OP01-080 Miss Doublefinger(Zala)
+  // "[On K.O.] Draw 1 card."
+  //
+  // The smallest ability in the set, and the one that makes a rule visible:
+  // trashing a Character to make room for a sixth is **not** a K.O.
+  // (`leaveField` passes `'trashedForRoom'`), so this does not draw then.
+  // Pinned by `op01Batch3.test.ts` with this printed card, which is the upgrade
+  // `sixthCharacter.test.ts` asked for in its own comment.
+  'OP01-080': [
+    { id: 'OP01-080-onKO', trigger: 'onKO', script: [{ op: 'draw', player: 'you', count: 1 }] },
+  ],
+
+  // OP01-086 Overheat
+  // "[Counter] Up to 1 of your Leader or Character cards gains +4000 power
+  //  during this battle. Then, return up to 1 active Character with a cost of 3
+  //  or less to the owner's hand."
+  // "[Trigger] Return up to 1 Character with a cost of 4 or less to the owner's
+  //  hand."
+  //
+  // The [Counter] half prints **active**, which puts it in the selector — and
+  // that is what stops this card ending its own battle. Both battle
+  // participants are rested by then (the attacker by declaring, a blocker by
+  // blocking), so neither is ever a candidate. The [Trigger] half prints no
+  // orientation and could name the attacker, but it resolves after the battle
+  // has already closed.
+  'OP01-086': [
+    {
+      id: 'OP01-086-counter',
+      trigger: 'counterEvent',
+      script: [...counterBoost(4000), ...bounceByCost(3, 'active')],
+    },
+    { id: 'OP01-086-trigger', trigger: 'trigger', script: bounceByCost(4) },
+  ],
+
+  // OP01-089 Crescent Cutlass
+  // "[Counter] If your Leader has the {The Seven Warlords of the Sea} type,
+  //  return up to 1 Character with a cost of 5 or less to the owner's hand."
+  //
+  // No orientation printed and `owner: 'any'`, so this one **can** name a
+  // battle participant — the attacker is a Character and is often within a
+  // 5-cost gate. Returning it to hand is "moved areas" under CR 7-1-1-4, so the
+  // battle ends without damage. Pinned.
+  'OP01-089': [
+    {
+      id: 'OP01-089-counter',
+      trigger: 'counterEvent',
+      condition: leaderHasType('The Seven Warlords of the Sea'),
+      script: bounceByCost(5),
+    },
+  ],
+
+  // OP01-094 Kaido
+  // "[On Play] DON!! −6: If your Leader has the {Animal Kingdom Pirates} type,
+  //  K.O. all Characters other than this Character."
+  //
+  // No selection at all: "all Characters" is a selector ref, resolved once and
+  // acted on. `excludeSelf` is the printed "other than this Character", and
+  // `owner: 'any'` is the printed absence of a side — this wipes its own board
+  // too, which is the whole cost of the card.
+  'OP01-094': [
+    {
+      id: 'OP01-094-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 6 }],
+      condition: leaderHasType('Animal Kingdom Pirates'),
+      script: [
+        {
+          op: 'ko',
+          target: {
+            selector: { zone: 'field', owner: 'any', category: ['character'], excludeSelf: true },
+          },
+        },
+      ],
+    },
+  ],
+
+  // OP01-096 King
+  // "[On Play] DON!! −2: K.O. up to 1 of your opponent's Characters with a cost
+  //  of 3 or less and up to 1 of your opponent's Characters with a cost of 2 or
+  //  less."
+  //
+  // **Two selections in one script**, the first card in the repo to do it. They
+  // are two separate "up to 1"s joined by "and", not one "up to 2": the gates
+  // differ, so a single selection could not express them. The two variables are
+  // named apart because the second would otherwise overwrite the first before
+  // its K.O. ran.
+  //
+  // The interpreter has supported this since Phase 2A — the cursor is a frame
+  // stack, so it can suspend twice in one script — but nothing printed had ever
+  // exercised it. The state *between* the two questions is a real, serializable
+  // resting state, which `op01Batch3.test.ts` round-trips.
+  'OP01-096': [
+    {
+      id: 'OP01-096-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 2 }],
+      script: [...koOpponentByCost(3, 'firstVictim'), ...koOpponentByCost(2, 'secondVictim')],
+    },
+  ],
+
+  // OP01-097 Queen
+  // "[On Play] DON!! −1: This Character gains [Rush] during this turn. Then,
+  //  give up to 1 of your opponent's Characters −2000 power during this turn."
+  //
+  // The Rush is granted to a card that was played this turn, which is the only
+  // reason granting it means anything: it lifts exactly the summoning-sickness
+  // restriction, and `legalActions` reads it through `hasKeyword`.
+  'OP01-097': [
+    {
+      id: 'OP01-097-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 1 }],
+      script: [
+        { op: 'grantKeyword', target: { self: true }, keyword: 'rush', duration: 'endOfTurn' },
+        ...minusPower(2000, ['character']),
+      ],
+    },
+  ],
+
+  // OP01-108 Hitokiri Kamazo
+  // "[On K.O.] DON!! −1: K.O. up to 1 of your opponent's Characters with a cost
+  //  of 5 or less."
+  //
+  // The cost is paid from the DON!! area, not from the source, so it is payable
+  // even though the source is already in the trash by the time this fires —
+  // `canPayCosts` only asks about the source for `trashSelf` and `restSelf`.
+  'OP01-108': [
+    {
+      id: 'OP01-108-onKO',
+      trigger: 'onKO',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 1 }],
+      script: koOpponentByCost(5),
+    },
+  ],
+
+  // OP01-111 Black Maria
+  // "[Blocker]" — printed keyword.
+  // "[On Block] DON!! −1: This Character gains +1000 power during this turn."
+  //
+  // `endOfTurn`, as printed — not `endOfBattle`. The card says "during this
+  // turn" and a blocker that survives keeps the buff into the next battle of
+  // the same turn, which is a real difference and the reason the two durations
+  // are never assumed from context.
+  'OP01-111': [
+    {
+      id: 'OP01-111-onBlock',
+      trigger: 'onBlock',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 1 }],
+      script: [
+        { op: 'addPower', target: { self: true }, value: 1000, duration: 'endOfTurn' },
+      ],
+    },
+  ],
+
+  // OP01-117 Sheep's Horn
+  // "[Main] DON!! −1: Rest up to 1 of your opponent's Characters with a cost of
+  //  6 or less."
+  //
+  // No orientation printed, so an already-rested Character is a legal choice
+  // whose effect is nothing — the Izo rule (CR 8-4-4-1).
+  'OP01-117': [
+    {
+      id: 'OP01-117-main',
+      trigger: 'mainEvent',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 1 }],
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 6 },
+          min: 0,
+          max: 1,
+          prompt: "Rest up to 1 of your opponent's Characters with a cost of 6 or less",
         },
         { op: 'rest', target: { var: 'victim' } },
       ],

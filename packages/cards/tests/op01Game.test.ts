@@ -36,7 +36,7 @@ import { OP01_DECKS, OP01_ZORO_DECKS } from './support.js';
  * nothing, and the starter seeds two packages over have never moved.
  */
 
-const SEEDS = [54, 176, 286, 9, 139, 158, 1] as const;
+const SEEDS = [115, 154, 53, 61, 13, 16, 147, 173] as const;
 const ACTIONS = 400;
 
 /**
@@ -61,12 +61,17 @@ const BATCH_ABILITIES = [
   'OP01-052-whenAttacking',
   'OP01-054-onPlay',
   // Batch 2 — the [Main] halves, and every [Trigger] half, from real damage.
+  'OP01-026-counter',
   'OP01-026-trigger',
   'OP01-027-main',
+  'OP01-028-counter',
   'OP01-028-trigger',
+  'OP01-029-counter',
   'OP01-029-trigger',
   'OP01-056-main',
+  'OP01-057-counter',
   'OP01-057-trigger',
+  'OP01-058-counter',
   'OP01-058-trigger',
   // Batch 4 — `OP01-007` and `OP01-039` are here; `OP01-001` and `OP01-032` are
   // not and never can be. A `static` is **read**, never fired, so it emits no
@@ -76,41 +81,24 @@ const BATCH_ABILITIES = [
 ] as const;
 
 /**
- * The five `[Counter]` halves, which a random game **cannot** reach — measured,
- * not assumed, and listed here the way `actionCoverage.test.ts` lists the
- * actions its corpus does not observe.
+ * **Nothing is unreachable here any more.**
  *
- * `PLAY_COUNTER_EVENT` is offered only when the defender's **active** cost-area
- * DON!! covers the Event's printed cost (CR 7-1-3-2-2). The shared driver
- * policy never leaves any: `ATTACH_DON` is legal while a single active DON!!
- * remains — the Leader is always a legal recipient — and `END_TURN` is the
- * policy's last tier, so a turn ends only once every DON!! has been spent or
- * attached. A defender therefore arrives at every Counter Step with an empty
- * active pool.
+ * Batches 2 and 3 shipped with all five `[Counter]` halves on an UNOBSERVED
+ * list, and the reasoning was right: `PLAY_COUNTER_EVENT` is offered only when
+ * the defender's **active** cost-area DON!! covers the printed cost
+ * (CR 7-1-3-2-2), DON!! return to active only in their own Refresh Phase
+ * (CR 6-2), and the driver attached every last one before ending its turn. Over
+ * 7,921 Counter Steps the move was offered **zero** times.
  *
- * The numbers, over the two corpora:
+ * That was the policy, not the decks — which is why no fixture was ever bent
+ * trying to fix it. The policy now declines to attach on 1 decision in 3
+ * (`HOLD_DON_EVERY`), and every one of the five fires in ordinary play: 1 game
+ * in 300 for `-026`, 5 for `-028`, 4 for `-029`, 1 for `-057`, 2 for `-058`.
  *
- * | corpus | Counter Steps | `PLAY_COUNTER_EVENT` offered | avg active DON!! |
- * | --- | --- | --- | --- |
- * | ST-01 / ST-02 | 9,324 | 6 | 0.00 |
- * | OP-01 fixtures | 7,921 | **0** | 0.00 |
- *
- * The OP-01 decks are not the problem and no fixture can be the fix — the
- * behaviour belongs to the policy, and the policy is not this batch's to
- * change. The five halves are covered instead by `op01Events.test.ts`, which
- * stages the Counter Step directly, including the one that ends the battle.
- *
- * This list is an assertion, not a footnote: the test below checks these do
- * *not* fire, so the day a policy or fixture change makes them reachable, it
- * says so rather than passing quietly.
+ * Kept as an empty constant rather than deleted, so the shape and the reasoning
+ * are in front of the next reader who needs one.
  */
-const UNREACHED_BY_RANDOM_PLAY = [
-  'OP01-026-counter',
-  'OP01-028-counter',
-  'OP01-029-counter',
-  'OP01-057-counter',
-  'OP01-058-counter',
-] as const;
+const UNREACHED_BY_RANDOM_PLAY: readonly string[] = [];
 
 /** Did this card id end up above its without-statics power anywhere on the board? */
 function sawStatic(state: GameState, cardId: string): boolean {
@@ -260,22 +248,24 @@ describe('a real game of OP-01 against OP-01', () => {
     }
   });
 
-  it('does not reach the [Counter] halves, and says so on purpose', () => {
-    // See `UNREACHED_BY_RANDOM_PLAY`. Asserting the absence is what makes the
-    // measurement a test: if a later policy or fixture change starts reaching
-    // these, this fails and the list gets shorter deliberately rather than the
-    // coverage claim getting quietly stronger.
+  it('reaches every [Counter] half in ordinary play, and lists nothing as out of reach', () => {
+    // The inverse of what batches 2 and 3 asserted. The absence was measured
+    // and explained; the presence is measured the same way.
     const fired = new Set<string>();
-    for (let seed = 1; seed <= 60; seed += 1) {
+    for (let seed = 1; seed <= 300; seed += 1) {
       for (const id of Object.keys(run(seed).fired)) fired.add(id);
     }
-    for (const id of UNREACHED_BY_RANDOM_PLAY) {
-      expect(fired, `${id} became reachable — update the list and its reasoning`).not.toContain(id);
+    for (const id of [
+      'OP01-026-counter',
+      'OP01-028-counter',
+      'OP01-029-counter',
+      'OP01-057-counter',
+      'OP01-058-counter',
+    ]) {
+      expect(fired, id).toContain(id);
     }
-    // Not vacuous: the same sweep does reach the other halves of the same cards.
-    expect(fired.has('OP01-026-trigger')).toBe(true);
-    expect(fired.has('OP01-058-trigger')).toBe(true);
-  }, 60_000);
+    expect(UNREACHED_BY_RANDOM_PLAY).toEqual([]);
+  }, 240_000);
 
   it('lands the effects, not just the triggers', () => {
     // Membership in the set above only says a script resolved. These say the
@@ -308,14 +298,22 @@ describe('a real game of OP-01 against OP-01', () => {
       game.state.log.filter((event) => event.type === 'battleEndedEarly'),
     );
     expect(early.length).toBeGreaterThan(0);
+    const sides = new Set<string>();
     for (const event of early) {
-      // Only the target side is reachable from these decks: nothing in OP-01
-      // batch 1 removes an attacker. The attacker side has printed cards behind
-      // it (EB01-037, OP04-072, ST03-003) and its own engine-level test.
       if (event.type === 'battleEndedEarly') {
-        expect(event.gone).toBe('target');
+        // `both` would mean two participants left in one window, which nothing
+        // printed can do yet — so the assertion is that each end names one side.
+        expect(['attacker', 'target']).toContain(event.gone);
+        sides.add(event.gone);
       }
     }
+    // Batch 1 could only reach the **target** side, and said so: nothing it
+    // wrote removed an attacker. `OP01-026` Red Hawk's [Counter] does — it K.O.s
+    // an opponent Character with 4000 power or less, and the attacker is one —
+    // and the DON!!-holding bias is what finally lets a random game pay for it.
+    // So the attacker side of CR 7-1-1-4 is now walked by a printed card in
+    // ordinary play, not only by the engine's synthetic test.
+    expect(sides.has('attacker')).toBe(true);
     // And every one of those games still finished cleanly.
     for (const game of games) {
       expect(game.state.pending).toBeNull();

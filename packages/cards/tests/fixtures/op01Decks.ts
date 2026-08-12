@@ -36,16 +36,27 @@ import type { Decklist } from '../../src/types.js';
  *
  * ## What is in them
  *
- * Both decks carry all nine batch cards at 4 copies, so the abilities fire from
- * both sides of the table rather than only from the deck that happens to be p1.
- * The remaining fourteen slots differ between the two, and are **only** cards
- * with no printed effect or with nothing but a printed keyword — never a card
- * whose ability a later batch will write. A fixture that anticipates unwritten
- * scripts is a fixture that quietly tests nothing.
+ * Both decks carry all nine **batch-1 Characters**, at 3 copies rather than 4 —
+ * batch 2 needed the room. Each carries the batch-2 **Events of one colour**:
+ * Luffy the four red ones, Law the three green. That split is not arbitrary. A
+ * `[Counter]` Event fires while its holder is *defending*, and both decks
+ * defend, so one copy of the split covers every Event; splitting also leaves
+ * each deck enough non-Event bodies to build the boards the batch-1 abilities
+ * point at.
  *
- * The filler is deliberately cheap. Every ability in this batch either targets
- * an opponent's Character by cost or needs a board of its own, so a deck that
- * cannot put small bodies down early never reaches its own effects.
+ * Every remaining slot is **only** a card with no printed effect or with
+ * nothing but a printed keyword — never a card whose ability a later batch will
+ * write. A fixture that anticipates unwritten scripts is a fixture that quietly
+ * tests nothing, and `op01Decks.test.ts` asserts it rather than trusting this
+ * paragraph.
+ *
+ * The filler is deliberately cheap. Every ability in these batches either
+ * targets an opponent's Character by cost or needs a board of its own, so a deck
+ * that cannot put small bodies down early never reaches its own effects. The
+ * Events are cheap for a sharper reason: `PLAY_COUNTER_EVENT` is offered only
+ * when the defender's **active** cost-area DON!! covers the printed cost
+ * (CR 7-1-3-2-2), and a defender has spent most of their DON!! on their own
+ * turn. A 1- or 2-cost `[Counter]` is reachable; a 5-cost one would not be.
  *
  * One thing neither deck can avoid: **every OP-01 Leader prints an ability, and
  * none of them is written yet.** `OP01-003` is pile A and is queued for the
@@ -54,23 +65,25 @@ import type { Decklist } from '../../src/types.js';
  * this problem.
  */
 
-/** The nine cards this batch scripted, four copies each. */
+/** The nine Characters batch 1 scripted, three copies each. In both decks. */
 const BATCH_1 = [
-  { cardId: 'OP01-006', qty: 4 }, // Otama — [On Play] −2000
-  { cardId: 'OP01-017', qty: 4 }, // Nico Robin — [When Attacking] K.O.
-  { cardId: 'OP01-022', qty: 4 }, // Brook — [When Attacking] −2000 to two
-  { cardId: 'OP01-033', qty: 4 }, // Izo — [On Play] rest
-  { cardId: 'OP01-034', qty: 4 }, // Inuarashi — [When Attacking] refresh DON!!
-  { cardId: 'OP01-035', qty: 4 }, // Okiku — [When Attacking] rest
-  { cardId: 'OP01-048', qty: 4 }, // Nekomamushi — [On Play] rest
-  { cardId: 'OP01-052', qty: 4 }, // Raizo — [When Attacking] draw
-  { cardId: 'OP01-054', qty: 4 }, // X.Drake — [On Play] K.O. a rested Character
+  { cardId: 'OP01-006', qty: 3 }, // Otama — [On Play] −2000
+  { cardId: 'OP01-017', qty: 3 }, // Nico Robin — [When Attacking] K.O.
+  { cardId: 'OP01-022', qty: 3 }, // Brook — [When Attacking] −2000 to two
+  { cardId: 'OP01-033', qty: 3 }, // Izo — [On Play] rest
+  { cardId: 'OP01-034', qty: 3 }, // Inuarashi — [When Attacking] refresh DON!!
+  { cardId: 'OP01-035', qty: 3 }, // Okiku — [When Attacking] rest
+  { cardId: 'OP01-048', qty: 3 }, // Nekomamushi — [On Play] rest
+  { cardId: 'OP01-052', qty: 3 }, // Raizo — [When Attacking] draw
+  { cardId: 'OP01-054', qty: 3 }, // X.Drake — [On Play] K.O. a rested Character
 ] as const;
 
 /**
- * Leader `OP01-003` Monkey.D.Luffy. Filler is the cheapest bodies in the pool,
- * so there is something on the board for the [On Play] effects to point at from
- * turn two.
+ * Leader `OP01-003` Monkey.D.Luffy, carrying batch 2's four red Events.
+ *
+ * `OP01-027` Round Table is the only one at 2 copies: it costs 4, so a hand
+ * holding several of them stalls rather than plays. The three `[Counter]`
+ * Events cost 1, 1 and 2, which is what makes them reachable while defending.
  */
 export const OP01_RG_LUFFY: Decklist = {
   id: 'OP01-RG-LUFFY',
@@ -79,17 +92,22 @@ export const OP01_RG_LUFFY: Decklist = {
   leader: 'OP01-003',
   cards: [
     ...BATCH_1,
+    { cardId: 'OP01-026', qty: 3 }, // Red Hawk — [Counter] boost + K.O., [Trigger] −10000
+    { cardId: 'OP01-027', qty: 2 }, // Round Table — [Main] −10000
+    { cardId: 'OP01-028', qty: 3 }, // Green Star Rafflesia — [Counter] and [Trigger], one list
+    { cardId: 'OP01-029', qty: 3 }, // Radical Beam!! — [Counter] boost + life gate, [Trigger] +1000
     { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-036', qty: 4 }, // Otsuru — vanilla, cost 1, 3000
     { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
-    { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
   ],
 };
 
 /**
- * Leader `OP01-002` Trafalgar Law. Same nine, different filler: `OP01-025`
- * prints `[Rush]`, so this side attacks a turn earlier and the
- * `[When Attacking]` half of the batch is reached sooner.
+ * Leader `OP01-002` Trafalgar Law, carrying batch 2's three green Events.
+ *
+ * `OP01-056` Demon Face costs 6 and sits at 2 copies for the same reason Round
+ * Table does. `OP01-025` prints `[Rush]`, so this side attacks a turn earlier —
+ * which is what gets the *other* deck's `[Counter]` Events reached.
  */
 export const OP01_RG_LAW: Decklist = {
   id: 'OP01-RG-LAW',
@@ -98,10 +116,13 @@ export const OP01_RG_LAW: Decklist = {
   leader: 'OP01-002',
   cards: [
     ...BATCH_1,
+    { cardId: 'OP01-056', qty: 2 }, // Demon Face — [Main] K.O. up to 2 rested
+    { cardId: 'OP01-057', qty: 3 }, // Paradise Waterfall — [Counter] boost + wake, [Trigger] K.O.
+    { cardId: 'OP01-058', qty: 3 }, // Punk Gibson — [Counter] boost + rest, [Trigger] rest
     { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
     { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
     { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
-    { cardId: 'OP01-010', qty: 2 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
   ],
 };
 

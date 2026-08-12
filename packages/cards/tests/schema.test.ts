@@ -80,16 +80,23 @@ describe('the normalized set', () => {
     // script attached to a card nobody meant to touch.
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
-      // OP-01 batch 1 — pile A, one trigger and one op each.
+      // OP-01 batches 1 (Characters) and 2 (Events), both pile A.
       'OP01-006',
       'OP01-017',
       'OP01-022',
+      'OP01-026',
+      'OP01-027',
+      'OP01-028',
+      'OP01-029',
       'OP01-033',
       'OP01-034',
       'OP01-035',
       'OP01-048',
       'OP01-052',
       'OP01-054',
+      'OP01-056',
+      'OP01-057',
+      'OP01-058',
       'ST01-001',
       'ST01-004',
       'ST01-005',

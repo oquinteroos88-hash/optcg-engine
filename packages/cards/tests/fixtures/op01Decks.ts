@@ -89,10 +89,11 @@ export const OP01_RG_LUFFY: Decklist = {
     { cardId: 'OP01-027', qty: 2 }, // Round Table — [Main] −10000
     { cardId: 'OP01-028', qty: 3 }, // Green Star Rafflesia — [Counter] and [Trigger], one list
     { cardId: 'OP01-029', qty: 3 }, // Radical Beam!! — [Counter] boost + life gate, [Trigger] +1000
-    { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
-    { cardId: 'OP01-036', qty: 2 }, // Otsuru — vanilla, cost 1, 3000
-    { cardId: 'OP01-053', qty: 3 }, // Wire — vanilla, cost 2, 4000
-    { cardId: 'OP01-020', qty: 3 }, // Hyogoro — [Activate: Main] rest itself, +2000
+    { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-036', qty: 1 }, // Otsuru — vanilla, cost 1, 3000
+    { cardId: 'OP01-053', qty: 2 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-020', qty: 2 }, // Hyogoro — [Activate: Main] rest itself, +2000
+    { cardId: 'OP01-007', qty: 4 }, // Caribou — [On K.O.] K.O. up to 1 with 4000 or less
   ],
 };
 
@@ -113,10 +114,12 @@ export const OP01_RG_LAW: Decklist = {
     { cardId: 'OP01-056', qty: 2 }, // Demon Face — [Main] K.O. up to 2 rested
     { cardId: 'OP01-057', qty: 3 }, // Paradise Waterfall — [Counter] boost + wake, [Trigger] K.O.
     { cardId: 'OP01-058', qty: 3 }, // Punk Gibson — [Counter] boost + rest, [Trigger] rest
-    { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
-    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
-    { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
-    { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-032', qty: 3 }, // Ashura Doji — static, +2000 against a rested board
+    { cardId: 'OP01-039', qty: 3 }, // Killer — [Blocker], [On Block] draw
+    { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
+    { cardId: 'OP01-053', qty: 3 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-025', qty: 3 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+    { cardId: 'OP01-010', qty: 1 }, // Komachiyo — vanilla, cost 1, 3000
   ],
 };
 
@@ -143,30 +146,72 @@ export const OP01_RG_EVERYTHING: Decklist = {
   packId: '569101',
   leader: 'OP01-003',
   cards: [
-    // Two of each scripted card: a staged position never needs a third.
+    // Two of every scripted red/green card: a staged position never needs a
+    // third, and there is no shuffling here to make copies matter.
     { cardId: 'OP01-006', qty: 2 },
+    { cardId: 'OP01-007', qty: 2 },
     { cardId: 'OP01-017', qty: 2 },
+    { cardId: 'OP01-020', qty: 2 },
     { cardId: 'OP01-022', qty: 2 },
     { cardId: 'OP01-026', qty: 2 },
     { cardId: 'OP01-027', qty: 2 },
     { cardId: 'OP01-028', qty: 2 },
     { cardId: 'OP01-029', qty: 2 },
+    { cardId: 'OP01-032', qty: 2 },
     { cardId: 'OP01-033', qty: 2 },
     { cardId: 'OP01-034', qty: 2 },
     { cardId: 'OP01-035', qty: 2 },
+    { cardId: 'OP01-039', qty: 2 },
     { cardId: 'OP01-048', qty: 2 },
     { cardId: 'OP01-052', qty: 2 },
     { cardId: 'OP01-054', qty: 2 },
     { cardId: 'OP01-056', qty: 2 },
     { cardId: 'OP01-057', qty: 2 },
     { cardId: 'OP01-058', qty: 2 },
-    // And the inert bodies the positions are built out of.
+    // And the inert bodies the positions are built out of. Every one of these
+    // is named by a table case somewhere: dropping one silently breaks a test
+    // several files away with "no OP01-0xx left in the deck".
+    { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
+    { cardId: 'OP01-053', qty: 2 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-025', qty: 2 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+    { cardId: 'OP01-036', qty: 1 }, // Otsuru — vanilla, cost 1, 3000
+  ],
+};
+
+/**
+ * Leader `OP01-001` Roronoa Zoro, mono-red.
+ *
+ * The only fixture that is a single colour, and it exists for one reason: a
+ * Leader's `static` can only manifest in a game that Leader is *leading*, and
+ * `OP01-001` is red-only, so its deck cannot hold a green card. Red's pool is
+ * comfortably wide enough — nine scripted red cards and five inert ones, 14
+ * distinct against the 13 a legal deck needs.
+ *
+ * It is also the first deck in this repo whose Leader has a **written**
+ * ability. Every other OP-01 fixture runs a Leader whose printed text the
+ * engine ignores, which the file header has flagged since batch 1; Zoro closes
+ * that for one deck.
+ */
+export const OP01_R_ZORO: Decklist = {
+  id: 'OP01-R-ZORO',
+  name: 'OP-01 mono-red (test fixture, Zoro)',
+  packId: '569101',
+  leader: 'OP01-001',
+  cards: [
+    { cardId: 'OP01-006', qty: 4 }, // Otama — [On Play] −2000
+    { cardId: 'OP01-007', qty: 4 }, // Caribou — [On K.O.] K.O.
+    { cardId: 'OP01-017', qty: 4 }, // Nico Robin — [When Attacking] K.O.
+    { cardId: 'OP01-020', qty: 4 }, // Hyogoro — [Activate: Main] rest itself
+    { cardId: 'OP01-022', qty: 4 }, // Brook — [When Attacking] −2000 to two
+    { cardId: 'OP01-026', qty: 4 }, // Red Hawk
+    { cardId: 'OP01-027', qty: 4 }, // Round Table
+    { cardId: 'OP01-028', qty: 4 }, // Green Star Rafflesia
+    { cardId: 'OP01-029', qty: 4 }, // Radical Beam!!
     { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
-    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
-    { cardId: 'OP01-020', qty: 2 }, // Hyogoro — [Activate: Main] rest itself, +2000
-    { cardId: 'OP01-036', qty: 3 }, // Otsuru — vanilla, cost 1, 3000
-    { cardId: 'OP01-025', qty: 1 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+    { cardId: 'OP01-018', qty: 3 }, // Hajrudin — vanilla, cost 4, 6000
+    { cardId: 'OP01-023', qty: 3 }, // Marco — vanilla, cost 3, 5000
   ],
 };
 
@@ -311,6 +356,7 @@ export const OP01_BP_EVERYTHING: Decklist = {
 
 export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
+  OP01_R_ZORO,
   OP01_RG_LAW,
   OP01_RG_EVERYTHING,
   OP01_BP_CROCODILE,

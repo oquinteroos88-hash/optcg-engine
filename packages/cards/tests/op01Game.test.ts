@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, assertInvariants, createGame } from '@optcg/engine';
+import { applyAction, assertInvariants, createGame, getPower, getPowerWithoutStatics } from '@optcg/engine';
 import { decide } from '@optcg/engine/testing';
 import type { GameState } from '@optcg/engine';
-import { OP01_DECKS } from './support.js';
+import { OP01_DECKS, OP01_ZORO_DECKS } from './support.js';
 
 /**
  * The OP-01 batch-1 abilities firing in real games nobody staged.
@@ -12,10 +12,18 @@ import { OP01_DECKS } from './support.js';
  * the fixture decks with the shared stable-key policy and asserts the exact set
  * of abilities that resolved.
  *
- * **Three seeds cover every ability a real game can reach** — 1, 109 and 240 —
- * found by a greedy cover over 300 games in a single pass. Seeds 10 and 158 are
- * added for the two "did it land" cases: 10 for a DON!! actually turning over,
- * 158 for a battle actually ending early.
+ * **Four seeds cover every ability a real game can reach** — 54, 176, 286 and 9
+ * — found by a greedy cover over 300 games in a single pass. Three more are
+ * pinned for things a cover cannot express: 139 for Ashura Doji's static, which
+ * fires no event and has to be read off the board; 158 for a battle that
+ * actually ends early; 1 for a DON!! that actually turns over.
+ *
+ * Two abilities are genuinely rare here and worth naming so nobody widens the
+ * set casually. `OP01-039` Killer's [On Block] wants a DON!! attached, a board
+ * of three, and the driver choosing to block — 2 games in 500. Ashura Doji's
+ * static wants a DON!! attached *and* two rested opponents at the same instant —
+ * also 2 in 500. Both are real, both were found by search, and neither is
+ * forced by a staged position.
  *
  * This file is the **red/green** corpus. Batch 3's blue and purple cards have
  * their own, in `op01BpGame.test.ts`, because a deck may only hold cards that
@@ -28,7 +36,7 @@ import { OP01_DECKS } from './support.js';
  * nothing, and the starter seeds two packages over have never moved.
  */
 
-const SEEDS = [1, 109, 240, 10, 158] as const;
+const SEEDS = [54, 176, 286, 9, 139, 158, 1] as const;
 const ACTIONS = 400;
 
 /**
@@ -42,11 +50,13 @@ const BATCH_ABILITIES = [
   'OP01-020-main',
   // Batch 1 — Characters.
   'OP01-006-onPlay',
+  'OP01-007-onKO',
   'OP01-017-whenAttacking',
   'OP01-022-whenAttacking',
   'OP01-033-onPlay',
   'OP01-034-whenAttacking',
   'OP01-035-whenAttacking',
+  'OP01-039-onBlock',
   'OP01-048-onPlay',
   'OP01-052-whenAttacking',
   'OP01-054-onPlay',
@@ -58,6 +68,11 @@ const BATCH_ABILITIES = [
   'OP01-056-main',
   'OP01-057-trigger',
   'OP01-058-trigger',
+  // Batch 4 — `OP01-007` and `OP01-039` are here; `OP01-001` and `OP01-032` are
+  // not and never can be. A `static` is **read**, never fired, so it emits no
+  // `abilityTriggered` and cannot belong to a set of ability ids. Both are
+  // affirmed the way the starter statics are: by catching the power they add on
+  // a real board, below.
 ] as const;
 
 /**
@@ -97,11 +112,38 @@ const UNREACHED_BY_RANDOM_PLAY = [
   'OP01-058-counter',
 ] as const;
 
+/** Did this card id end up above its without-statics power anywhere on the board? */
+function sawStatic(state: GameState, cardId: string): boolean {
+  for (const player of ['p1', 'p2'] as const) {
+    for (const id of state.players[player].characters) {
+      if (
+        state.cards[id]?.cardId === cardId &&
+        getPower(state, id) > getPowerWithoutStatics(state, id)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Zoro buffs others, so it is read on the Characters of whoever leads with it. */
+function zoroStaticIsLive(state: GameState): boolean {
+  for (const player of ['p1', 'p2'] as const) {
+    if (state.cards[state.players[player].leader]?.cardId !== 'OP01-001') continue;
+    for (const id of state.players[player].characters) {
+      if (getPower(state, id) > getPowerWithoutStatics(state, id)) return true;
+    }
+  }
+  return false;
+}
+
 interface Run {
   state: GameState;
   taken: number;
   fired: Record<string, number>;
   mix: Record<string, number>;
+  statics: Set<string>;
 }
 
 function run(seed: number): Run {
@@ -109,6 +151,7 @@ function run(seed: number): Run {
   let taken = 0;
   const fired: Record<string, number> = {};
   const mix: Record<string, number> = {};
+  const statics = new Set<string>();
   for (let step = 0; step < ACTIONS; step += 1) {
     if (state.status === 'finished') break;
     const action = decide(state, state.priority, seed, step);
@@ -125,11 +168,12 @@ function run(seed: number): Run {
         fired[event.abilityId] = (fired[event.abilityId] ?? 0) + 1;
       }
     }
+    if (sawStatic(state, 'OP01-032')) statics.add('OP01-032');
     // Every action, not just the last: a script that corrupts the board shows
     // up at the action that did it rather than at the end of the game.
     assertInvariants(state);
   }
-  return { state, taken, fired, mix };
+  return { state, taken, fired, mix, statics };
 }
 
 describe('a real game of OP-01 against OP-01', () => {
@@ -149,7 +193,7 @@ describe('a real game of OP-01 against OP-01', () => {
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 
-  it('fires every reachable red/green ability across five unscripted games', () => {
+  it('fires every reachable red/green ability across seven unscripted games', () => {
     const fired = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
@@ -160,6 +204,41 @@ describe('a real game of OP-01 against OP-01', () => {
       expect(game.state.resume, `seed ${seed}`).toEqual([]);
     }
     expect([...fired].sort()).toEqual([...BATCH_ABILITIES].sort());
+  });
+
+  it('manifests both batch-4 statics on a real board', () => {
+    // A `static` has no event, so "did it happen" is a board reading: power
+    // above the without-statics value, on the card the ability names.
+    //
+    // `OP01-032` Ashura Doji buffs **itself** and shows up in this corpus.
+    // `OP01-001` Roronoa Zoro is a **Leader** and can only be live in a game it
+    // is leading, so it needs its own deck — the mono-red fixture, below.
+    const doji = SEEDS.some((seed) => run(seed).statics.has('OP01-032'));
+    expect(doji).toBe(true);
+  });
+
+  it('manifests the Zoro Leader static, in the one deck that can lead with it', () => {
+    // The first fixture whose Leader has a written ability, and the first
+    // `static` in the repo with a selector audience: it buffs every Character
+    // its controller has, and none of its own source.
+    const seen = [1, 2, 3].some((seed) => {
+      let state = createGame({ seed, decks: OP01_ZORO_DECKS, firstPlayer: 'p1' });
+      for (let step = 0; step < ACTIONS; step += 1) {
+        if (state.status === 'finished') break;
+        const action = decide(state, state.priority, seed, step);
+        if (action === undefined) break;
+        const result = applyAction(state, action);
+        if (!result.ok) {
+          throw new Error(`action ${step} (${action.type}) rejected: ${result.reason}`);
+        }
+        state = result.state;
+        if (zoroStaticIsLive(state)) {
+          return true;
+        }
+      }
+      return false;
+    });
+    expect(seen).toBe(true);
   });
 
   it('reaches every [Trigger] half from real damage, not from a staged position', () => {

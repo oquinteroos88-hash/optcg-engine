@@ -99,7 +99,7 @@ export const OP01_RG_LAW: Decklist = {
   cards: [
     ...BATCH_1,
     { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
-    { cardId: 'OP01-043', qty: 4 }, // Shinobu — vanilla, cost 3, 5000
+    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
     { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
     { cardId: 'OP01-010', qty: 2 }, // Komachiyo — vanilla, cost 1, 3000
   ],

@@ -275,8 +275,13 @@ export const OP01_BP_KAIDO: Decklist = {
     { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
     { cardId: 'OP01-107', qty: 4 }, // Babanuki — vanilla, cost 5
-    { cardId: 'OP01-110', qty: 3 }, // Fukurokuju — vanilla, cost 6
-    { cardId: 'OP01-092', qty: 3 }, // Urashima — vanilla, cost 7
+    { cardId: 'OP01-110', qty: 2 }, // Fukurokuju — vanilla, cost 6
+    { cardId: 'OP01-092', qty: 2 }, // Urashima — vanilla, cost 7
+    // Blue, and legal under a blue/purple Leader. Present so the type-gated
+    // abilities of OP01-079 and OP01-089 can be tested where the gate FAILS —
+    // Kaido carries neither {Baroque Works} nor {The Seven Warlords of the Sea}.
+    { cardId: 'OP01-079', qty: 1 },
+    { cardId: 'OP01-089', qty: 1 },
   ],
 };
 

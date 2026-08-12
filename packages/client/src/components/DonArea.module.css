@@ -55,3 +55,23 @@
 .deck {
   color: var(--color-muted);
 }
+
+/* The DON!! card art, dimmed to a backdrop. `--don-art` is set inline by the
+   component; when the file is not there the declaration simply does not paint
+   and the panel looks exactly as it did before. */
+.donArea {
+  background-image: var(--don-art);
+  background-size: cover;
+  background-position: center 28%;
+  position: relative;
+  isolation: isolate;
+}
+
+.donArea::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(15, 21, 32, 0.82);
+  z-index: -1;
+}

@@ -10,8 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "gen:starters": "node --experimental-strip-types scripts/gen-starters.ts",
-    "gen:starter-images": "node --experimental-strip-types scripts/gen-starter-images.ts",
-    "images": "node --experimental-strip-types scripts/download-card-images.ts",
+    "art": "node --experimental-strip-types scripts/card-art.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "ingest": "node --experimental-strip-types scripts/ingest.ts"

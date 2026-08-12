@@ -43,16 +43,5 @@ export function registerStarterCards(): void {
 /** ST-01 "Straw Hat Crew" and ST-02 "Worst Generation", in product order. */
 export const starterDecklists: readonly Decklist[] = STARTER_DECKLISTS;
 
-/**
- * Where each starter card's printed art lives upstream, read from the pinned
- * dataset by `scripts/gen-starter-images.ts`.
- *
- * Published here rather than on `CardDefinition`, which stays free of
- * presentation: an image address is not a rule. Only
- * `scripts/download-card-images.ts` consumes it; the client asks its own local
- * cache by card id and never touches these addresses.
- */
-export { STARTER_IMAGE_URLS } from './starterImages.generated.js';
-
 export { toEngineDecklist } from './expand.js';
 export type { Decklist, DeckEntry, EnglishCardDefinition } from './types.js';

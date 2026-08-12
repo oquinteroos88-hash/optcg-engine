@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { cardImageSrc, hasCardImage } from '../game/cardImage';
+import { cardArtSrc, hasCardImage } from '../game/cardImage';
 import { usePreview } from '../store/selectors';
 import styles from './CardPreview.module.css';
 
@@ -39,7 +39,9 @@ export function CardPreview(): ReactElement {
         {showArt ? (
           <img
             className={styles.image}
-            src={cardImageSrc(view.cardId)}
+            // The large PNG, not the tile's thumbnail: this is the one place
+            // a card is shown big enough for its own art to be worth the bytes.
+            src={cardArtSrc(view.cardId)}
             alt=""
             aria-hidden="true"
             draggable={false}

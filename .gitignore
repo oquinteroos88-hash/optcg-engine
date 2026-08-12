@@ -9,8 +9,23 @@ dist/
 # Coverage output
 coverage-report/
 
-# Card art, downloaded on demand by
-# `pnpm --filter @optcg/cards run images`. Never committed: the art belongs to
-# its owners and this repository redistributes none of it. A clone without it
-# is the normal case - the client falls back to its own text tiles.
+# Card art. None of it is ever committed: the artwork belongs to its owners and
+# this repository redistributes none of it. A clone without any of this is the
+# normal case - the client falls back to its own text tiles.
+#
+# `packages/cards/card-art/` is the default location of the local archive, and
+# `packages/client/public/cards/` is what the copy script fills from it. The
+# archive can live anywhere; see `OPTCG_CARD_ART_DIR` and `card-art.local.json`
+# in packages/cards/README.md.
+packages/cards/card-art/
+packages/cards/card-art.local.json
 packages/client/public/cards/
+
+# Belt and braces: no image file anywhere, under any name a future script picks.
+# `packages/cards/tests/noTrackedArt.test.ts` fails if one reaches the index.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.avif
+*.gif

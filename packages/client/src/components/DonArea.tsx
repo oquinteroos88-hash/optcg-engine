@@ -1,4 +1,5 @@
-import type { MouseEvent, ReactElement } from 'react';
+import type { CSSProperties, MouseEvent, ReactElement } from 'react';
+import { donArtSrc } from '../game/cardImage';
 import styles from './DonArea.module.css';
 
 interface DonAreaProps {
@@ -25,9 +26,15 @@ export function DonArea({ active, rested, clickable, attaching, onClick }: DonAr
     onClick();
   };
   const stateClass = attaching ? styles.attaching : clickable ? styles.clickable : '';
+  // The DON!! card's own art, as a dim backdrop. A CSS background that 404s
+  // simply does not paint, so this degrades to the existing panel with no
+  // fallback logic and no broken-image box — which is the whole reason it is a
+  // background here and an <img> on a card tile.
+  const art = { '--don-art': `url("${donArtSrc()}")` } as CSSProperties;
   return (
     <button
       type="button"
+      style={art}
       className={`${styles.donArea} ${stateClass}`}
       onClick={handleClick}
       disabled={!clickable}

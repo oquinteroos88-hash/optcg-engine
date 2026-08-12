@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, assertInvariants, createGame } from '@optcg/engine';
+import { applyAction, assertInvariants, createGame, getPower, getPowerWithoutStatics } from '@optcg/engine';
 import { decide } from '@optcg/engine/testing';
 import type { GameState } from '@optcg/engine';
-import { OP01_DECKS } from './support.js';
+import { OP01_DECKS, OP01_ZORO_DECKS } from './support.js';
 
 /**
  * The OP-01 batch-1 abilities firing in real games nobody staged.
@@ -12,10 +12,18 @@ import { OP01_DECKS } from './support.js';
  * the fixture decks with the shared stable-key policy and asserts the exact set
  * of abilities that resolved.
  *
- * **Three seeds cover every ability a real game can reach** — 1, 109 and 240 —
- * found by a greedy cover over 300 games in a single pass. Seeds 10 and 158 are
- * added for the two "did it land" cases: 10 for a DON!! actually turning over,
- * 158 for a battle actually ending early.
+ * **Four seeds cover every ability a real game can reach** — 54, 176, 286 and 9
+ * — found by a greedy cover over 300 games in a single pass. Three more are
+ * pinned for things a cover cannot express: 139 for Ashura Doji's static, which
+ * fires no event and has to be read off the board; 158 for a battle that
+ * actually ends early; 1 for a DON!! that actually turns over.
+ *
+ * Two abilities are genuinely rare here and worth naming so nobody widens the
+ * set casually. `OP01-039` Killer's [On Block] wants a DON!! attached, a board
+ * of three, and the driver choosing to block — 2 games in 500. Ashura Doji's
+ * static wants a DON!! attached *and* two rested opponents at the same instant —
+ * also 2 in 500. Both are real, both were found by search, and neither is
+ * forced by a staged position.
  *
  * This file is the **red/green** corpus. Batch 3's blue and purple cards have
  * their own, in `op01BpGame.test.ts`, because a deck may only hold cards that
@@ -28,7 +36,7 @@ import { OP01_DECKS } from './support.js';
  * nothing, and the starter seeds two packages over have never moved.
  */
 
-const SEEDS = [1, 109, 240, 10, 158] as const;
+const SEEDS = [115, 154, 53, 61, 13, 16, 147, 173] as const;
 const ACTIONS = 400;
 
 /**
@@ -42,66 +50,88 @@ const BATCH_ABILITIES = [
   'OP01-020-main',
   // Batch 1 — Characters.
   'OP01-006-onPlay',
+  'OP01-007-onKO',
   'OP01-017-whenAttacking',
   'OP01-022-whenAttacking',
   'OP01-033-onPlay',
   'OP01-034-whenAttacking',
   'OP01-035-whenAttacking',
+  'OP01-039-onBlock',
   'OP01-048-onPlay',
   'OP01-052-whenAttacking',
   'OP01-054-onPlay',
   // Batch 2 — the [Main] halves, and every [Trigger] half, from real damage.
+  'OP01-026-counter',
   'OP01-026-trigger',
   'OP01-027-main',
+  'OP01-028-counter',
   'OP01-028-trigger',
+  'OP01-029-counter',
   'OP01-029-trigger',
   'OP01-056-main',
+  'OP01-057-counter',
   'OP01-057-trigger',
+  'OP01-058-counter',
   'OP01-058-trigger',
+  // Batch 4 — `OP01-007` and `OP01-039` are here; `OP01-001` and `OP01-032` are
+  // not and never can be. A `static` is **read**, never fired, so it emits no
+  // `abilityTriggered` and cannot belong to a set of ability ids. Both are
+  // affirmed the way the starter statics are: by catching the power they add on
+  // a real board, below.
 ] as const;
 
 /**
- * The five `[Counter]` halves, which a random game **cannot** reach — measured,
- * not assumed, and listed here the way `actionCoverage.test.ts` lists the
- * actions its corpus does not observe.
+ * **Nothing is unreachable here any more.**
  *
- * `PLAY_COUNTER_EVENT` is offered only when the defender's **active** cost-area
- * DON!! covers the Event's printed cost (CR 7-1-3-2-2). The shared driver
- * policy never leaves any: `ATTACH_DON` is legal while a single active DON!!
- * remains — the Leader is always a legal recipient — and `END_TURN` is the
- * policy's last tier, so a turn ends only once every DON!! has been spent or
- * attached. A defender therefore arrives at every Counter Step with an empty
- * active pool.
+ * Batches 2 and 3 shipped with all five `[Counter]` halves on an UNOBSERVED
+ * list, and the reasoning was right: `PLAY_COUNTER_EVENT` is offered only when
+ * the defender's **active** cost-area DON!! covers the printed cost
+ * (CR 7-1-3-2-2), DON!! return to active only in their own Refresh Phase
+ * (CR 6-2), and the driver attached every last one before ending its turn. Over
+ * 7,921 Counter Steps the move was offered **zero** times.
  *
- * The numbers, over the two corpora:
+ * That was the policy, not the decks — which is why no fixture was ever bent
+ * trying to fix it. The policy now declines to attach on 1 decision in 3
+ * (`HOLD_DON_EVERY`), and every one of the five fires in ordinary play: 1 game
+ * in 300 for `-026`, 5 for `-028`, 4 for `-029`, 1 for `-057`, 2 for `-058`.
  *
- * | corpus | Counter Steps | `PLAY_COUNTER_EVENT` offered | avg active DON!! |
- * | --- | --- | --- | --- |
- * | ST-01 / ST-02 | 9,324 | 6 | 0.00 |
- * | OP-01 fixtures | 7,921 | **0** | 0.00 |
- *
- * The OP-01 decks are not the problem and no fixture can be the fix — the
- * behaviour belongs to the policy, and the policy is not this batch's to
- * change. The five halves are covered instead by `op01Events.test.ts`, which
- * stages the Counter Step directly, including the one that ends the battle.
- *
- * This list is an assertion, not a footnote: the test below checks these do
- * *not* fire, so the day a policy or fixture change makes them reachable, it
- * says so rather than passing quietly.
+ * Kept as an empty constant rather than deleted, so the shape and the reasoning
+ * are in front of the next reader who needs one.
  */
-const UNREACHED_BY_RANDOM_PLAY = [
-  'OP01-026-counter',
-  'OP01-028-counter',
-  'OP01-029-counter',
-  'OP01-057-counter',
-  'OP01-058-counter',
-] as const;
+const UNREACHED_BY_RANDOM_PLAY: readonly string[] = [];
+
+/** Did this card id end up above its without-statics power anywhere on the board? */
+function sawStatic(state: GameState, cardId: string): boolean {
+  for (const player of ['p1', 'p2'] as const) {
+    for (const id of state.players[player].characters) {
+      if (
+        state.cards[id]?.cardId === cardId &&
+        getPower(state, id) > getPowerWithoutStatics(state, id)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Zoro buffs others, so it is read on the Characters of whoever leads with it. */
+function zoroStaticIsLive(state: GameState): boolean {
+  for (const player of ['p1', 'p2'] as const) {
+    if (state.cards[state.players[player].leader]?.cardId !== 'OP01-001') continue;
+    for (const id of state.players[player].characters) {
+      if (getPower(state, id) > getPowerWithoutStatics(state, id)) return true;
+    }
+  }
+  return false;
+}
 
 interface Run {
   state: GameState;
   taken: number;
   fired: Record<string, number>;
   mix: Record<string, number>;
+  statics: Set<string>;
 }
 
 function run(seed: number): Run {
@@ -109,6 +139,7 @@ function run(seed: number): Run {
   let taken = 0;
   const fired: Record<string, number> = {};
   const mix: Record<string, number> = {};
+  const statics = new Set<string>();
   for (let step = 0; step < ACTIONS; step += 1) {
     if (state.status === 'finished') break;
     const action = decide(state, state.priority, seed, step);
@@ -125,11 +156,12 @@ function run(seed: number): Run {
         fired[event.abilityId] = (fired[event.abilityId] ?? 0) + 1;
       }
     }
+    if (sawStatic(state, 'OP01-032')) statics.add('OP01-032');
     // Every action, not just the last: a script that corrupts the board shows
     // up at the action that did it rather than at the end of the game.
     assertInvariants(state);
   }
-  return { state, taken, fired, mix };
+  return { state, taken, fired, mix, statics };
 }
 
 describe('a real game of OP-01 against OP-01', () => {
@@ -149,7 +181,7 @@ describe('a real game of OP-01 against OP-01', () => {
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 
-  it('fires every reachable red/green ability across five unscripted games', () => {
+  it('fires every reachable red/green ability across seven unscripted games', () => {
     const fired = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
@@ -160,6 +192,41 @@ describe('a real game of OP-01 against OP-01', () => {
       expect(game.state.resume, `seed ${seed}`).toEqual([]);
     }
     expect([...fired].sort()).toEqual([...BATCH_ABILITIES].sort());
+  });
+
+  it('manifests both batch-4 statics on a real board', () => {
+    // A `static` has no event, so "did it happen" is a board reading: power
+    // above the without-statics value, on the card the ability names.
+    //
+    // `OP01-032` Ashura Doji buffs **itself** and shows up in this corpus.
+    // `OP01-001` Roronoa Zoro is a **Leader** and can only be live in a game it
+    // is leading, so it needs its own deck — the mono-red fixture, below.
+    const doji = SEEDS.some((seed) => run(seed).statics.has('OP01-032'));
+    expect(doji).toBe(true);
+  });
+
+  it('manifests the Zoro Leader static, in the one deck that can lead with it', () => {
+    // The first fixture whose Leader has a written ability, and the first
+    // `static` in the repo with a selector audience: it buffs every Character
+    // its controller has, and none of its own source.
+    const seen = [1, 2, 3].some((seed) => {
+      let state = createGame({ seed, decks: OP01_ZORO_DECKS, firstPlayer: 'p1' });
+      for (let step = 0; step < ACTIONS; step += 1) {
+        if (state.status === 'finished') break;
+        const action = decide(state, state.priority, seed, step);
+        if (action === undefined) break;
+        const result = applyAction(state, action);
+        if (!result.ok) {
+          throw new Error(`action ${step} (${action.type}) rejected: ${result.reason}`);
+        }
+        state = result.state;
+        if (zoroStaticIsLive(state)) {
+          return true;
+        }
+      }
+      return false;
+    });
+    expect(seen).toBe(true);
   });
 
   it('reaches every [Trigger] half from real damage, not from a staged position', () => {
@@ -181,22 +248,24 @@ describe('a real game of OP-01 against OP-01', () => {
     }
   });
 
-  it('does not reach the [Counter] halves, and says so on purpose', () => {
-    // See `UNREACHED_BY_RANDOM_PLAY`. Asserting the absence is what makes the
-    // measurement a test: if a later policy or fixture change starts reaching
-    // these, this fails and the list gets shorter deliberately rather than the
-    // coverage claim getting quietly stronger.
+  it('reaches every [Counter] half in ordinary play, and lists nothing as out of reach', () => {
+    // The inverse of what batches 2 and 3 asserted. The absence was measured
+    // and explained; the presence is measured the same way.
     const fired = new Set<string>();
-    for (let seed = 1; seed <= 60; seed += 1) {
+    for (let seed = 1; seed <= 300; seed += 1) {
       for (const id of Object.keys(run(seed).fired)) fired.add(id);
     }
-    for (const id of UNREACHED_BY_RANDOM_PLAY) {
-      expect(fired, `${id} became reachable — update the list and its reasoning`).not.toContain(id);
+    for (const id of [
+      'OP01-026-counter',
+      'OP01-028-counter',
+      'OP01-029-counter',
+      'OP01-057-counter',
+      'OP01-058-counter',
+    ]) {
+      expect(fired, id).toContain(id);
     }
-    // Not vacuous: the same sweep does reach the other halves of the same cards.
-    expect(fired.has('OP01-026-trigger')).toBe(true);
-    expect(fired.has('OP01-058-trigger')).toBe(true);
-  }, 60_000);
+    expect(UNREACHED_BY_RANDOM_PLAY).toEqual([]);
+  }, 240_000);
 
   it('lands the effects, not just the triggers', () => {
     // Membership in the set above only says a script resolved. These say the
@@ -229,14 +298,22 @@ describe('a real game of OP-01 against OP-01', () => {
       game.state.log.filter((event) => event.type === 'battleEndedEarly'),
     );
     expect(early.length).toBeGreaterThan(0);
+    const sides = new Set<string>();
     for (const event of early) {
-      // Only the target side is reachable from these decks: nothing in OP-01
-      // batch 1 removes an attacker. The attacker side has printed cards behind
-      // it (EB01-037, OP04-072, ST03-003) and its own engine-level test.
       if (event.type === 'battleEndedEarly') {
-        expect(event.gone).toBe('target');
+        // `both` would mean two participants left in one window, which nothing
+        // printed can do yet — so the assertion is that each end names one side.
+        expect(['attacker', 'target']).toContain(event.gone);
+        sides.add(event.gone);
       }
     }
+    // Batch 1 could only reach the **target** side, and said so: nothing it
+    // wrote removed an attacker. `OP01-026` Red Hawk's [Counter] does — it K.O.s
+    // an opponent Character with 4000 power or less, and the attacker is one —
+    // and the DON!!-holding bias is what finally lets a random game pay for it.
+    // So the attacker side of CR 7-1-1-4 is now walked by a printed card in
+    // ordinary play, not only by the engine's synthetic test.
+    expect(sides.has('attacker')).toBe(true);
     // And every one of those games still finished cleanly.
     for (const game of games) {
       expect(game.state.pending).toBeNull();

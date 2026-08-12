@@ -142,27 +142,29 @@ describe('a real game, ST-01 against ST-02', () => {
     expect(state.players.p2.life).toHaveLength(5);
   });
 
-  it('fires and manifests each ability at least once across five unscripted games', () => {
+  it('fires and manifests each ability at least once across four unscripted games', () => {
     // Which abilities a single game reaches is a matter of what gets drawn, so
-    // one seed covers only some of them. These five between them reach every
-    // scripted ability and every static in a real game nobody staged.
+    // one seed covers only some of them. **Four** now suffice, down from seven,
+    // and the reason is the point of the change that re-seeded them.
     //
-    // - **82** is the broad one and the seed the tests above also use: a full
-    //   game ending on Life, and the largest single-seed coverage in the search.
-    // - **465** and **160** complete the cover. 160 is the expensive one: it is
-    //   1 of only 4 seeds in 600 that fire `ST02-016` Repel, still the hardest
-    //   ability in these decks to reach unprompted, and it fires `ST02-015`
-    //   Scalpel too — so it is this set's answer to what seed 224 used to be.
-    // - **9** and **8** are pinned by the two tests below and are kept in the
-    //   set so the file has one seed list rather than three.
+    // The driver used to attach every active DON!! before ending its turn, so a
+    // defender never had the active cost-area DON!! a `[Counter]` Event needs
+    // (CR 7-1-3-2-2 against CR 6-2). It now declines to attach on 1 decision in
+    // 3, and the set below got *smaller and stronger* at once:
+    //
+    // - `ST02-015` Scalpel and `ST02-016` Repel used to be the hardest two
+    //   abilities in these decks to reach — seed 224 existed for them alone, and
+    //   before that seed 107. Both now fire in 9 games of 300.
+    // - **`ST01-014-counter` fires for the first time.** Guard Point's
+    //   `[Counter]` half was written when `PLAY_COUNTER_EVENT` shipped in PR #10
+    //   and has never once been reached by a real game since. It is in the list
+    //   below because a game finally played it, not because anyone staged it.
     //
     // These seeds are a search result over a *fixed driver*, not a property of
-    // the cards. What changed with this PR is what "fixed" costs: the driver now
-    // chooses by a hash of each action's content rather than by its index into
-    // `legalActions`, so an ability it does not pick cannot move any other
-    // decision. Adding a card no longer re-runs this search — which is the whole
-    // reason seed 107 died for `ST01-017` and seed 224 replaced it.
-    const SEEDS = [82, 465, 160, 9, 8, 46, 105];
+    // the cards: the driver chooses by a hash of each action's content rather
+    // than by its index into `legalActions`, so adding a card does not re-run
+    // this search. Changing the policy does, and this was that change.
+    const SEEDS = [121, 33, 2, 19];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {
@@ -180,6 +182,7 @@ describe('a real game, ST-01 against ST-02', () => {
       'ST01-005-whenAttacking',
       'ST01-007-main',
       'ST01-011-onPlay',
+      'ST01-014-counter',
       'ST01-014-trigger',
       'ST01-015-main',
       'ST01-015-trigger',

@@ -10,8 +10,8 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **46 cards** — the 15 starter cards whose printed
- * abilities the DSL can express, plus 31 from OP-01 in three batches. It
+ * Scope of this file today: **50 cards** — the 15 starter cards whose printed
+ * abilities the DSL can express, plus **all 35** of OP-01 pile A. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -1510,6 +1510,144 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
         },
         { op: 'rest', target: { var: 'victim' } },
       ],
+    },
+  ],
+
+  /* ------------------------------------------------------------------------
+   * OP-01, batch 4 — the residue.
+   *
+   * The four pile-A cards batches 1 to 3 left behind. Nothing blocked them:
+   * they were cut because batch 3's group came to nineteen against a target of
+   * about twelve, and these are the four whose *shapes* that batch already
+   * covered. With them, **pile A is complete** — every OP-01 card the DSL can
+   * express is written.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-001 Roronoa Zoro (Leader)
+  // "[DON!! x1] [Your Turn] All of your Characters gain +1000 power."
+  //
+  // The first `static` in this repo with a **selector** audience rather than
+  // `{self: true}`: it buffs cards other than its source. Every static written
+  // before it — ST01-004, ST01-013, ST02-003, OP01-032, OP01-068 — names only
+  // itself, which is why `packages/client/tests/continuousBadge.test.ts` pins
+  // the client's self-attribution fallback and says it becomes visible the day
+  // one is not. This is that day, for OP-01; the starter decks the client reads
+  // are unaffected.
+  //
+  // "All of your Characters" excludes the Leader, so the selector is
+  // `category: ['character']` and not `['leader', 'character']` — the Leader
+  // carrying the ability does not buff itself.
+  'OP01-001': [
+    {
+      id: 'OP01-001-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [{ kind: 'donAttached', min: 1 }, { kind: 'isYourTurn' }],
+      },
+      affects: { selector: { zone: 'field', owner: 'you', category: ['character'] } },
+      grants: { power: 1000 },
+      script: [],
+    },
+  ],
+
+  // OP01-007 Caribou
+  // "[On K.O.] K.O. up to 1 of your opponent's Characters with 4000 power or
+  //  less."
+  //
+  // `powerMax` reads the power a card has now (CR 2-6-3), as everywhere else.
+  //
+  // Worth knowing where this can fire from. The usual route is losing a battle,
+  // and by then `resolveBattle` has already closed the battle, so there is
+  // nothing to invalidate. The other route is an **effect** K.O.ing Caribou
+  // mid-battle — `OP01-017` Nico Robin's [When Attacking] does exactly that —
+  // and then Caribou's own K.O. can name the attacker. The battle ends at
+  // CR 7-1-1-4 rather than reaching the Damage Step, which the engine has
+  // routed since the vanished-participant fix. `op01Batch4.test.ts` pins the
+  // whole chain, because it is three printed cards deep and nobody would
+  // reconstruct it from this comment alone.
+  'OP01-007': [
+    {
+      id: 'OP01-007-onKO',
+      trigger: 'onKO',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], powerMax: 4000 },
+          min: 0,
+          max: 1,
+          prompt: "K.O. up to 1 of your opponent's Characters with 4000 power or less",
+        },
+        { op: 'ko', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  // OP01-032 Ashura Doji
+  // "[DON!! x1] If your opponent has 2 or more rested Characters, this
+  //  Character gains +2000 power."
+  //
+  // A power `static` whose condition asks about the **opponent's board**, not
+  // about its own power — so it does not touch the declared OP06-002 divergence
+  // (a static whose own condition reads power sees the without-statics value,
+  // because that is where the recursion guard lives). Nothing in OP-01 pile A
+  // does; this is the last of the five statics and the check is now closed.
+  //
+  // No `[Your Turn]` is printed, so there is no `isYourTurn`: this one is live
+  // on both turns, which is exactly what makes it a blocker deterrent.
+  'OP01-032': [
+    {
+      id: 'OP01-032-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          {
+            kind: 'countCards',
+            selector: {
+              zone: 'field',
+              owner: 'opponent',
+              category: ['character'],
+              orientation: 'rested',
+            },
+            min: 2,
+          },
+        ],
+      },
+      affects: { self: true },
+      grants: { power: 2000 },
+      script: [],
+    },
+  ],
+
+  // OP01-039 Killer
+  // "[Blocker]" — printed keyword.
+  // "[DON!! x1] [On Block] If you have 3 or more Characters, draw 1 card."
+  //
+  // Killer counts itself: it is on the field, and blocking does not remove it.
+  // So two others are enough, which reading the card alone does not suggest —
+  // the same shape as `OP01-052` Raizo counting itself among rested Characters.
+  //
+  // It draws and touches nothing on the board, so unlike `OP01-007` above it
+  // can never end the battle it is blocking in.
+  'OP01-039': [
+    {
+      id: 'OP01-039-onBlock',
+      trigger: 'onBlock',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          {
+            kind: 'countCards',
+            selector: { zone: 'field', owner: 'you', category: ['character'] },
+            min: 3,
+          },
+        ],
+      },
+      script: [{ op: 'draw', player: 'you', count: 1 }],
     },
   ],
 });

@@ -16,12 +16,14 @@ import { OP01_BP_DECKS } from './support.js';
  * cards, the pool reached 22 distinct, and the deferred four walked in with the
  * rest — see `fixtures/op01Decks.ts` for the arithmetic.
  *
- * **Four seeds cover every ability a random game reaches** — 28, 153, 105 and
- * 5 — from a greedy cover over 300 games. Seeds 55 and 21 are added for the two
- * "did it land" cases.
+ * **Six seeds cover every ability a random game reaches** — 54, 5, 44, 29, 45
+ * and 88 — from a greedy cover over 300 games, and that now includes both
+ * `[Counter]` halves, which batch 3 had to list as out of reach. Seed 2 is added
+ * for the one "did it land" case a cover cannot express: a Character actually
+ * turning sideways.
  */
 
-const SEEDS = [28, 153, 105, 5, 55, 21] as const;
+const SEEDS = [54, 5, 44, 29, 45, 88, 2] as const;
 const ACTIONS = 400;
 
 /** Every blue/purple ability a random game of these decks reaches. */
@@ -31,7 +33,9 @@ const BATCH_3_BP_ABILITIES = [
   'OP01-078-onBlock',
   'OP01-079-onKO',
   'OP01-080-onKO',
+  'OP01-086-counter',
   'OP01-086-trigger',
+  'OP01-089-counter',
   'OP01-094-onPlay',
   'OP01-096-onPlay',
   'OP01-097-onPlay',
@@ -41,14 +45,19 @@ const BATCH_3_BP_ABILITIES = [
 ] as const;
 
 /**
- * The two blue `[Counter]` halves, unreachable for the reason
- * `op01Game.test.ts` measures at length: the shared driver policy attaches every
- * active DON!! before ending its turn, so a defender never has the active
- * cost-area DON!! that `PLAY_COUNTER_EVENT` needs (CR 7-1-3-2-2). Not a deck
- * problem and not fixable by a fixture. `op01Batch3.test.ts` stages both
- * directly, including `OP01-089` ending a battle by bouncing the attacker.
+ * **Nothing is unreachable here any more.**
+ *
+ * Batch 3 shipped with `OP01-086-counter` and `OP01-089-counter` on an
+ * UNOBSERVED list, because the driver attached every active DON!! before ending
+ * its turn and a defender therefore could never pay for a `[Counter]` Event
+ * (CR 7-1-3-2-2 against CR 6-2). That was a policy problem, not a deck one, and
+ * the policy now declines to attach on 1 decision in 3 — see `HOLD_DON_EVERY`.
+ *
+ * Both halves fire in ordinary play now: `-086` in 7 games of 300, `-089` in 4.
+ * The list is kept as an empty constant rather than deleted, so the next reader
+ * who needs one has the shape and the reasoning in front of them.
  */
-const UNREACHED_BY_RANDOM_PLAY = ['OP01-086-counter', 'OP01-089-counter'] as const;
+const UNREACHED_BY_RANDOM_PLAY: readonly string[] = [];
 
 /**
  * `OP01-068` Gecko Moria is absent from both lists on purpose: a `static` is
@@ -119,7 +128,7 @@ describe('a real game of OP-01 blue/purple', () => {
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 
-  it('fires every reachable blue/purple ability across six unscripted games', () => {
+  it('fires every reachable blue/purple ability across seven unscripted games', () => {
     const fired = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
@@ -151,17 +160,18 @@ describe('a real game of OP-01 blue/purple', () => {
     expect(kinds.has('donReturnedToDeck')).toBe(true);
   });
 
-  it('does not reach the [Counter] halves, and says so on purpose', () => {
+  it('reaches both [Counter] halves in ordinary play, and lists nothing as out of reach', () => {
+    // The inverse of the assertion this file shipped with. Batch 3 asserted
+    // these two could *not* be reached and said why; the DON!!-holding bias
+    // makes them reachable, so the assertion flips rather than disappearing.
     const fired = new Set<string>();
-    for (let seed = 1; seed <= 60; seed += 1) {
+    for (let seed = 1; seed <= 120; seed += 1) {
       for (const id of Object.keys(run(seed).fired)) fired.add(id);
     }
-    for (const id of UNREACHED_BY_RANDOM_PLAY) {
-      expect(fired, `${id} became reachable — update the list and its reasoning`).not.toContain(id);
-    }
-    // Not vacuous: the same sweep reaches Overheat's other half.
-    expect(fired.has('OP01-086-trigger')).toBe(true);
-  }, 120_000);
+    expect(fired.has('OP01-086-counter')).toBe(true);
+    expect(fired.has('OP01-089-counter')).toBe(true);
+    expect(UNREACHED_BY_RANDOM_PLAY).toEqual([]);
+  }, 180_000);
 
   it('is reproducible for a given seed', () => {
     expect(run(SEEDS[1]).state.log.length).toBe(run(SEEDS[1]).state.log.length);

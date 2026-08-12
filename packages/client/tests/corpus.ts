@@ -7,14 +7,21 @@ export const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 export const MAX_STEPS = 150;
 
 /**
- * Seeds carried over from `packages/cards/tests/game.test.ts`, where they were
- * searched for reaching every scripted ability in ST-01/ST-02 at least once —
- * including the two [Counter] Events, which are the hardest to reach unprompted.
+ * The first four are carried over from `packages/cards/tests/game.test.ts`,
+ * where they were searched for reaching every scripted ability in ST-01/ST-02 at
+ * least once — including all three [Counter] Events, which are the hardest to
+ * reach unprompted and which only became reachable when the driver learned to
+ * hold DON!! back.
  *
- * Re-searched once when the driver stopped choosing by index; that is the whole
- * price of the change, and it is not paid again when a card is added.
+ * The other four carry no coverage of their own and are here for volume: this
+ * corpus also backs `handFan.test.ts`, whose "these are real hands from real
+ * games" guard wants more than ten thousand hand cards to be worth asserting.
+ *
+ * Re-searched twice: once when the driver stopped choosing by index, once when
+ * it started declining to attach DON!!. Both were policy changes. Adding a card
+ * does not move them.
  */
-export const STARTER_SEEDS = [82, 465, 160, 9, 8, 46, 105] as const;
+export const STARTER_SEEDS = [121, 33, 2, 19, 3, 5, 7, 11] as const;
 export const STARTER_MAX_STEPS = 400;
 
 function mustApply(state: GameState, action: Parameters<typeof applyAction>[1]): GameState {

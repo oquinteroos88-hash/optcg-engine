@@ -94,6 +94,7 @@ const FIRING_ABILITIES = [
   'ST01-005-whenAttacking',
   'ST01-007-main',
   'ST01-011-onPlay',
+  'ST01-014-counter',
   'ST01-014-trigger',
   'ST01-015-main',
   'ST01-015-trigger',
@@ -159,7 +160,10 @@ describe('every scripted ability is reachable through the UI', () => {
       // Declaring the attack fires [When Attacking].
       DECLARE_ATTACK: ['ST01-005-whenAttacking', 'ST02-008-whenAttacking'],
       // [Counter] Events, the action PLAY_COUNTER cannot express.
-      PLAY_COUNTER_EVENT: ['ST02-015-counter', 'ST02-016-counter'],
+      // ST01-014 Guard Point joined the day the driver learned to hold DON!!
+      // back: its [Counter] half has been written since PR #10 and had never
+      // been reached by a real game until then.
+      PLAY_COUNTER_EVENT: ['ST01-014-counter', 'ST02-015-counter', 'ST02-016-counter'],
       // Ending the turn fires [End of Turn].
       END_TURN: ['ST02-013-endOfTurn'],
       // A life card's [Trigger] is offered as the damage resolves, and the

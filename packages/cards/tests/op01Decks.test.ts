@@ -89,6 +89,11 @@ describe('the OP-01 test decks are legal', () => {
       'OP01-108',
       'OP01-111',
       'OP01-117',
+      // Batch 4 — the residue that completed pile A.
+      'OP01-001',
+      'OP01-007',
+      'OP01-032',
+      'OP01-039',
     ]);
     const KEYWORD_ONLY = /^\[(Blocker|Rush|Banish|Double Attack)\]/;
     for (const deck of OP01_TEST_DECKS) {

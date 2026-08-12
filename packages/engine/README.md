@@ -668,6 +668,24 @@ position, so they cannot reintroduce the ordering dependence:
 - `END_TURN` is the last tier, so turns actually spend resources and games
   progress toward a real ending.
 
+The driver also **declines to attach DON!! on 1 decision in 3**, and that is not
+flavour. `ATTACH_DON` is legal while one active DON!! remains — the Leader is
+always a legal recipient — and `END_TURN` is the last tier, so the bot used to
+empty its cost area every turn. DON!! return to active only in their own
+Refresh Phase (CR 6-2), so a defender arrived at every Counter Step with nothing
+to spend and `PLAY_COUNTER_EVENT` (CR 7-1-3-2-2) was offered **zero times in
+7,921 Counter Steps**. A whole family of printed cards was unreachable because
+the bot played a style no human plays.
+
+The decline is a coin on `(seed, decision)` only — never on which actions are on
+offer — which is what keeps local perturbation intact. A per-decision coin is
+enough because of the tier interaction: once a turn has nothing left but
+attaches and `END_TURN`, a declining decision leaves only `END_TURN`, and the
+turn ends holding DON!!. The rate was swept against ability coverage, not
+against realism; the table is in `HOLD_DON_EVERY`. Every `[Counter]` half in the
+repo now fires in ordinary play, including `ST01-014`'s, which had never been
+reached by a real game since PR #10 wrote it.
+
 Answers take the **strong line by default** — the full selection, yes to an
 optional ability — and explore the rest of the range on 1 decision in 8. That
 rate is measured rather than chosen: answering uniformly took `ST02-016` Repel

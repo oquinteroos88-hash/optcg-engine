@@ -9,6 +9,7 @@ import {
   OP01_BP_KAIDO,
   OP01_RG_EVERYTHING,
   OP01_RG_LAW,
+  OP01_R_ZORO,
   OP01_RG_LUFFY,
   assertFixtureDecksAreLegal,
 } from './fixtures/op01Decks.js';
@@ -52,6 +53,21 @@ export const OP01_BP_DECKS = {
 
 const OP01_BP_TABLE_DECK = toEngineDecklist(OP01_BP_EVERYTHING);
 const OP01_BP_KAIDO_DECK = toEngineDecklist(OP01_BP_KAIDO);
+const OP01_ZORO_DECK = toEngineDecklist(OP01_R_ZORO);
+
+/**
+ * Mono-red, Zoro-led. The only way to stage OP01-001: a Leader static is live
+ * only in a game that Leader is leading.
+ */
+export function op01ZoroScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_ZORO_DECK, p2: OP01_ZORO_DECK } });
+}
+
+/** Zoro against Luffy, for the manifestation of the Leader static. */
+export const OP01_ZORO_DECKS = {
+  p1: OP01_ZORO_DECK,
+  p2: toEngineDecklist(OP01_RG_LUFFY),
+};
 
 /**
  * Hand-built blue/purple positions, Crocodile-led so the two type-gated

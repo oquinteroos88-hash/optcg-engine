@@ -5,6 +5,7 @@ import {
   actionKey,
   cardinalityFor,
   chooseFrom,
+  holdsDon,
   decide,
   rankCandidates,
 } from '../src/testing/policy.js';
@@ -244,6 +245,59 @@ describe('the policy is deterministic', () => {
     // Otherwise the previous assertion would hold for a policy that ignores the
     // seed entirely.
     expect(trace(1)).not.toEqual(trace(2));
+  });
+});
+
+describe('the DON!!-holding bias', () => {
+  it('is a coin on (seed, decision) and nothing else', () => {
+    // This is what keeps local perturbation intact. If the decision to hold
+    // DON!! depended on which actions were on offer, injecting one could flip
+    // it, and every option in the pool would move with it.
+    for (let decision = 0; decision < 200; decision += 1) {
+      expect(holdsDon(1, decision)).toBe(holdsDon(1, decision));
+      // Different seeds and different decisions must disagree somewhere, or the
+      // coin is a constant and the bias does nothing.
+      void holdsDon(2, decision);
+    }
+    const onSeedOne = Array.from({ length: 300 }, (_, i) => holdsDon(1, i));
+    const onSeedTwo = Array.from({ length: 300 }, (_, i) => holdsDon(2, i));
+    expect(onSeedOne).not.toEqual(onSeedTwo);
+    const held = onSeedOne.filter(Boolean).length;
+    // Roughly one in three, with room for the hash not being a perfect die.
+    expect(held).toBeGreaterThan(60);
+    expect(held).toBeLessThan(160);
+  });
+
+  it('leaves attaching alone when the pool has nothing else', () => {
+    // A decision whose every option is an attach is not a decision to hold
+    // DON!!; returning `undefined` there would strand the driver mid-game.
+    const onlyAttaches: Action[] = [
+      { type: 'ATTACH_DON', player: 'p1', to: 'p1-c1', count: 1 },
+      { type: 'ATTACH_DON', player: 'p1', to: 'p1-c2', count: 1 },
+    ];
+    for (let decision = 0; decision < 100; decision += 1) {
+      expect(chooseFrom(onlyAttaches, 1, decision)).toBeDefined();
+    }
+  });
+
+  it('really does skip attaches on a holding decision', () => {
+    const mixed: Action[] = [
+      { type: 'ATTACH_DON', player: 'p1', to: 'p1-c1', count: 1 },
+      { type: 'PASS', player: 'p1' },
+    ];
+    let skipped = 0;
+    let attached = 0;
+    for (let decision = 0; decision < 300; decision += 1) {
+      const picked = chooseFrom(mixed, 1, decision);
+      if (picked?.type === 'ATTACH_DON') attached += 1;
+      else skipped += 1;
+      // And the two agree: a holding decision never lands on an attach.
+      if (holdsDon(1, decision)) {
+        expect(picked?.type).not.toBe('ATTACH_DON');
+      }
+    }
+    expect(skipped).toBeGreaterThan(0);
+    expect(attached).toBeGreaterThan(0);
   });
 });
 

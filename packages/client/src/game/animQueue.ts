@@ -48,6 +48,7 @@ function cardIdsOf(event: GameEvent): InstanceId[] {
     case 'counterPlayed':
       return [event.instanceId, event.target];
     case 'battleResolved':
+    case 'battleEndedEarly':
       return [event.attacker, event.target];
     case 'stageReplaced':
       return [event.oldStage, event.newStage];
@@ -133,7 +134,12 @@ export function groupEvents(events: readonly GameEvent[]): AnimGroup[] {
       continue;
     }
 
-    if (event.type === 'battleResolved' || event.type === 'koed' || event.type === 'lifeTaken') {
+    if (
+      event.type === 'battleResolved' ||
+      event.type === 'battleEndedEarly' ||
+      event.type === 'koed' ||
+      event.type === 'lifeTaken'
+    ) {
       push('battle', [event], BATTLE_MS);
       i += 1;
       continue;

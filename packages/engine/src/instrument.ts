@@ -25,6 +25,10 @@ export const MARK_NAMES = [
   'battle.blocked',
   'battle.characterKo',
   'battle.leaderDamageToHand',
+  // The battle that never reached the Damage Step because a participant left
+  // the field (CR 7-1-1-4 / 7-1-2-3 / 7-1-3-3). Separate from the three
+  // outcomes above, which all report a comparison that happened.
+  'battle.endedEarly',
 
   // Counters.
   'counter.played',

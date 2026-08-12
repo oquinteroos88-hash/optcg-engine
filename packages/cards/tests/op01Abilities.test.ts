@@ -20,7 +20,7 @@ import {
  * shows up: without it a test can pass on a value the interpreter happened to
  * write before it stalled.
  *
- * All eight print "up to", so each one also has to survive resolving to nothing.
+ * All nine print "up to", so each one also has to survive resolving to nothing.
  * The three cases that matters in are collected in the last describe block
  * rather than repeated nine times: **selects**, **selects nothing**, and **has
  * nothing to select from** — the third being the one where the interpreter
@@ -214,6 +214,79 @@ describe("OP01-054 X.Drake — [On Play] K.O. up to 1 rested opponent Character,
 // ---------------------------------------------------------------------------
 // [When Attacking]
 // ---------------------------------------------------------------------------
+
+describe("OP01-017 Nico Robin — [DON!! x1] [When Attacking] K.O. up to 1 with 3000 power or less", () => {
+  it('K.O.s a Character at exactly 3000 and leaves a 4000 alone', () => {
+    const start = op01Scenario({
+      p1: { activeDon: 2, characters: [{ cardId: 'OP01-017', attachedDon: 1 }] },
+      p2: { characters: [{ cardId: 'OP01-010' }, { cardId: 'OP01-053' }] },
+    });
+    const komachiyo = characterAt(start, 'p2', 0); // 3000
+    const wire = characterAt(start, 'p2', 1); // 4000
+
+    const attacked = attackLeader(start, 0);
+    expect(attacked.fired).toEqual(['OP01-017-whenAttacking']);
+    expect(attacked.state.pending?.candidates).toEqual([komachiyo]);
+
+    const done = answer(attacked.state, 'p1', { kind: 'cards', selected: [komachiyo] });
+    expect(done.players.p2.characters).toEqual([wire]);
+    assertSettled(done);
+  });
+
+  it('reads the power a Character has now, not the printed one', () => {
+    // Komachiyo prints 3000. With one DON!! attached it is 4000 and drops out
+    // of the gate — CR 2-6-3, and the reason PR #9 made the condition sites
+    // read `getPower`.
+    const start = op01Scenario({
+      p1: { activeDon: 2, characters: [{ cardId: 'OP01-017', attachedDon: 1 }] },
+      p2: { activeDon: 1, characters: [{ cardId: 'OP01-010', attachedDon: 1 }] },
+    });
+    const buffed = characterAt(start, 'p2', 0);
+    expect(getPower(start, buffed)).toBe(4000);
+
+    const attacked = attackLeader(start, 0);
+    expect(attacked.fired).toEqual(['OP01-017-whenAttacking']);
+    expect(attacked.state.pending).toBeNull();
+    expect(attacked.state.players.p2.characters).toEqual([buffed]);
+    assertSettled(attacked.state);
+  });
+
+  it('does not fire at all without a DON!! attached', () => {
+    const start = op01Scenario({
+      p1: { activeDon: 2, characters: [{ cardId: 'OP01-017' }] },
+      p2: { characters: [{ cardId: 'OP01-010' }] },
+    });
+    const komachiyo = characterAt(start, 'p2', 0);
+    const attacked = attackLeader(start, 0);
+    expect(attacked.fired).toEqual([]);
+    expect(attacked.state.players.p2.characters).toEqual([komachiyo]);
+    assertSettled(attacked.state);
+  });
+
+  it('K.O.s the very Character it is attacking, and the battle ends there', () => {
+    // The case that needed an engine fix (CR 7-1-1-4). A rested Character is a
+    // legal attack target, and Robin may choose it — so the battle loses its
+    // target before the Damage Step and ends without damage.
+    const start = op01Scenario({
+      p1: { activeDon: 2, characters: [{ cardId: 'OP01-017', attachedDon: 1 }] },
+      p2: { characters: [{ cardId: 'OP01-010', orientation: 'rested' }] },
+    });
+    const robin = characterAt(start, 'p1', 0);
+    const victim = characterAt(start, 'p2', 0);
+    const attacked = applyOk(start, {
+      type: 'DECLARE_ATTACK', player: 'p1', attacker: robin, target: victim,
+    });
+    const done = answer(attacked.state, 'p1', { kind: 'cards', selected: [victim] });
+
+    expect(done.players.p2.characters).toEqual([]);
+    expect(done.battle).toBeNull();
+    expect(done.log.some((e) => e.type === 'battleEndedEarly')).toBe(true);
+    expect(done.log.some((e) => e.type === 'battleResolved')).toBe(false);
+    // Robin stays rested: the attack still cost the tap (CR 7-1-1-1).
+    expect(done.cards[robin]?.orientation).toBe('rested');
+    assertSettled(done);
+  });
+});
 
 describe("OP01-022 Brook — [DON!! x1] [When Attacking] give up to 2 Characters −2000", () => {
   it('hits both chosen Characters in one instruction', () => {
@@ -468,6 +541,7 @@ describe('every "up to" in this batch survives resolving to nothing', () => {
 
   /** The three [When Attacking] abilities that open a selection. */
   const ATTACKING: Array<{ cardId: string; abilityId: string; don: number; victim: string }> = [
+    { cardId: 'OP01-017', abilityId: 'OP01-017-whenAttacking', don: 1, victim: 'OP01-010' },
     { cardId: 'OP01-022', abilityId: 'OP01-022-whenAttacking', don: 1, victim: 'OP01-010' },
     { cardId: 'OP01-035', abilityId: 'OP01-035-whenAttacking', don: 1, victim: 'OP01-053' },
   ];

@@ -3,14 +3,16 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
-> **Status — batch 1 landed.** Eight pile-A cards are written, taking OP-01 from
-> 19 playable to **27 of 121**. One more, `OP01-017` Nico Robin, was written and
-> then withheld: the DSL says it, the engine cannot survive it. That is the most
-> valuable thing the batch produced and it has its own section,
+> **Status — batch 1 landed, and the rule it needed with it.** Nine pile-A cards
+> are written, taking OP-01 from 19 playable to **28 of 121**. One of the nine,
+> `OP01-017` Nico Robin, cost an engine change first: she can K.O. the very
+> Character her own attack is targeting, and the battle rules had no way to lose
+> their target. That is the most valuable thing the batch produced and it has its
+> own section,
 > [What batch 1 found](#what-batch-1-found--a-missing-rule-not-a-missing-word).
 > The classification below is **not re-cut** — it is what was read before any of
-> it was built, and the ✅ / ⚠️ marks in the card-by-card table are the only
-> thing added to it.
+> it was built, and the ✅ marks in the card-by-card table are the only thing
+> added to it.
 
 `docs/starter-card-inventory.md` measured 34 cards from two preconstructed
 decks. It predicted 24 playable and got 24, and then PR #11 showed what a
@@ -98,7 +100,7 @@ for deck construction.
 | Pile | Meaning | Cards | Playable today |
 | --- | --- | --- | --- |
 | **vanilla** | No effect text and no trigger text. No `Ability` at all. | 16 | 16 |
-| **A** | The DSL expresses it as it stands. | 38 | **11** |
+| **A** | The DSL expresses it as it stands. | 38 | **12** |
 | **B** | Needs something bounded: one capability the DSL does not have. | 6 | 0 |
 | **C** | Hits a structural hole. | 60 | 0 |
 | **D** | Honestly ambiguous — the text does not settle where it belongs. | 1 | 1 |
@@ -108,16 +110,17 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 27 of 121, up from 19.** The `Playable today` column moves as
+**Playable today — 28 of 121, up from 19.** The `Playable today` column moves as
 batches land, and the first one has:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
   number this document opened with.
-- **8 more are written** as of batch 1 — `OP01-006`, `-022`, `-033`, `-034`,
-  `-035`, `-048`, `-052`, `-054`, the mechanical `[On Play]` and
-  `[When Attacking]` cards. Nothing in the engine changed to accept them, which
-  is what pile A claimed and this is the first batch to check.
-- **27 more of pile A remain to write**, in later batches.
+- **9 more are written** as of batch 1 — `OP01-006`, `-017`, `-022`, `-033`,
+  `-034`, `-035`, `-048`, `-052`, `-054`, the mechanical `[On Play]` and
+  `[When Attacking]` cards. Eight of the nine needed nothing from the engine,
+  which is what pile A claimed. The ninth needed a missing *rule*, which is a
+  different thing and is the section below.
+- **26 more of pile A remain to write**, in later batches.
 - **66 of 121 still need something the DSL cannot say.**
 
 One card left pile A on contact, and it is the most useful thing batch 1 found:
@@ -138,12 +141,17 @@ alone.
 That number is the single most actionable thing in this document, and it is why
 the recommendation at the end does not start with a gap.
 
-*Since revised, slightly downward.* Batch 1 wrote 8 of the 35 and found that one
-more, `OP01-017`, is not shippable without an engine change after all. So the
-ceiling is **53 of 121**, not 54, until the battle rules can lose their target.
-The estimate was 34 of 35 correct on its first contact with real cards, which is
-about as well as a classification of this kind can be expected to do — and the
-one it missed, it missed for a reason no reading of the DSL could have caught.
+*Since checked, and it holds — with one asterisk worth keeping.* Batch 1 wrote 9
+of the 35 and the ceiling of 54 stands. Eight of the nine needed nothing from the
+engine, exactly as pile A claimed. The ninth, `OP01-017`, needed a **missing
+rule** before it could ship: the DSL expressed it perfectly, and the engine could
+not survive the position it created.
+
+That is the asterisk, and it is about this document's method rather than about
+its numbers. "The DSL can say it" and "the engine can play it" are two claims,
+and every column here measures the first. The second is `docs/trigger-
+reachability.md`'s question, asked of triggers — and Robin showed it has to be
+asked of *effects* too.
 
 ## What batch 1 found — a missing rule, not a missing word
 
@@ -179,8 +187,38 @@ structurally unable to see this too.
 **Where it belongs.** Backlog A, missing rules, alongside the two the inventory
 already added. It is not in the gap table below and never could be: the DSL is
 not short a word. Per this project's ranking rule an A item outranks a same-sized
-B item, and this one is small — the Damage Step needs to notice a target that
-left, and end the battle without damage.
+B item, and this one was small.
+
+### Since built
+
+The rule exists. The Comprehensive Rules answer it directly and say it three
+times, once per battle step — **CR 7-1-1-4**, **7-1-2-3**, and the same sentence
+at the end of the Counter Step:
+
+> "If, at the end of the … Step, the attacking card **or** the target card for
+> the attack has **moved areas** due to some method, proceed not to the … Step,
+> but to the **End of the Battle** (see 7-1-5.)."
+
+Four things in that sentence turned out to matter, and none of them was the
+crash:
+
+- **"or the attacking card"** — the rule is symmetric, and the attacker side is
+  reachable with printed cards: `EB01-037` Mr. 9 and `OP04-072` Mr.5(Gem) K.O. on
+  `[On Your Opponent's Attack]`, and `ST03-003` Crocodile bottom-decks a
+  Character on `[On Block]` — from a *starter deck*.
+- **"moved areas"**, not "K.O.'d" — a bounce to hand counts, which `OP04-068`
+  Yokozuna does.
+- **"the target card"** means the current one, so a `[Blocker]` that redirects
+  the attack onto itself and then leaves ends the battle it just joined.
+- **"at the end of the … Step"** — a step is not over while an effect it started
+  is still resolving, which is why the engine's check runs when the game is
+  quiescent rather than the instant a card moves.
+
+The battle now reaches **End of the Battle** (CR 7-1-5) early instead of the
+Damage Step: no damage, `endOfBattle` modifiers expire (7-1-5-3, 7-1-5-4), the
+attacker **stays rested** because 7-1-1-1 spent it and nothing in 7-1-5 gives it
+back, and a `battleEndedEarly` event tells the log the attack dissipated rather
+than failed. Robin is written.
 
 ## Gaps, with both columns
 
@@ -624,7 +662,7 @@ have been added to it as batches land:
 | OP01-014 | Jinbe | char | **C** | put-into-play, and nothing else. `[Blocker]` is printed |
 | OP01-015 | Tony Tony.Chopper | char | **C** | player-chosen discard, **and** "other than [Tony Tony.Chopper]" |
 | OP01-016 | Nami | char | **C** | `orderCards` + "the rest", **and** "other than [Nami]" |
-| OP01-017 | Nico Robin | char | **A** ⚠️ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
+| OP01-017 | Nico Robin | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
 | OP01-018 | Hajrudin | char | vanilla | — |
 | OP01-019 | Bartolomeo | char | **C** | `[Opponent's Turn]` — `Condition` has no negation. Freed by that alone; `[Blocker]` is printed |
 | OP01-020 | Hyogoro | char | **A** | `activateMain`, cost `restSelf`; select 0–1 {field, you, leader+character} → `addPower +2000 endOfTurn` |

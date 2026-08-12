@@ -7,6 +7,7 @@ import {
   getOpponent,
   getPower,
   hasKeyword,
+  isOnField,
   isOwnLeaderOrCharacter,
 } from '../selectors.js';
 import type { Battle, GameState, InstanceId, PlayerId } from '../types.js';
@@ -280,6 +281,98 @@ export function applyPass(draft: GameState, _action: { player: PlayerId }, event
 }
 
 /**
+ * End of the Battle (CR 7-1-5), reached by the normal route or the early one.
+ *
+ * Emits nothing: `resolveBattle` announces its own outcome first, and the early
+ * exit announces a different event. What is shared is the bookkeeping, and it
+ * is shared precisely so the two exits cannot drift.
+ *
+ * - **CR 7-1-5-3 / 7-1-5-4** — effects that last "during this battle" end, for
+ *   the turn player and the non-turn player alike. That is the `endOfBattle`
+ *   purge, and it runs on *both* exits: the rules route an early end to 7-1-5
+ *   rather than to nothing, so a Counter played into a battle that then
+ *   evaporates still expires here rather than leaking into the next one.
+ * - **CR 7-1-5-5** — the battle ends and the game returns to 6-5-2, the turn
+ *   player's Main Phase. That is the priority hand-back.
+ *
+ * What it deliberately does **not** do is set the attacker active. CR 7-1-1-1
+ * rests the attacker to declare, and nothing in 7-1-5 gives it back; a rested
+ * attacker returns to active in its controller's next Refresh Phase (CR 6-2-4)
+ * like any other rested card. An attack that evaporates still cost the tap.
+ */
+function closeBattle(draft: GameState): void {
+  draft.modifiers = draft.modifiers.filter((modifier) => modifier.duration !== 'endOfBattle');
+  draft.battle = null;
+  draft.priority = draft.activePlayer;
+}
+
+/**
+ * The battle whose attacker or target left the field, ended per the rules
+ * instead of crashed into.
+ *
+ * The Comprehensive Rules say this three times, once per step, in identical
+ * words — CR **7-1-1-4** (end of the Attack Step), **7-1-2-3** (end of the
+ * Block Step), and the rule at the end of the Counter Step, which v1.2.0 prints
+ * as "7-1-2-3" a second time and plainly means 7-1-3-3:
+ *
+ * > "If, at the end of the … Step, the attacking card **or** the target card
+ * > for the attack has moved areas due to some method, proceed not to the …
+ * > Step, but to the End of the Battle (see 7-1-5.)."
+ *
+ * Four things in that sentence decide the shape of this function:
+ *
+ * 1. **"the attacking card or the target card"** — the rule is symmetric. A
+ *    defender's `[On Block]` or `[On Your Opponent's Attack]` that removes the
+ *    attacker ends the battle exactly as an attacker's `[When Attacking]` that
+ *    removes the target does. Both sides are checked here.
+ * 2. **"has moved areas"**, not "is K.O.'d". K.O. is one way to move areas
+ *    (CR 10-2-1-2 places the Character in the trash); a bounce to hand or to
+ *    the deck is another, and the rule covers it. `isOnField` is the right
+ *    question and the destination is irrelevant.
+ * 3. **"the target card for the attack"** — the *current* target. A [Blocker]
+ *    makes itself the new target (CR 7-1-2), which this engine models by
+ *    reassigning `battle.target`, so reading that field is reading the rule.
+ *    `originalTarget` is a spectator by then and is not checked.
+ * 4. **"at the end of the … Step"** — a step is not over while an effect it
+ *    started is still resolving. So this runs when the game is **quiescent**:
+ *    no open choice, no stack, no engine continuation. A `[When Attacking]`
+ *    that K.O.s the target and then asks a question has not finished its step,
+ *    and the battle it is inside is still the battle it is inside.
+ *
+ * Called once, from `applyAction`, after `settle` — the single point where the
+ * engine returns an observable state. Putting it there rather than in each of
+ * the three step handlers is what makes the bad state *unreachable* rather than
+ * *tolerated*: there is no path back to a caller that skips it.
+ */
+export function endBattleIfParticipantLeft(draft: GameState, events: GameEvent[]): void {
+  const battle = draft.battle;
+  if (battle === null) {
+    return;
+  }
+  // Point 4 above: mid-effect is not the end of a step.
+  if (draft.pending !== null || draft.stack.length > 0 || draft.resume.length > 0) {
+    return;
+  }
+  const attackerGone = !isOnField(draft, battle.attacker);
+  const targetGone = !isOnField(draft, battle.target);
+  if (!attackerGone && !targetGone) {
+    return;
+  }
+  mark('battle.endedEarly');
+  emit(draft, events, {
+    type: 'battleEndedEarly',
+    attacker: battle.attacker,
+    target: battle.target,
+    gone: attackerGone && targetGone ? 'both' : attackerGone ? 'attacker' : 'target',
+  });
+  // CR 7-1-5-2 — "effects that read 'at the end of this battle' activate" —
+  // fires nothing, because the `Trigger` union has no member for it. When one
+  // is added it belongs here and in `resolveBattle`, which is the other reason
+  // both exits share `closeBattle`.
+  closeBattle(draft);
+}
+
+/**
  * Damage step.
  *
  * Powers are compared, the battle is closed, and only then is the outcome
@@ -319,10 +412,9 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
   });
 
   // Cleanup always runs, even on noEffect: every endOfBattle modifier expires,
-  // including ones parked on cards that never fought.
-  draft.modifiers = draft.modifiers.filter((modifier) => modifier.duration !== 'endOfBattle');
-  draft.battle = null;
-  draft.priority = draft.activePlayer;
+  // including ones parked on cards that never fought. Shared with the early
+  // exit, which reaches the same End of the Battle (CR 7-1-5).
+  closeBattle(draft);
 
   if (!wins) {
     return;

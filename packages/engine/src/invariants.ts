@@ -208,6 +208,33 @@ function checkModifierShape(state: GameState, violations: string[]): void {
   }
 }
 
+/**
+ * A battle's shape, with the on-field clauses scoped to a **quiescent** state.
+ *
+ * The clauses used to be unconditional, and that statement was not strong — it
+ * was false. A `[When Attacking]` effect may K.O. the target and then ask a
+ * question, and the state that comes back holds an open battle, an open choice,
+ * and a target in the trash. The rules say so outright: the battle ends "at the
+ * end of the … Step" (CR 7-1-1-4), and a step is not over while an effect it
+ * started is still resolving. An invariant that fires on a legal position is a
+ * bug in the invariant, and this one did fire — it was the second witness to the
+ * crash that `endBattleIfParticipantLeft` now prevents.
+ *
+ * So the on-field clauses now say what is actually true, and say it about the
+ * only states where it can be true:
+ *
+ * > When no choice is open, no ability is on the stack and no engine
+ * > continuation is queued, an open battle's attacker and current target are
+ * > both on the field.
+ *
+ * That is narrower in scope and stronger in force. Narrower, because it exempts
+ * the mid-effect window the rules describe. Stronger, because in the states it
+ * does cover the engine **guarantees** it — `applyAction` ends such a battle
+ * before returning — where before the property was merely asserted and the
+ * engine had no way to keep it. The other clauses (step, controllers, a known
+ * `originalTarget`) hold in every state and are checked unconditionally, as
+ * they always were.
+ */
 function checkBattleShape(state: GameState, violations: string[]): void {
   const battle = state.battle;
   if (battle === null) {
@@ -216,19 +243,38 @@ function checkBattleShape(state: GameState, violations: string[]): void {
   if (battle.step !== 'block' && battle.step !== 'counter') {
     violations.push(`battleShape: resting battle step must be block/counter, got ${battle.step}`);
   }
-  const attacker = state.cards[battle.attacker];
-  if (attacker === undefined || !isOnField(state, battle.attacker)) {
-    violations.push(`battleShape: attacker ${battle.attacker} is not on the field`);
-  } else if (attacker.controller !== state.activePlayer) {
-    violations.push(`battleShape: attacker ${battle.attacker} not controlled by the active player`);
-  }
   const defender = getOpponent(state.activePlayer);
-  const target = state.cards[battle.target];
-  if (target === undefined || !isOnField(state, battle.target)) {
-    violations.push(`battleShape: target ${battle.target} is not on the field`);
-  } else if (target.controller !== defender) {
-    violations.push(`battleShape: target ${battle.target} not controlled by the defender`);
+  // Mid-effect: an ability is still resolving and may legitimately have removed
+  // a participant a moment ago. `applyAction` closes the battle once it stops.
+  const quiescent =
+    state.pending === null && state.stack.length === 0 && state.resume.length === 0;
+
+  const attacker = state.cards[battle.attacker];
+  if (attacker === undefined) {
+    violations.push(`battleShape: unknown attacker ${battle.attacker}`);
+  } else {
+    if (quiescent && !isOnField(state, battle.attacker)) {
+      violations.push(`battleShape: attacker ${battle.attacker} is not on the field`);
+    }
+    if (attacker.controller !== state.activePlayer) {
+      violations.push(
+        `battleShape: attacker ${battle.attacker} not controlled by the active player`,
+      );
+    }
   }
+
+  const target = state.cards[battle.target];
+  if (target === undefined) {
+    violations.push(`battleShape: unknown target ${battle.target}`);
+  } else {
+    if (quiescent && !isOnField(state, battle.target)) {
+      violations.push(`battleShape: target ${battle.target} is not on the field`);
+    }
+    if (target.controller !== defender) {
+      violations.push(`battleShape: target ${battle.target} not controlled by the defender`);
+    }
+  }
+
   if (state.cards[battle.originalTarget] === undefined) {
     violations.push(`battleShape: unknown originalTarget ${battle.originalTarget}`);
   }

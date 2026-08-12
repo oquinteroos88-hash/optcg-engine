@@ -12,22 +12,27 @@ import { OP01_DECKS } from './support.js';
  * the fixture decks with the shared stable-key policy and asserts the exact set
  * of abilities that resolved.
  *
- * **Two seeds cover all eight abilities** — 10 and 11 — which is the first real
- * measurement of what PR #22 bought. Under the old index-based driver every
- * seed set was a search result the next ability invalidated; a greedy cover over
- * 300 games found this one in a single pass, and the least reachable ability in
- * the batch (`OP01-052` Raizo, which needs two rested Characters at the moment
- * of an attack) still fires in 37 of those 300. Nothing here was hard to find.
+ * **Three seeds cover all nine abilities** — 50, 15 and 6 — found by a greedy
+ * cover over 300 games in a single pass. The least reachable ability in the
+ * batch (`OP01-052` Raizo, which needs two rested Characters at the moment of
+ * an attack) still fires in 30 of those 300.
  *
- * Seeds 5 and 14 are here for the last case only. Firing an ability and
- * *landing* it are different claims, and the second needs a game where the
- * "up to" was answered with something. 5 is where a rest actually turns a
- * Character sideways; 14 is the one game in 60 where Inuarashi attacks with two
- * DON!! attached *and* a rested DON!! in the cost area left to refresh, which is
- * the rarest board state this batch asks for.
+ * The seed list moved once, when `OP01-017` Nico Robin joined the fixture decks
+ * and displaced four filler slots. That is the **deck** changing, not the
+ * driver: a different 50 cards deals a different game. It is the distinction
+ * PR #22 was bought for — adding an ability to a deck that already held it
+ * moves nothing, and the starter seeds two packages over did not move here.
+ *
+ * Seeds 69 and 10 are here for the last two cases only. Firing an ability and
+ * *landing* it are different claims: 69 is one of 14 games in 300 where
+ * Inuarashi attacks with two DON!! attached *and* a rested DON!! left in the
+ * cost area to refresh, and **10 is one of only 2 games in 300 where a battle
+ * ends early** because Robin K.O.d the Character she was attacking. Two in 300
+ * is rare enough to be worth pinning by seed and common enough that the sweep
+ * really does walk the new rule.
  */
 
-const SEEDS = [10, 11, 5, 14] as const;
+const SEEDS = [50, 15, 6, 69, 10] as const;
 const ACTIONS = 400;
 
 /**
@@ -37,6 +42,7 @@ const ACTIONS = 400;
  */
 const BATCH_ABILITIES = [
   'OP01-006-onPlay',
+  'OP01-017-whenAttacking',
   'OP01-022-whenAttacking',
   'OP01-033-onPlay',
   'OP01-034-whenAttacking',
@@ -98,7 +104,7 @@ describe('a real game of OP-01 against OP-01', () => {
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 
-  it('fires every batch-1 ability at least once across four unscripted games', () => {
+  it('fires every batch-1 ability at least once across five unscripted games', () => {
     const fired = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
@@ -132,7 +138,67 @@ describe('a real game of OP-01 against OP-01', () => {
     ).toBe(true);
   });
 
+  it('walks the vanished-participant rule in an unstaged game', () => {
+    // `packages/engine/tests/battleVanished.test.ts` builds that position by
+    // hand. This says a real game reaches it: Robin K.O.s the Character she is
+    // attacking, the battle ends at CR 7-1-1-4 instead of at the Damage Step,
+    // and the game carries on. Before the fix this seed threw.
+    const games = SEEDS.map((seed) => run(seed));
+    const early = games.flatMap((game) =>
+      game.state.log.filter((event) => event.type === 'battleEndedEarly'),
+    );
+    expect(early.length).toBeGreaterThan(0);
+    for (const event of early) {
+      // Only the target side is reachable from these decks: nothing in OP-01
+      // batch 1 removes an attacker. The attacker side has printed cards behind
+      // it (EB01-037, OP04-072, ST03-003) and its own engine-level test.
+      if (event.type === 'battleEndedEarly') {
+        expect(event.gone).toBe('target');
+      }
+    }
+    // And every one of those games still finished cleanly.
+    for (const game of games) {
+      expect(game.state.pending).toBeNull();
+      expect(game.state.stack).toEqual([]);
+    }
+  });
+
   it('is reproducible for a given seed', () => {
     expect(run(SEEDS[1]).state.log.length).toBe(run(SEEDS[1]).state.log.length);
   });
+});
+
+describe('the sweep survives a battle losing its participant', () => {
+  // The pinned seeds above say the rule is reached. This says nothing else
+  // broke: 150 games with Robin in both decks, none of which may throw. Before
+  // the fix, seed 10 alone was enough to bring the whole run down with
+  // `Engine bug: … is not on … field`, so a sweep of this size is the honest
+  // regression test for it.
+  it('plays 150 games without an Engine bug, and dissipates some battles', () => {
+    let earlyEndings = 0;
+    let gamesWithOne = 0;
+    for (let seed = 1; seed <= 150; seed += 1) {
+      const game = run(seed);
+      const early = game.state.log.filter((event) => event.type === 'battleEndedEarly').length;
+      earlyEndings += early;
+      if (early > 0) {
+        gamesWithOne += 1;
+      }
+      // A finished game left no battle open, and no `endOfBattle` modifier
+      // parked (CR 7-1-5-3 / 7-1-5-4). Not asserted on a game that ran into
+      // this file's 400-action cap: that one stopped mid-battle because the
+      // *test* stopped it, and its open battle is correct.
+      if (game.state.status === 'finished') {
+        expect(game.state.battle, `seed ${seed}`).toBeNull();
+        expect(
+          game.state.modifiers.filter((modifier) => modifier.duration === 'endOfBattle'),
+          `seed ${seed}`,
+        ).toEqual([]);
+      } else {
+        expect(game.taken, `seed ${seed} stopped early without finishing`).toBe(ACTIONS);
+      }
+    }
+    expect(gamesWithOne).toBeGreaterThan(0);
+    expect(earlyEndings).toBeGreaterThanOrEqual(gamesWithOne);
+  }, 120_000);
 });

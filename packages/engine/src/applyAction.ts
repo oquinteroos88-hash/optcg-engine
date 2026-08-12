@@ -9,6 +9,7 @@ import {
   applyPass,
   applyPlayCounter,
   applyPlayCounterEvent,
+  endBattleIfParticipantLeft,
   validateDeclareAttack,
   validateDeclareBlock,
   validatePlayCounter,
@@ -263,6 +264,13 @@ export function applyAction(state: GameState, action: Action): ApplyResult {
     // question, so a state that comes back with `pending` set is mid-effect and
     // the next action has to be the answer.
     settle(draft, events);
+    // After the effects, before anyone sees the state: a battle whose attacker
+    // or target left the field ends here rather than at the Damage Step
+    // (CR 7-1-1-4 / 7-1-2-3 / 7-1-3-3). This is the only site that runs it, and
+    // it runs on every action, which is what makes "no observable state holds a
+    // quiescent battle missing a participant" a property of the engine rather
+    // than a hope. `checkBattleShape` asserts the same thing from the outside.
+    endBattleIfParticipantLeft(draft, events);
   });
   return { ok: true, state: nextState, events };
 }

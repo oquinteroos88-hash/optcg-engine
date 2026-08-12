@@ -386,6 +386,47 @@ The damage step is transient: it resolves inside the defender's final `PASS`, so
 `battle.step === 'damage'` is never observable between actions. The only resting
 battle steps are `block` and `counter`.
 
+### A battle whose attacker or target leaves the field ends there
+
+CR **7-1-1-4**, **7-1-2-3** and the same sentence at the end of the Counter Step
+all say it: if, at the end of a step, the attacking card *or* the target card has
+**moved areas**, the game goes not to the next step but to **End of the Battle**
+(CR 7-1-5). No damage, nothing K.O.'d by the battle.
+
+Four readings of that sentence are load-bearing, and `battleVanished.test.ts`
+pins each one:
+
+- **Both sides.** A defender's `[On Block]` or `[On Your Opponent's Attack]` that
+  removes the attacker ends the battle exactly as an attacker's
+  `[When Attacking]` that removes the target does. Both are printed: `ST03-003`
+  Crocodile bottom-decks a Character on block, `EB01-037` and `OP04-072` K.O. on
+  the opponent's attack.
+- **"Moved areas", not "K.O.'d."** A bounce to hand or to the deck counts, so the
+  check is `isOnField` and the destination is irrelevant.
+- **The current target.** A [Blocker] makes itself the target, which the engine
+  models by reassigning `battle.target`; that field is what is checked, not
+  `originalTarget`.
+- **"At the end of the step."** A step is not over while an effect it started is
+  still resolving, so the check runs only when the game is **quiescent** — no
+  pending choice, no stack, no engine continuation.
+
+`endBattleIfParticipantLeft` runs once, from `applyAction` after `settle`, which
+is the single point where the engine hands back an observable state. Putting it
+there rather than in each step handler is what makes the bad state *unreachable*
+rather than *tolerated*. The attacker **stays rested**: CR 7-1-1-1 spends it to
+declare and nothing in 7-1-5 gives it back.
+
+The event is `battleEndedEarly`, deliberately not a fourth `battleResolved`
+outcome. `battleResolved` reports a comparison of powers that happened; this
+reports one that never did, and a UI that said "the attack had no effect" for
+both would describe a Character that survived a hit and one that was never hit in
+the same words.
+
+`checkBattleShape` asserts the same property from the outside, scoped to
+quiescent states. It used to assert it unconditionally, which was not stronger —
+it was false, and it fired on the legal mid-effect position that led to this
+rule.
+
 **The battle closes before its outcome is applied.** Powers are compared, the
 `battleResolved` event is emitted, `endOfBattle` modifiers expire and
 `battle` becomes `null` — and only then does the K.O. or the life damage happen.
@@ -757,7 +798,7 @@ once, so counts are inflated by exactly 3.
 Phase 2A adds marks for the effect system — every `op`, the suspend/resume
 cycle, the cost kinds, the keywords, and the damage branches.
 
-Measured over 200 games with `--abilities --marks`, **four of the 60 declared
+Measured over 200 games with `--abilities --marks`, **five of the 61 declared
 marks are never reached**:
 
 | Dead mark | Why |
@@ -766,6 +807,7 @@ marks are never reached**:
 | `concede` | The bot excludes it on purpose; left in a uniform pool it ends nearly every game at random. Pinned by `winConditions.test.ts`. |
 | `op.targetGone` | Needs something to remove a target *between* choosing it and acting on it. Random play essentially never builds that chain, and "abort the whole script" is the natural wrong implementation, so `staleTargets.test.ts` builds the position directly. |
 | `ability.costLostBeforeResolution` | The defensive re-check when an earlier effect in a chain spends the resources a queued ability needed. Pinned by `staleTargets.test.ts` with a hand-queued stack item. |
+| `battle.endedEarly` | Needs an effect that removes a battle participant *during* the battle, and no ABIL card does — the set was cut before any card could. `battleVanished.test.ts` registers its own cards for it, and it fires in ordinary play elsewhere: `packages/cards` reaches it in 2 of 300 OP-01 games, on `OP01-017` Nico Robin K.O.ing the Character she is attacking. Dead in *this* sweep, not in the repo. |
 
 `battle.blocked` was dead in Phase 0 and is now reached 294 times: the ABIL set
 has real Blockers, so the redirect branch is exercised by ordinary play for the

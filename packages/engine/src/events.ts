@@ -26,6 +26,27 @@ export type GameEvent =
   | { type: 'blockDeclared'; player: PlayerId; blocker: InstanceId }
   | { type: 'counterPlayed'; player: PlayerId; instanceId: InstanceId; target: InstanceId; value: number }
   | { type: 'battleResolved'; attacker: InstanceId; target: InstanceId; outcome: 'ko' | 'lifeDamage' | 'noEffect' }
+  /**
+   * The battle ended before the Damage Step because a participant left the
+   * field (CR 7-1-1-4 / 7-1-2-3 / 7-1-3-3).
+   *
+   * A separate event from `battleResolved` rather than a fourth `outcome`,
+   * because it is a different rule: `battleResolved` reports a comparison of
+   * powers that happened, and this reports one that never did. A UI that showed
+   * "the attack had no effect" for both would be describing a Character that
+   * survived a hit and a Character that was never hit in the same words.
+   *
+   * `attacker` and `target` are the participants as the battle knew them —
+   * `target` is the *current* one, so after a [Blocker] it names the blocker.
+   * At least one of them is off the field by the time this is emitted, which is
+   * what `gone` says.
+   */
+  | {
+      type: 'battleEndedEarly';
+      attacker: InstanceId;
+      target: InstanceId;
+      gone: 'attacker' | 'target' | 'both';
+    }
   | { type: 'lifeTaken'; player: PlayerId; instanceId: InstanceId; remaining: number }
   | { type: 'koed'; player: PlayerId; instanceId: InstanceId }
   // Card effects.

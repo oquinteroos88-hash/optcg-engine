@@ -1,6 +1,6 @@
 import { deepStrictEqual } from 'node:assert';
 import { applyAction } from '../applyAction.js';
-import { botRngFor, chooseAction } from '../bots/randomBot.js';
+import { chooseAction } from '../bots/randomBot.js';
 import { createGame } from '../createGame.js';
 import { assertInvariants, checkTurnLeak } from '../invariants.js';
 import { ABIL_DECK } from '../testdata/abilityDecks.js';
@@ -105,7 +105,10 @@ export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
   const deckMode = options.decks ?? 'vanilla';
   const actionLimit = options.actionLimit ?? ACTION_LIMIT;
   const actions: Action[] = [];
-  let botRng = botRngFor(seed);
+  // The policy's decision counter, which replaced a threaded RNG cursor: a
+  // choice is a hash of (seed, decision, action key), so nothing has to be
+  // carried between steps except the step number.
+  let decision = 0;
   let state = createGame({
     seed,
     decks: decksFor(deckMode),
@@ -123,12 +126,11 @@ export function runGame(seed: number, options: RunOptions = {}): GameOutcome {
       }
 
       const player = state.priority;
-      const picked = chooseAction(state, player, botRng);
-      if (picked === null) {
+      const action = chooseAction(state, player, seed, decision);
+      decision += 1;
+      if (action === undefined) {
         throw new Error(`No legal action for ${player} in a live game`);
       }
-      botRng = picked.rng;
-      const action = picked.action;
       actions.push(action);
 
       const result = applyAction(state, action);

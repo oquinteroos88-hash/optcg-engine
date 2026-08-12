@@ -55,6 +55,7 @@ describe('the OP-01 test decks are legal', () => {
     // is vanilla or printed-keyword-only. A card whose ability a later batch
     // writes would silently change what these decks measure the day it lands.
     const BATCH = new Set([
+      // Batch 1 — Characters.
       'OP01-006',
       'OP01-017',
       'OP01-022',
@@ -64,6 +65,14 @@ describe('the OP-01 test decks are legal', () => {
       'OP01-048',
       'OP01-052',
       'OP01-054',
+      // Batch 2 — Events.
+      'OP01-026',
+      'OP01-027',
+      'OP01-028',
+      'OP01-029',
+      'OP01-056',
+      'OP01-057',
+      'OP01-058',
     ]);
     const KEYWORD_ONLY = /^\[(Blocker|Rush|Banish|Double Attack)\]/;
     for (const deck of OP01_TEST_DECKS) {

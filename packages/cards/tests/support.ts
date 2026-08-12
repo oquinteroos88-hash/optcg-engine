@@ -3,7 +3,12 @@ import type { Action, ChoiceAnswer, GameEvent, GameState, InstanceId, PlayerId }
 import { buildScenario } from '@optcg/engine/testdata/scenarios';
 import type { ScenarioSpec } from '@optcg/engine/testdata/scenarios';
 import { registerEnglishCards, ST01_DECK, ST02_DECK, toEngineDecklist } from '../src/index.js';
-import { OP01_RG_LAW, OP01_RG_LUFFY, assertFixtureDecksAreLegal } from './fixtures/op01Decks.js';
+import {
+  OP01_RG_EVERYTHING,
+  OP01_RG_LAW,
+  OP01_RG_LUFFY,
+  assertFixtureDecksAreLegal,
+} from './fixtures/op01Decks.js';
 
 // The set has to be in the registry before a decklist naming it can be built.
 registerEnglishCards();
@@ -27,13 +32,22 @@ export function starterScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameSta
  * can only stage cards the decklist actually contains. That is why the OP-01
  * abilities need their own decks before they can have their own table cases.
  */
+/** The deck the hand-built table tests stage from. */
+export const OP01_TABLE_DECK = toEngineDecklist(OP01_RG_EVERYTHING);
+
+/** The two decks the manifestation playouts deal from. */
 export const OP01_DECKS = {
   p1: toEngineDecklist(OP01_RG_LUFFY),
   p2: toEngineDecklist(OP01_RG_LAW),
 };
 
+/**
+ * Hand-built OP-01 positions. Both sides use the everything deck, because a
+ * scenario can only stage cards its decklist holds and the two manifestation
+ * decks split the Events between them.
+ */
 export function op01Scenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
-  return buildScenario({ ...spec, decks: OP01_DECKS });
+  return buildScenario({ ...spec, decks: { p1: OP01_TABLE_DECK, p2: OP01_TABLE_DECK } });
 }
 
 export function applyOk(state: GameState, action: Action): { state: GameState; events: GameEvent[] } {

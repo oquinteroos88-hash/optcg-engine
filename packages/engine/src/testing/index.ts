@@ -2,6 +2,24 @@ import { deepStrictEqual } from 'node:assert';
 import type { GameState } from '../types.js';
 
 /**
+ * The shared random policy every driver consumes. Exported from here rather
+ * than from the package root for the same reason as everything else in this
+ * file: it is test infrastructure, and the browser client must not pull it.
+ */
+export {
+  actionKey,
+  actionTier,
+  answerFor,
+  cardinalityFor,
+  chooseFrom,
+  decide,
+  isExcluded,
+  pickByKey,
+  rankCandidates,
+  scoreFor,
+} from './policy.js';
+
+/**
  * Test-only helpers, deliberately kept out of the main barrel.
  *
  * These reach for Node builtins, and a bundler targeting the browser has none:

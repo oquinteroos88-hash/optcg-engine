@@ -202,6 +202,82 @@ export function pickByKey<T>(
 }
 
 /**
+ * How often the driver declines to attach DON!!: 1 decision in
+ * `HOLD_DON_EVERY`.
+ *
+ * ## The style this fixes
+ *
+ * `ATTACH_DON` is legal while a single active DON!! remains, because the Leader
+ * is always a legal recipient, and `END_TURN` is the last tier. Between them
+ * those two facts meant the bot **emptied its cost area every single turn**, and
+ * DON!! return to active only in their controller's own Refresh Phase (CR 6-2).
+ * So a defender arrived at every Counter Step with nothing to spend, and
+ * `PLAY_COUNTER_EVENT` — which needs active cost-area DON!! covering the Event's
+ * printed cost (CR 7-1-3-2-2) — was never once offered in 7,921 Counter Steps.
+ *
+ * Holding DON!! back to defend is a central pattern of the real game. The bot
+ * played a style no human plays, and that style made a whole family of printed
+ * cards unreachable.
+ *
+ * ## Why a per-decision coin is enough
+ *
+ * It looks like it should not be: declining once and attaching afterwards ends
+ * the turn just as empty. What makes it work is the **tier interaction**. Once
+ * a turn has nothing left but attaches and `END_TURN`, a declining decision
+ * removes every attach from the pool and `END_TURN` is what remains — so the
+ * turn ends holding DON!!. The coin does not have to fire on every decision of
+ * a turn, only on one of the last few.
+ *
+ * That keeps the policy a pure function of `(seed, decision, keys)`. A per-turn
+ * flag would need state the policy deliberately does not have.
+ *
+ * ## The rate, measured
+ *
+ * Swept the same way PR #22 swept the answer-exploration rate — against the
+ * numbers that matter, not against a notion of realism. 200 games per corpus,
+ * `cEvent` being `PLAY_COUNTER_EVENT` offered / taken, and `abilities` the union
+ * of distinct ability ids reached:
+ *
+ * | rate | rg offered/taken | rg abilities | bp offered/taken | bp abilities | starters offered/taken | avg active DON!! |
+ * | --- | --- | --- | --- | --- | --- | --- |
+ * | never | 0 / 0 | 20 | 0 / 0 | 12 | 16 / 10 | 0.00 |
+ * | 1 in 16 | 3 / 2 | 22 | 0 / 0 | 12 | 23 / 9 | 0.02 |
+ * | 1 in 8 | 0 / 0 | 19 | 2 / 1 | 13 | 23 / 11 | 0.04 |
+ * | 1 in 4 | 7 / 3 | 22 | 3 / 3 | 14 | 26 / 12 | 0.11 |
+ * | **1 in 3** | **21 / 11** | **25** | **13 / 8** | **14** | **33 / 15** | **0.18** |
+ * | 1 in 2 | 31 / 13 | 25 | 24 / 11 | 46 / 25 | 14 | 0.39 |
+ *
+ * **1 in 3 is the inflection**, and it is chosen for three reasons visible in
+ * that table rather than for taste:
+ *
+ * 1. The `cEvent` column turns sharply there — 7 to 21 on red/green, 3 to 13 on
+ *    blue/purple. Below it the effect is inside the noise.
+ * 2. Ability coverage **peaks** at 25 / 14 / 15. Every rate below reaches fewer,
+ *    and 1 in 2 reaches no more.
+ * 3. 1 in 2 starts costing what PR #22 warned about. Counter Steps per 200 games
+ *    drop from 10,468 to 9,553 — a bot holding half its DON!! plays fewer
+ *    battles, and fewer battles is a poorer board for everything else.
+ *
+ * What it bought, concretely: **every `[Counter]` half in the repo now fires in
+ * ordinary play.** All five of OP-01's, both of the blue ones, and
+ * `ST01-014-counter` — Guard Point's, written when `PLAY_COUNTER_EVENT` shipped
+ * in PR #10 and never once reached by a real game in the two years since.
+ */
+const HOLD_DON_EVERY = 3;
+
+/**
+ * True on the decisions where the driver keeps its DON!! rather than attaching.
+ *
+ * Depends on `(seed, decision)` only — never on which actions are on offer — so
+ * injecting an action into the pool cannot change whether this fires. That is
+ * what keeps local perturbation intact, and `stableKeys.test.ts` proves it with
+ * a synthetic `ATTACH_DON` injected into real games.
+ */
+export function holdsDon(seed: number, decision: number, every = HOLD_DON_EVERY): boolean {
+  return scoreFor(seed, decision, '#hold-don') % every === 0;
+}
+
+/**
  * Picks one action out of what `legalActions` offered.
  *
  * Returns `undefined` when nothing is playable, which is how a driver notices a
@@ -211,8 +287,18 @@ export function chooseFrom(
   actions: readonly Action[],
   seed: number,
   decision: number,
+  holdDonEvery = HOLD_DON_EVERY,
 ): Action | undefined {
   const usable = actions.filter((action) => !isExcluded(action));
+  if (holdsDon(seed, decision, holdDonEvery)) {
+    const holding = usable.filter((action) => action.type !== 'ATTACH_DON');
+    // Only when something else is on offer. A decision whose *every* option is
+    // an attach is not a decision to hold DON!! — it is the end of the game's
+    // patience, and returning `undefined` there would strand the driver.
+    if (holding.length > 0) {
+      return pickByKey(holding, actionKey, actionTier, seed, decision);
+    }
+  }
   return pickByKey(usable, actionKey, actionTier, seed, decision);
 }
 
@@ -370,6 +456,7 @@ export function decide(
   player: PlayerId,
   seed: number,
   decision: number,
+  holdDonEvery?: number,
 ): Action | undefined {
   // An open choice leaves exactly one real move, and its payload is data rather
   // than an enumerated option.
@@ -382,5 +469,5 @@ export function decide(
       answer: answerFor(pending, seed, decision),
     };
   }
-  return chooseFrom(legalActions(state, player), seed, decision);
+  return chooseFrom(legalActions(state, player), seed, decision, holdDonEvery);
 }

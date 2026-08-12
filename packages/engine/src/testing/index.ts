@@ -9,6 +9,7 @@ import type { GameState } from '../types.js';
 export {
   actionKey,
   actionTier,
+  holdsDon,
   answerFor,
   cardinalityFor,
   chooseFrom,

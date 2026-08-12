@@ -1,8 +1,16 @@
 # OP-01 inventory — the DSL against a real expansion set
 
-An inventory, not an implementation. No `Ability` is written here, no engine,
-card or client file is touched. Nothing below designs a missing capability; each
-card reports **what it needs**, never what the API for it would look like.
+An inventory, not an implementation. Nothing below designs a missing capability;
+each card reports **what it needs**, never what the API for it would look like.
+
+> **Status — batch 1 landed.** Eight pile-A cards are written, taking OP-01 from
+> 19 playable to **27 of 121**. One more, `OP01-017` Nico Robin, was written and
+> then withheld: the DSL says it, the engine cannot survive it. That is the most
+> valuable thing the batch produced and it has its own section,
+> [What batch 1 found](#what-batch-1-found--a-missing-rule-not-a-missing-word).
+> The classification below is **not re-cut** — it is what was read before any of
+> it was built, and the ✅ / ⚠️ marks in the card-by-card table are the only
+> thing added to it.
 
 `docs/starter-card-inventory.md` measured 34 cards from two preconstructed
 decks. It predicted 24 playable and got 24, and then PR #11 showed what a
@@ -90,7 +98,7 @@ for deck construction.
 | Pile | Meaning | Cards | Playable today |
 | --- | --- | --- | --- |
 | **vanilla** | No effect text and no trigger text. No `Ability` at all. | 16 | 16 |
-| **A** | The DSL expresses it as it stands. | 38 | 38 |
+| **A** | The DSL expresses it as it stands. | 38 | **11** |
 | **B** | Needs something bounded: one capability the DSL does not have. | 6 | 0 |
 | **C** | Hits a structural hole. | 60 | 0 |
 | **D** | Honestly ambiguous — the text does not settle where it belongs. | 1 | 1 |
@@ -100,10 +108,21 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-- **19 of 121 cards work today with nothing written** — 16 vanilla plus those 3.
-- **35 more are expressible as the DSL stands**, which is the whole of pile A
-  minus the keyword-only three.
-- **66 of 121 need something the DSL cannot say.**
+**Playable today — 27 of 121, up from 19.** The `Playable today` column moves as
+batches land, and the first one has:
+
+- **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
+  number this document opened with.
+- **8 more are written** as of batch 1 — `OP01-006`, `-022`, `-033`, `-034`,
+  `-035`, `-048`, `-052`, `-054`, the mechanical `[On Play]` and
+  `[When Attacking]` cards. Nothing in the engine changed to accept them, which
+  is what pile A claimed and this is the first batch to check.
+- **27 more of pile A remain to write**, in later batches.
+- **66 of 121 still need something the DSL cannot say.**
+
+One card left pile A on contact, and it is the most useful thing batch 1 found:
+`OP01-017` Nico Robin. See
+[What batch 1 found](#what-batch-1-found--a-missing-rule-not-a-missing-word).
 
 `OP01-121` Yamato is counted as playable because its printed
 `[Double Attack]`/`[Banish]` already work and its one line of text has no
@@ -118,6 +137,50 @@ alone.
 
 That number is the single most actionable thing in this document, and it is why
 the recommendation at the end does not start with a gap.
+
+*Since revised, slightly downward.* Batch 1 wrote 8 of the 35 and found that one
+more, `OP01-017`, is not shippable without an engine change after all. So the
+ceiling is **53 of 121**, not 54, until the battle rules can lose their target.
+The estimate was 34 of 35 correct on its first contact with real cards, which is
+about as well as a classification of this kind can be expected to do — and the
+one it missed, it missed for a reason no reading of the DSL could have caught.
+
+## What batch 1 found — a missing rule, not a missing word
+
+`OP01-017` Nico Robin: *"[DON!! x1] [When Attacking] K.O. up to 1 of your
+opponent's Characters with 3000 power or less."*
+
+The DSL says this exactly. The script was written, and its hand-built table
+cases passed. It is withheld because the **engine** cannot survive it.
+
+An attack may target a rested Character (CR 7-1-1-2). Robin's own
+`[When Attacking]` can K.O. that same Character before the Damage Step. At that
+point `state.battle.target` names a card in the trash, and `resolveBattle` calls
+`leaveField` on it unconditionally — `detachFromField` throws
+`Engine bug: … is not on … field`. The engine's own `checkInvariants` agrees the
+state is unsound: its `battleShape` rule says the target must be on the field.
+
+Four actions reproduce it, with no randomness: attach a DON!! to Robin, declare
+an attack on a rested Character, answer her choice with that Character, pass.
+
+**Why the classification missed it.** The inventory asked two questions of every
+card — *can the DSL say it*, and *can a real card reach the trigger*. Both answer
+yes here. The question it did not ask is the third one:
+
+> **Can the effect this card produces survive being applied at the moment its own
+> trigger fires?**
+
+`counterEvent` was a trigger nothing could reach. This is the mirror image: a
+trigger anything can reach, whose *effect* invalidates the rule that fired it.
+No starter card can reach it, because none of the fifteen written can remove a
+card from the field during a battle it is part of — so a two-deck sample was
+structurally unable to see this too.
+
+**Where it belongs.** Backlog A, missing rules, alongside the two the inventory
+already added. It is not in the gap table below and never could be: the DSL is
+not short a word. Per this project's ranking rule an A item outranks a same-sized
+B item, and this one is small — the Damage Step needs to notice a target that
+left, and end the battle without damage.
 
 ## Gaps, with both columns
 
@@ -536,6 +599,13 @@ the gap table because the ability system is not where they live.
 DSL shape for pile A, or the missing requirement otherwise. Vanilla cards are
 listed for completeness and carry no analysis.
 
+The `Pile` column is the original classification and is **not** re-cut. Two marks
+have been added to it as batches land:
+
+- **✅** — written and scripted in `packages/cards/src/abilities.ts` today.
+- **⚠️** — read as pile A, and it was not. The signature stands; something
+  outside the DSL blocks it, and the row's note says what.
+
 | Card | Name | Cat | Pile | What it needs, or how it is said |
 | --- | --- | --- | --- | --- |
 | OP01-001 | Roronoa Zoro (L) | leader | **A** | `static`, cond `and(donAttached 1, isYourTurn)`, `affects` selector {field, you, character}, `grants.power +1000` |
@@ -543,7 +613,7 @@ listed for completeness and carry no analysis.
 | OP01-003 | Monkey.D.Luffy (L) | leader | **A** | `activateMain`, `oncePerTurn`, cost `restDon 4`; select 0–1 {field, you, character, types, costMax 5} → `setActive` + `addPower +1000 endOfTurn` |
 | OP01-004 | Usopp | char | **C** | a trigger for "your opponent activates an Event" — **missing rule**, no engine site fires it |
 | OP01-005 | Uta | char | **B** | fits but for "other than [Uta]": `Selector` cannot exclude by card name |
-| OP01-006 | Otama | char | **A** | `onPlay`; select 0–1 {field, opponent, character} → `addPower −2000 endOfTurn` |
+| OP01-006 | Otama | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character} → `addPower −2000 endOfTurn` |
 | OP01-007 | Caribou | char | **A** | `onKO`; select 0–1 {field, opponent, character, powerMax 4000} → `ko` |
 | OP01-008 | Cavendish | char | **B** | a `Cost` paid by moving a Life card to hand. Body is `grantKeyword self rush endOfTurn` |
 | OP01-009 | Carrot | char | **C** | put-into-play, and nothing else. Note: the `[Trigger]` text sits in `effectText`, not `triggerText` |
@@ -554,12 +624,12 @@ listed for completeness and carry no analysis.
 | OP01-014 | Jinbe | char | **C** | put-into-play, and nothing else. `[Blocker]` is printed |
 | OP01-015 | Tony Tony.Chopper | char | **C** | player-chosen discard, **and** "other than [Tony Tony.Chopper]" |
 | OP01-016 | Nami | char | **C** | `orderCards` + "the rest", **and** "other than [Nami]" |
-| OP01-017 | Nico Robin | char | **A** | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko` |
+| OP01-017 | Nico Robin | char | **A** ⚠️ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
 | OP01-018 | Hajrudin | char | vanilla | — |
 | OP01-019 | Bartolomeo | char | **C** | `[Opponent's Turn]` — `Condition` has no negation. Freed by that alone; `[Blocker]` is printed |
 | OP01-020 | Hyogoro | char | **A** | `activateMain`, cost `restSelf`; select 0–1 {field, you, leader+character} → `addPower +2000 endOfTurn` |
 | OP01-021 | Franky | char | **C** | an attack-legality modifier — **new hole**, `Modifier` is `power`/`grantKeyword` only |
-| OP01-022 | Brook | char | **A** | `whenAttacking`, cond `donAttached 1`; select 0–2 {field, opponent, character} → `addPower −2000 endOfTurn` |
+| OP01-022 | Brook | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–2 {field, opponent, character} → `addPower −2000 endOfTurn` |
 | OP01-023 | Marco | char | vanilla | — |
 | OP01-024 | Monkey.D.Luffy | char | **C** | a prohibition (K.O. immunity in battle) **and** an attribute filter. Its `activateMain` half is expressible |
 | OP01-025 | Roronoa Zoro | char | **A** | `[Rush]` reminder only. No `Ability` needed |
@@ -570,9 +640,9 @@ listed for completeness and carry no analysis.
 | OP01-030 | In Two Years!! … | event | **C** | `orderCards` + "the rest", and nothing else |
 | OP01-031 | Kouzuki Oden (L) | leader | **C** | a player-chosen, **type-filtered** discard. Body is `orientDon you active 2` |
 | OP01-032 | Ashura Doji | char | **A** | `static`, cond `and(donAttached 1, countCards {field, opponent, character, rested} min 2)`, `affects self` |
-| OP01-033 | Izo | char | **A** | `onPlay`; select 0–1 {field, opponent, character, costMax 4} → `rest` |
-| OP01-034 | Inuarashi | char | **A** | `whenAttacking`, cond `donAttached 2` → `orientDon you active 1` |
-| OP01-035 | Okiku | char | **A** | `whenAttacking`, `oncePerTurn`, cond `donAttached 1`; select 0–1 {opponent, costMax 5} → `rest` |
+| OP01-033 | Izo | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 4} → `rest` |
+| OP01-034 | Inuarashi | char | **A** ✅ | `whenAttacking`, cond `donAttached 2` → `orientDon you active 1` |
+| OP01-035 | Okiku | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `donAttached 1`; select 0–1 {opponent, costMax 5} → `rest` |
 | OP01-036 | Otsuru | char | vanilla | — |
 | OP01-037 | Kawamatsu | char | **C** | put-into-play, and nothing else |
 | OP01-038 | Kanjuro | char | **C** | a discard **the opponent chooses** from your hand. `PendingChoice` already carries a `player`, so the chooser is not the hard part — suspension during the effect is. Its `whenAttacking` half is expressible |
@@ -585,13 +655,13 @@ listed for completeness and carry no analysis.
 | OP01-045 | Jean Bart | char | vanilla | — |
 | OP01-046 | Denjiro | char | **B** | fits but for "if your Leader is [Kouzuki Oden]". Body is `orientDon you active 2` |
 | OP01-047 | Trafalgar Law | char | **C** | put-into-play, **and** a `Cost` that returns a Character you choose |
-| OP01-048 | Nekomamushi | char | **A** | `onPlay`; select 0–1 {field, opponent, character, costMax 3} → `rest` |
+| OP01-048 | Nekomamushi | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 3} → `rest` |
 | OP01-049 | Bepo | char | **C** | put-into-play **and** "other than [Bepo]" |
 | OP01-050 | Penguin | char | **C** | as `OP01-044` |
 | OP01-051 | Eustass"Captain"Kid | char | **C** | four gaps: attack-target restriction, `[Opponent's Turn]` negation, the source's own orientation, and put-into-play on the second ability |
-| OP01-052 | Raizo | char | **A** | `whenAttacking`, `oncePerTurn`, cond `countCards {field, you, character, rested} min 2` → `draw you 1` |
+| OP01-052 | Raizo | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `countCards {field, you, character, rested} min 2` → `draw you 1` |
 | OP01-053 | Wire | char | vanilla | — |
-| OP01-054 | X.Drake | char | **A** | `onPlay`; select 0–1 {field, opponent, character, rested, costMax 4} → `ko` |
+| OP01-054 | X.Drake | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, rested, costMax 4} → `ko` |
 | OP01-055 | You Can Be My Samurai!! | event | **C** | a `Cost` that rests 2 Characters **you choose** — a chosen payment and a new cost member |
 | OP01-056 | Demon Face | event | **A** | `mainEvent`; select 0–2 {field, opponent, character, rested, costMax 5} → `ko` |
 | OP01-057 | Paradise Waterfall | event | **A** | `counterEvent`: `addPower +2000 endOfBattle` then `setActive`. `trigger`: `ko` a rested opponent Character |

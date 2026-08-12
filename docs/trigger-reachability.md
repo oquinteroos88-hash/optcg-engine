@@ -283,7 +283,28 @@ or a behavior it does not reproduce. It opened with two items.
 | Playing a Counter Event from hand during the Counter Step, paying its cost | 184 | **done — PR #10** (`PLAY_COUNTER_EVENT`) |
 | Layered evaluation of continuous effects: a `static` whose own condition asks about power reads the without-statics value (the recursion guard), so OP06-002's [Banish] cannot switch on through another card's continuous buff | 1 | open, **rejected on cost** |
 
-### Backlog A is empty of actionable work — say it plainly
+### Backlog A is no longer empty — three items, all found by reading OP-01
+
+**Superseding the section below.** It was written when A held one declined item,
+and it was right then. Reading a real expansion set put three more in it, and
+none of them is declined:
+
+| Missing rule | Cards behind it | Found by |
+| --- | --- | --- |
+| Nothing fires when an Event is activated — `applyPlayCard` fires `mainEvent` on the Event itself and tells no other card | 8 | `docs/op01-inventory.md` |
+| Nothing on the field can watch a K.O. — `leaveField` fires `onKO` on the K.O.'d card alone | 3 | `docs/op01-inventory.md` |
+| **The Damage Step cannot lose its target** — an attack target removed mid-battle leaves `state.battle.target` stale, and `resolveBattle` throws on it | 1 today | **OP-01 batch 1**, by writing `OP01-017` and running it |
+
+The third is the one worth noticing, because of *how* it was found. The first two
+came from reading text. This one came from **writing a card and playing it**: the
+script passed every hand-built case and broke on contact with a real game, which
+is exactly the `counterEvent` story with the discovery order reversed.
+
+It also answers the qualifier this document ends on — "A is empty *of what has
+been looked for*". Three more questions got asked, and A stopped being empty
+three times.
+
+### The section as written, when A held one declined item
 
 One item was built. The other was **priced and declined**: a layered effect
 system evaluating continuous effects in passes, to serve exactly one printed

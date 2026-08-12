@@ -162,7 +162,7 @@ describe('a real game, ST-01 against ST-02', () => {
     // `legalActions`, so an ability it does not pick cannot move any other
     // decision. Adding a card no longer re-runs this search — which is the whole
     // reason seed 107 died for `ST01-017` and seed 224 replaced it.
-    const SEEDS = [82, 465, 160, 9, 8];
+    const SEEDS = [82, 465, 160, 9, 8, 46, 105];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {

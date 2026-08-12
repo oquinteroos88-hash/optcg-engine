@@ -115,7 +115,7 @@ describe('every scripted ability is reachable through the UI', () => {
   // The move that fired each ability, the first time a real game fired it.
   const firstFiring = new Map<string, Firing>();
   for (const seed of STARTER_SEEDS) {
-    for (const step of starterPlayoutSteps(seed, STARTER_MAX_STEPS, 'max')) {
+    for (const step of starterPlayoutSteps(seed, STARTER_MAX_STEPS)) {
       for (const event of step.events) {
         if (event.type !== 'abilityTriggered' || firstFiring.has(event.abilityId)) {
           continue;
@@ -184,7 +184,7 @@ describe('every scripted ability is reachable through the UI', () => {
     // and the banner all follow `pending.player`, not `activePlayer`.
     const crossings: string[] = [];
     for (const seed of STARTER_SEEDS) {
-      for (const step of starterPlayoutSteps(seed, STARTER_MAX_STEPS, 'max')) {
+      for (const step of starterPlayoutSteps(seed, STARTER_MAX_STEPS)) {
         const pending = step.after.pending;
         if (pending === null) {
           continue;

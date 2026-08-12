@@ -499,6 +499,16 @@ it against real cards — the recommendation two sections down ("put a `min: 0`
 ability under test before anything else") was carried out. The reading above
 still holds; it is no longer the only evidence.
 
+*And the sentence about the bot is now out of date, in a way worth recording.*
+The shared driver policy no longer draws its cardinality uniformly from
+`[min, max]`: it takes `max` and explores the range on 1 decision in 8. That was
+not a preference. Answering every selection uniformly was measured to take
+`ST02-016` Repel from 5 reachable seeds in 500 to **zero** — half-strength
+answers do not merely make effects smaller, they stop the board reaching the
+positions the rarest abilities need. So the sweep still covers the empty answer,
+just at one eighth the rate. See `cardinalityFor` in
+`packages/engine/src/testing/policy.ts`.
+
 This matters more than it looks: **"up to"** is the single most common
 quantifier on these cards. It appears in `ST01-001`, `ST01-005`, `ST01-007`,
 `ST01-011`, `ST01-014`, `ST01-015`, `ST01-016`, `ST01-017`, `ST02-005`,

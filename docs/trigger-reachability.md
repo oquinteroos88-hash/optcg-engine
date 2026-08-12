@@ -349,7 +349,7 @@ ranked table, and four of its items have since been built:
 | Putting cards into play | 375 | open |
 | `[Blocker]` prohibitions | 146 | open — structural |
 | `orderCards`, and naming "the cards not taken" | 254 | open |
-| Suspendable costs | 197 | open — structural |
+| Suspendable costs | 197 | **done — the `discardHand` cost asks** |
 | Resting the source as a cost | 90 | **done — PR #15** (`restSelf`) |
 | Negation in `Condition` — `[Opponent's Turn]` | 77 | open — *added by this sweep* |
 | A fifth `Keyword` for `[Unblockable]` | 8 | open — *added by this sweep* |

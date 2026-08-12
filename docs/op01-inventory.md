@@ -3,8 +3,9 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
-> **Status — pile A is COMPLETE, in four batches.** All thirty-five writable
-> cards are written, taking OP-01 from 19 playable to **54 of 121**. Batch 1 was the
+> **Status — pile A is COMPLETE, and gap 2 is bought.** All thirty-five
+> writable pile-A cards are written and three pile-C cards followed them,
+> taking OP-01 from 19 playable to **57 of 121**. Batch 1 was the
 > nine mechanical Characters and cost an engine change on the way
 > ([what it found](#what-batch-1-found--a-missing-rule-not-a-missing-word));
 > batch 2 the seven red/green Events, which cost nothing but found a coverage
@@ -14,9 +15,17 @@ each card reports **what it needs**, never what the API for it would look like.
 > ([what it found](#what-batch-3-found--the-wall-was-made-of-unwritten-cards)).
 >
 > Batch 4 closed the four-card residue batch 3 had left for size. **Nothing in
-> OP-01 that the DSL can express is unwritten.** The classification below is
-> **not re-cut**: it is what was read before any of it was built, and the ✅
-> marks in the card-by-card table are the only thing added to it.
+> OP-01 that the DSL could express at that point was unwritten.**
+>
+> **Batch 5 changed what "can express" means**, which is the first time this
+> document has had to say that. It bought gap 2 — a payment whose card the
+> player picks — and three pile-C cards came with it, taking OP-01 to **57 of
+> 121**. Pile A is still 38 of 38; the three new ones were never in it
+> ([what it found](#what-batch-5-found--the-price-was-the-gap-the-filter-was-the-surprise)).
+>
+> The classification below is **not re-cut**: it is what was read before any of
+> it was built, and the ✅ marks in the card-by-card table are the only thing
+> added to it.
 
 `docs/starter-card-inventory.md` measured 34 cards from two preconstructed
 decks. It predicted 24 playable and got 24, and then PR #11 showed what a
@@ -114,7 +123,8 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 54 of 121, up from 19, and pile A is done.** The
+**Playable today — 57 of 121, up from 19: pile A is done, and gap 2 added
+three more.** The
 `Playable today` column moved as the batches landed:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
@@ -151,8 +161,9 @@ That number is the single most actionable thing in this document, and it is why
 the recommendation at the end does not start with a gap.
 
 *Checked over four batches, and it was right to the card.* **All 35 are written
-and OP-01 sits at exactly 54 of 121** — the number this section predicted before
-a line of it was built. Thirty-four of the thirty-five needed nothing from the
+and pile A landed at exactly 54 of 121** — the number this section predicted
+before a line of it was built. (57 today: batch 5 bought a gap and brought three
+pile-C cards with it, which is a different claim and does not touch this one.) Thirty-four of the thirty-five needed nothing from the
 engine, exactly as pile A claimed. The one exception, `OP01-017`, needed a
 **missing rule** before it could ship: the DSL expressed it perfectly, and the
 engine could not survive the position it created.
@@ -356,8 +367,61 @@ asking again for this set.
 
 So pile A ends at **38 of 38 playable**: 35 written and 3 that need no `Ability`
 at all. The milestone this document was pointing at — *how much of a real
-expansion set does the DSL hold?* — is answered: **54 of 121 playable, and the
-remaining 66 are the ones the gap table below is about.**
+expansion set does the DSL hold?* — was answered at **54 of 121**, with the
+remaining 66 being what the gap table below is about.
+
+Batch 5 then bought the first row off that table, so the number moved again.
+
+## What batch 5 found — the price was the gap, the filter was the surprise
+
+Gap 2 is "a payment whose card the player picks", and `Cost.discardHand` already
+existed: the engine simply took from the front of the hand and the phase-2A
+README called that out as "the one divergence that deletes a real player
+decision". Buying the gap meant making the *payment* suspendable, which sounded
+structural and was — but the structure it needed already existed.
+
+**The mechanism did not have to be invented.** CR 8-4-1-3 reads "determine the
+activation costs **and** pay all activation costs", so the choosing is inside
+the payment step, not in 8-4-1-2 where the effect is merely specified. That made
+the cost list the same kind of thing the script already was: a cursor in plain
+data, walked one entry at a time, where the entry that suspends does not advance
+the cursor and the answer does. No second suspension mechanism, no closures, and
+a payment stopped mid-list round-trips through JSON like any other pause.
+
+**What did have to be invented was the filter.** This document's own gap-2
+analysis said so before the code did — "the filtered variants show that the
+mechanism has to be a *filtered* selection, not a count" — and the OP-01 sample
+is where it bites: two of the six cards touched by this gap say "trash 1 {Land
+of Wano} type card", not "trash 1 card". A count would have written them wrong
+and nothing would have failed.
+
+**Six cards touched, three freed.** The other three are behind a second gap
+each, and the split is exactly what the two-column table predicted:
+
+| Card | Freed? | Why not |
+| --- | --- | --- |
+| `OP01-031` Kouzuki Oden (L) | ✅ | — |
+| `OP01-059` BE-BENG!! | ✅ | — |
+| `OP01-064` Alvida | ✅ | — |
+| `OP01-011` Gordon | ❌ | its price is a card to the **bottom of the deck**, a `Cost` member that does not exist |
+| `OP01-015` Tony Tony.Chopper | ❌ | "other than [Tony Tony.Chopper]" — gap 5, reference a card by name |
+| `OP01-101` Sasaki | ❌ | gap 4, add DON!! from the DON!! deck |
+
+`ST02-001` Eustass"Captain"Kid came with them, out of the starter set: the
+**ST-02 Leader**, in a deck whose Leader had done nothing since the project
+started. It is also the first ability anywhere in the repo with **two** costs,
+which is what pinned CR 8-3-1-1 — the order is the card's, never the player's.
+
+**The gap-2 count in the table below is *touched*, and the table's own
+distinction is why the numbers look different.** Twelve OP-01 cards need a
+chosen payment somewhere in their text; six need it as a **cost**, and those are
+the six above. The other six need a chosen **discard instruction** —
+"your opponent trashes 1 card from their hand" — which is the same decision on
+the other side of the colon and a different piece of machinery. It is still
+open, and `packages/engine/README.md` records it where the old TODO was.
+
+So: **57 of 121 playable**, and the remaining 64 are what the gap table is now
+about.
 
 ## Gaps, with both columns
 
@@ -368,7 +432,7 @@ an upper bound.
 | # | What the cards need | Touched | **Freed alone** | Full set (upper bound) |
 | --- | --- | --- | --- | --- |
 | 1 | **Put a card into play** — from hand or deck, sometimes rested | 19 | **8** | 379 |
-| 2 | **A payment whose card the player picks** — including "your opponent chooses" | 12 | **6** | 292 |
+| 2 | ~~**A payment whose card the player picks**~~ — the **cost** half is **bought** (batch 5, 3 freed); the **instruction** half, "your opponent trashes 1 card from their hand", is open | 12 | **6** → **3** | 292 |
 | 3 | **`orderCards`, and naming "the rest"** — incl. top-*or*-bottom splits | 9 | **5** | 226 |
 | 4 | **Add DON!! from the DON!! deck** | 8 | **5** | 140 |
 | 5 | **Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]" | 14 | **3** | 399 |
@@ -440,7 +504,7 @@ isolation, so the nine starter cards still blocked are counted the same way.
 | Gap | Frees, of the starters' remaining 9 |
 | --- | --- |
 | 1 — put into play | `ST02-005`, `ST02-017` |
-| 2 — chosen payment | `ST02-001` (the ST-02 Leader) |
+| 2 — chosen payment | `ST02-001` (the ST-02 Leader) — **bought, and written** |
 | 3 — `orderCards` and "the rest" | `ST02-007` |
 | 7 — prohibitions | `ST01-012` |
 | 21 — source's own orientation | `ST02-014` |
@@ -453,7 +517,7 @@ pile D and needs a ruling first.
 | Gap | Freed |
 | --- | --- |
 | **1 — put a card into play** | **10** |
-| 2 — a payment the player picks | 7 |
+| ~~2 — a payment the player picks~~ | ~~7~~ → **4, bought** |
 | 3 — `orderCards` and "the rest" | 6 |
 | 4 — add DON!! from the DON!! deck | 5 |
 | 5 — reference a card by name | 3 |
@@ -795,11 +859,11 @@ have been added to it as batches land:
 | OP01-008 | Cavendish | char | **B** | a `Cost` paid by moving a Life card to hand. Body is `grantKeyword self rush endOfTurn` |
 | OP01-009 | Carrot | char | **C** | put-into-play, and nothing else. Note: the `[Trigger]` text sits in `effectText`, not `triggerText` |
 | OP01-010 | Komachiyo | char | vanilla | — |
-| OP01-011 | Gordon | char | **C** | a player-chosen payment, **and** a `Cost` that moves a hand card to the bottom of the deck |
+| OP01-011 | Gordon | char | **C** | the chosen payment now exists; still blocked by the other half — a `Cost` that moves a hand card to the **bottom of the deck** |
 | OP01-012 | Sai | char | vanilla | — |
 | OP01-013 | Sanji | char | **B** | same Life-card `Cost` as `OP01-008`; body is `addPower self` then `giveDon self 2` |
 | OP01-014 | Jinbe | char | **C** | put-into-play, and nothing else. `[Blocker]` is printed |
-| OP01-015 | Tony Tony.Chopper | char | **C** | player-chosen discard, **and** "other than [Tony Tony.Chopper]" |
+| OP01-015 | Tony Tony.Chopper | char | **C** | the chosen discard now exists; still blocked by "other than [Tony Tony.Chopper]" (gap 5) |
 | OP01-016 | Nami | char | **C** | `orderCards` + "the rest", **and** "other than [Nami]" |
 | OP01-017 | Nico Robin | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
 | OP01-018 | Hajrudin | char | vanilla | — |
@@ -815,7 +879,7 @@ have been added to it as batches land:
 | OP01-028 | Green Star Rafflesia | event | **A** ✅ | `counterEvent` + `trigger` sharing one instruction list, as `ST01-015` does |
 | OP01-029 | Radical Beam!! | event | **A** ✅ | select as `x` → `addPower x +2000 endOfBattle`; `if lifeAtMost(you, 2)` → `addPower x +2000` again |
 | OP01-030 | In Two Years!! … | event | **C** | `orderCards` + "the rest", and nothing else |
-| OP01-031 | Kouzuki Oden (L) | leader | **C** | a player-chosen, **type-filtered** discard. Body is `orientDon you active 2` |
+| OP01-031 | Kouzuki Oden (L) | leader | **C** ✅ | `activateMain` `oncePerTurn`; cost `discardHand 1 {types: Land of Wano}` → `orientDon you active 2`. Freed by batch 5 |
 | OP01-032 | Ashura Doji | char | **A** ✅ | `static`, cond `and(donAttached 1, countCards {field, opponent, character, rested} min 2)`, `affects self` |
 | OP01-033 | Izo | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 4} → `rest` |
 | OP01-034 | Inuarashi | char | **A** ✅ | `whenAttacking`, cond `donAttached 2` → `orientDon you active 1` |
@@ -843,12 +907,12 @@ have been added to it as batches land:
 | OP01-056 | Demon Face | event | **A** ✅ | `mainEvent`; select 0–2 {field, opponent, character, rested, costMax 5} → `ko` |
 | OP01-057 | Paradise Waterfall | event | **A** ✅ | `counterEvent`: `addPower +2000 endOfBattle` then `setActive`. `trigger`: `ko` a rested opponent Character |
 | OP01-058 | Punk Gibson | event | **A** ✅ | as `OP01-057`, with `rest` instead of `setActive` |
-| OP01-059 | BE-BENG!! | event | **C** | a player-chosen, type-filtered discard, and nothing else |
+| OP01-059 | BE-BENG!! | event | **C** ✅ | `mainEvent`; cost `discardHand 1 {types: Land of Wano}` → select 0–1 {field, you, character, types Land of Wano, costMax 3} → `setActive`. Freed by batch 5 |
 | OP01-060 | Donquixote Doflamingo (L) | leader | **C** | put-into-play, **from the deck and rested**. The condition on the revealed card is expressible: a re-resolved `deckTop` selector with `count: 1` names the same card |
 | OP01-061 | Kaido (L) | leader | **C** | a trigger for "your opponent's Character is K.O.'d" (**missing rule**) **and** the DON!! deck |
 | OP01-062 | Crocodile (L) | leader | **C** | a trigger for "you activate an Event" (**missing rule**), and nothing else — `oncePerTurn` and `countCards` cover the rest |
 | OP01-063 | Arlong | char | **C** | a predicate about a card held in a var ("if the revealed card is an Event") **and** `reveal` taking a `Ref`. See the hidden-information note |
-| OP01-064 | Alvida | char | **C** | a player-chosen discard, and nothing else |
+| OP01-064 | Alvida | char | **C** ✅ | `whenAttacking` `optional` `[DON!! x1]`; cost `discardHand 1` → select 0–1 {field, opponent, character, costMax 3} → `moveCard hand`. Freed by batch 5 |
 | OP01-065 | Vergo | char | vanilla | — |
 | OP01-066 | Krieg | char | vanilla | — |
 | OP01-067 | Crocodile | char | **C** | cost modification — "give blue Events in your hand −1 cost". `[Banish]` is printed |
@@ -885,7 +949,7 @@ have been added to it as batches land:
 | OP01-098 | Kurozumi Orochi | char | **C** | search the whole deck by name, and `shuffle` |
 | OP01-099 | Kurozumi Semimaru | char | **C** | a prohibition (board-wide K.O. immunity) **and** a name reference |
 | OP01-100 | Kurozumi Higurashi | char | **A** | `[Blocker]` reminder only. No `Ability` needed |
-| OP01-101 | Sasaki | char | **C** | the DON!! deck **and** a player-chosen discard |
+| OP01-101 | Sasaki | char | **C** | the chosen discard now exists; still blocked by the DON!! deck (gap 4) |
 | OP01-102 | Jack | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |
 | OP01-103 | Scratchmen Apoo | char | vanilla | — |
 | OP01-104 | Speed | char | **C** | put-into-play, and nothing else |
@@ -1003,19 +1067,42 @@ fires from it, and the full-field trash decision, which drags in the suspension
 limit. OP-01 adds playing **from the deck** and playing **rested**, both of
 which should be in the first design rather than bolted on.
 
-### Third — a payment the player picks. 7 cards freed, 292 in the full set.
+### ~~Third~~ — a payment the player picks. **Bought.** 4 freed, not 7.
 
-Structural hole #1, and it now blocks seven cards rather than one Leader. The
-full-set hand check settles it ahead of `orderCards` on both measures.
-`PendingChoice` already carries a `player`, so "your opponent chooses 1 card
-from your hand" (`OP01-038`, `-102`, `-114`) is not a separate capability — the
-hard part is suspending during payment, which is where `payCosts` says
-`TODO phase 2B`.
+The recommendation stood: structural hole #1, ahead of `orderCards` on both
+measures, and the hard part correctly identified as suspending during payment
+where `payCosts` said `TODO phase 2B`. It cost one engine change and no second
+suspension mechanism.
+
+**It freed four cards, not seven, and the shortfall was this document's own
+arithmetic.** The gap table above scored gap 2 at "freed alone: 6" for OP-01,
+and the card-by-card table below disagrees with itself on three of the six:
+`OP01-011` reads "a player-chosen payment **and** a `Cost` that moves a hand
+card to the bottom of the deck", `OP01-015` "**and** other than [Tony
+Tony.Chopper]", `OP01-101` "the DON!! deck **and** a player-chosen discard".
+Three cards carrying an explicit second blocker were counted as freed alone.
+The per-card rows were right and the summary row was not.
+
+So the honest score is **3 OP-01 cards plus `ST02-001`**. That is still the
+second-best purchase on the board and would still have been made — but the
+lesson is the one this document keeps re-learning: the *touched* column and the
+*freed alone* column disagree for a reason, and a summary that does not survive
+a read of its own rows is a summary, not a measurement.
+
+**The half that is still open is the other side of the colon.** "Your opponent
+trashes 1 card from their hand" (`OP01-038`, `-102`, `-114`, and `OP01-088`'s
+`[Trigger]`) is a chosen **discard instruction**, not a chosen cost.
+`PendingChoice` already carries a `player`, so the chooser was never the hard
+part; `op: 'discard'` taking a chosen set is.
 
 ### Then it flattens, and that is the finding
 
 After those three the freed column reads 6, 5, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1,
 0, 0, 0, 0, 0, 0. There is no fourth item worth a plan.
+
+(Gap 2 has since been bought and delivered 4 rather than 7; see above. The
+flattening argument is unaffected — it was about the *shape* of the tail, and
+the tail did not move.)
 
 Two exceptions worth taking out of order because they are nearly free:
 

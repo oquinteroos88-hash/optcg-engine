@@ -10,8 +10,8 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **24 cards** — the 15 starter cards whose printed
- * abilities the DSL can express, plus the first batch of 9 from OP-01. It
+ * Scope of this file today: **31 cards** — the 15 starter cards whose printed
+ * abilities the DSL can express, plus 16 from OP-01 in two batches. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -125,6 +125,23 @@ const SET_ONE_DON_ACTIVE: Instruction[] = [
  * `confirm`, and answering no is a complete resolution of the card.
  */
 function counterBoostThenRefresh(value: number): Instruction[] {
+  return [...counterBoost(value), ...SET_ONE_DON_ACTIVE];
+}
+
+/**
+ * "Up to 1 of your Leader or Character cards gains +X power during this battle."
+ *
+ * The opening sentence of six printed [Counter] Events so far — ST02-015,
+ * ST02-016, and four of OP-01's — word for word, with only the number moving.
+ * `duration: 'endOfBattle'` is the [Counter] half of the pair Guard Point
+ * established: a [Counter] boost lasts the battle, a [Trigger] boost lasts the
+ * turn, and the two halves of one card use different durations for that reason.
+ *
+ * The variable is named `ally` on purpose: OP01-029 needs to add to *that same
+ * card* a moment later, and a second selection would let the player see the
+ * first result before committing.
+ */
+function counterBoost(value: number): Instruction[] {
   return [
     {
       op: 'select',
@@ -135,9 +152,46 @@ function counterBoostThenRefresh(value: number): Instruction[] {
       prompt: `Give up to 1 of your Leader or Character cards +${value} power`,
     },
     { op: 'addPower', target: { var: 'ally' }, value, duration: 'endOfBattle' },
-    ...SET_ONE_DON_ACTIVE,
   ];
 }
+
+/**
+ * "Give up to 1 of your opponent's … −N power during this turn."
+ *
+ * OP01-027's [Main] and OP01-026's [Trigger] are the same sentence with
+ * different numbers and different audiences, so the audience is a parameter
+ * too. Negative power has no floor — CR 2-6-3 makes power higher *or* lower than
+ * printed and names no minimum — which is what makes −10000 a removal effect on
+ * anything under that.
+ */
+function minusPower(value: number, category: ('leader' | 'character')[]): Instruction[] {
+  const who = category.includes('leader') ? 'Leader or Character cards' : 'Characters';
+  return [
+    {
+      op: 'select',
+      as: 'victim',
+      from: { zone: 'field', owner: 'opponent', category },
+      min: 0,
+      max: 1,
+      prompt: `Give up to 1 of your opponent's ${who} −${value} power`,
+    },
+    { op: 'addPower', target: { var: 'victim' }, value: -value, duration: 'endOfTurn' },
+  ];
+}
+
+/**
+ * OP01-028 Green Star Rafflesia, both halves.
+ *
+ * Its [Trigger] text is "Activate this card's [Counter] effect" — it does not
+ * restate the effect, it points at it. One shared list is the only encoding
+ * where the two cannot drift apart, which is the rule ST01-015's Jet Pistol set.
+ *
+ * Note what is *not* shared: the duration. This card's [Counter] gives −2000
+ * "during this turn", not during this battle, so the same list is correct for
+ * both halves. A card whose [Counter] said "during this battle" could not share
+ * its list with a [Trigger] at all.
+ */
+const RAFFLESIA: Instruction[] = minusPower(2000, ['leader', 'character']);
 
 export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
   // ST01-001 Monkey.D.Luffy (Leader)
@@ -760,6 +814,259 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
         min: 2,
       },
       script: [{ op: 'draw', player: 'you', count: 1 }],
+    },
+  ],
+
+  /* ------------------------------------------------------------------------
+   * OP-01, batch 2 — the Events.
+   *
+   * Seven cards covering three engine paths no OP-01 card had run before:
+   * `mainEvent`, `counterEvent` (through `PLAY_COUNTER_EVENT`, CR 7-1-3-2-2)
+   * and a life card's `trigger`. Five of the seven carry two halves, and the
+   * halves differ in ways worth reading twice — most often in their duration.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-027 Round Table
+  // "[Main] Give up to 1 of your opponent's Characters −10000 power during this
+  //  turn."
+  //
+  // A removal effect written as arithmetic: nothing in OP-01 has 10000 power,
+  // so this reads as "K.O. anything" — except that it is *not* a K.O., and the
+  // difference is visible. The Character stays on the field at negative power,
+  // so an [On K.O.] never fires, a "K.O. up to 1" effect can still choose it,
+  // and it comes back to full power at end of turn if it survives.
+  'OP01-027': [
+    { id: 'OP01-027-main', trigger: 'mainEvent', script: minusPower(10000, ['character']) },
+  ],
+
+  // OP01-056 Demon Face
+  // "[Main] K.O. up to 2 of your opponent's rested Characters with a cost of 5
+  //  or less."
+  //
+  // "Up to 2" is one select with `max: 2`, not two selects — the card asks for
+  // a set in one breath (the Brook rule). `rested` is printed, so it belongs in
+  // the selector: a player is never offered a move the card forbids.
+  'OP01-056': [
+    {
+      id: 'OP01-056-main',
+      trigger: 'mainEvent',
+      script: [
+        {
+          op: 'select',
+          as: 'victims',
+          from: {
+            zone: 'field',
+            owner: 'opponent',
+            category: ['character'],
+            orientation: 'rested',
+            costMax: 5,
+          },
+          min: 0,
+          max: 2,
+          prompt: "K.O. up to 2 of your opponent's rested Characters with a cost of 5 or less",
+        },
+        { op: 'ko', target: { var: 'victims' } },
+      ],
+    },
+  ],
+
+  // OP01-026 Gum-Gum Fire-Fist Pistol Red Hawk
+  // "[Counter] Up to 1 of your Leader or Character cards gains +4000 power
+  //  during this battle. Then, K.O. up to 1 of your opponent's Characters with
+  //  4000 power or less."
+  // "[Trigger] Give up to 1 of your opponent's Leader or Character cards −10000
+  //  power during this turn."
+  //
+  // The two halves are different effects and share nothing, unlike OP01-028
+  // below. Note the durations: the [Counter] boost is `endOfBattle`, the
+  // [Trigger] penalty `endOfTurn`, exactly as each printed text says.
+  //
+  // **This card can end the battle it is defending.** The [Counter] resolves
+  // during the Counter Step, and "your opponent's Characters" includes the
+  // attacker — which is rested, at most 4000 power, and a legal choice. K.O.ing
+  // it takes the battle to End of the Battle instead of the Damage Step
+  // (CR 7-1-1-4 and its two repeats). The engine routes that since the
+  // vanished-participant fix; before it, this card would have crashed the same
+  // way OP01-017 did, one step later.
+  'OP01-026': [
+    {
+      id: 'OP01-026-counter',
+      trigger: 'counterEvent',
+      script: [
+        ...counterBoost(4000),
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], powerMax: 4000 },
+          min: 0,
+          max: 1,
+          prompt: "K.O. up to 1 of your opponent's Characters with 4000 power or less",
+        },
+        { op: 'ko', target: { var: 'victim' } },
+      ],
+    },
+    {
+      id: 'OP01-026-trigger',
+      trigger: 'trigger',
+      script: minusPower(10000, ['leader', 'character']),
+    },
+  ],
+
+  // OP01-028 Green Star Rafflesia
+  // "[Counter] Give up to 1 of your opponent's Leader or Character cards −2000
+  //  power during this turn."
+  // "[Trigger] Activate this card's [Counter] effect."
+  //
+  // The Jet Pistol shape: one list, two abilities, two ids. See `RAFFLESIA`.
+  'OP01-028': [
+    { id: 'OP01-028-counter', trigger: 'counterEvent', script: RAFFLESIA },
+    { id: 'OP01-028-trigger', trigger: 'trigger', script: RAFFLESIA },
+  ],
+
+  // OP01-029 Radical Beam!!
+  // "[Counter] Up to 1 of your Leader or Character cards gains +2000 power
+  //  during this battle. Then, if you have 2 or less Life cards, that card
+  //  gains an additional +2000 power."
+  // "[Trigger] Up to 1 of your Leader or Character cards gains +1000 power
+  //  during this turn."
+  //
+  // "That card" is the one already chosen, so the second grant reads the same
+  // variable rather than opening a second selection — asking twice would let a
+  // player see the first result before committing to the second, and would also
+  // let the two halves land on different cards, which the text forbids.
+  //
+  // An empty first selection resolves the whole thing to nothing: `addPower`
+  // loops over no targets twice. The `if` is still evaluated, which is harmless.
+  'OP01-029': [
+    {
+      id: 'OP01-029-counter',
+      trigger: 'counterEvent',
+      script: [
+        ...counterBoost(2000),
+        {
+          op: 'if',
+          cond: { kind: 'lifeAtMost', player: 'you', value: 2 },
+          then: [
+            { op: 'addPower', target: { var: 'ally' }, value: 2000, duration: 'endOfBattle' },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'OP01-029-trigger',
+      trigger: 'trigger',
+      script: [
+        {
+          op: 'select',
+          as: 'ally',
+          from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+          min: 0,
+          max: 1,
+          prompt: 'Give up to 1 of your Leader or Character cards +1000 power',
+        },
+        // `endOfTurn`, not `endOfBattle`: a [Trigger] resolves during damage,
+        // and by then the battle is already closed. An `endOfBattle` modifier
+        // granted here would expire at the *next* battle instead of this one —
+        // which is the trap the Guard Point pair was written to avoid.
+        { op: 'addPower', target: { var: 'ally' }, value: 1000, duration: 'endOfTurn' },
+      ],
+    },
+  ],
+
+  // OP01-057 Paradise Waterfall
+  // "[Counter] Up to 1 of your Leader or Character cards gains +2000 power
+  //  during this battle. Then, set up to 1 of your Characters as active."
+  // "[Trigger] K.O. up to 1 of your opponent's rested Characters with a cost of
+  //  4 or less."
+  //
+  // The [Trigger] can K.O. the card that just attacked — it is rested, because
+  // attacking rested it (CR 7-1-1-1), and the player answering is the one being
+  // damaged. That is safe rather than lucky: a life card's [Trigger] resolves
+  // *inside* the Damage Step, and `resolveBattle` closes the battle before
+  // applying its outcome, so there is no battle left to invalidate. Pinned by
+  // `op01Events.test.ts`, including across both damage instances of a
+  // [Double Attack].
+  'OP01-057': [
+    {
+      id: 'OP01-057-counter',
+      trigger: 'counterEvent',
+      script: [
+        ...counterBoost(2000),
+        {
+          op: 'select',
+          as: 'waking',
+          from: { zone: 'field', owner: 'you', category: ['character'] },
+          min: 0,
+          max: 1,
+          prompt: 'Set up to 1 of your Characters as active',
+        },
+        { op: 'setActive', target: { var: 'waking' } },
+      ],
+    },
+    {
+      id: 'OP01-057-trigger',
+      trigger: 'trigger',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: {
+            zone: 'field',
+            owner: 'opponent',
+            category: ['character'],
+            orientation: 'rested',
+            costMax: 4,
+          },
+          min: 0,
+          max: 1,
+          prompt: "K.O. up to 1 of your opponent's rested Characters with a cost of 4 or less",
+        },
+        { op: 'ko', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  // OP01-058 Punk Gibson
+  // "[Counter] Up to 1 of your Leader or Character cards gains +4000 power
+  //  during this battle. Then, rest up to 1 of your opponent's Characters with
+  //  a cost of 4 or less."
+  // "[Trigger] Rest up to 1 of your opponent's Characters."
+  //
+  // The halves differ by more than a number: the [Counter] gates on cost and
+  // the [Trigger] does not. Neither prints an orientation, so an already-rested
+  // Character is a legal choice whose effect is nothing (the Izo rule,
+  // CR 8-4-4-1) — which is why neither selector filters on it.
+  'OP01-058': [
+    {
+      id: 'OP01-058-counter',
+      trigger: 'counterEvent',
+      script: [
+        ...counterBoost(4000),
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 4 },
+          min: 0,
+          max: 1,
+          prompt: "Rest up to 1 of your opponent's Characters with a cost of 4 or less",
+        },
+        { op: 'rest', target: { var: 'victim' } },
+      ],
+    },
+    {
+      id: 'OP01-058-trigger',
+      trigger: 'trigger',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'] },
+          min: 0,
+          max: 1,
+          prompt: "Rest up to 1 of your opponent's Characters",
+        },
+        { op: 'rest', target: { var: 'victim' } },
+      ],
     },
   ],
 });

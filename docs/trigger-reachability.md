@@ -293,12 +293,21 @@ none of them is declined:
 | --- | --- | --- |
 | Nothing fires when an Event is activated — `applyPlayCard` fires `mainEvent` on the Event itself and tells no other card | 8 | `docs/op01-inventory.md` |
 | Nothing on the field can watch a K.O. — `leaveField` fires `onKO` on the K.O.'d card alone | 3 | `docs/op01-inventory.md` |
-| **The Damage Step cannot lose its target** — an attack target removed mid-battle leaves `state.battle.target` stale, and `resolveBattle` throws on it | 1 today | **OP-01 batch 1**, by writing `OP01-017` and running it |
+| ~~**The Damage Step cannot lose its target**~~ — an attack participant removed mid-battle left `state.battle.target` stale, and `resolveBattle` threw on it | 1 today | **OP-01 batch 1**, by writing `OP01-017` and running it — **done**, CR 7-1-1-4 |
 
 The third is the one worth noticing, because of *how* it was found. The first two
 came from reading text. This one came from **writing a card and playing it**: the
 script passed every hand-built case and broke on contact with a real game, which
 is exactly the `counterEvent` story with the discovery order reversed.
+
+It is also the first A item to be **built rather than declined**, and it was
+cheap: one guard at the single point where `applyAction` returns an observable
+state, plus the `battleEndedEarly` event the log needs. The Comprehensive Rules
+had the whole answer already — CR 7-1-1-4 and its two repeats route an
+interrupted battle to End of the Battle (7-1-5), which the engine already knew
+how to do. What was missing was the *route*, not the destination.
+
+Two items remain in A, both about triggers nothing can reach.
 
 It also answers the qualifier this document ends on — "A is empty *of what has
 been looked for*". Three more questions got asked, and A stopped being empty

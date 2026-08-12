@@ -506,7 +506,21 @@ describe('ABIL-020 — discardHand cost with and/or/lifeAtMost/countCards', () =
     const card = lastInHand(staged, 'p1');
     const handBefore = staged.players.p1.hand.length;
 
-    const done = applyOk(staged, { type: 'PLAY_CARD', player: 'p1', instanceId: card }).state;
+    const paying = applyOk(staged, { type: 'PLAY_CARD', player: 'p1', instanceId: card }).state;
+
+    // The cost stops and asks now (CR 8-4-1-3 determines the cost before it
+    // pays it), so this case walks the choice rather than reading the front of
+    // the hand. `chosenCosts.test.ts` owns the mechanism; this stays a card case.
+    const choice = paying.pending;
+    if (choice === null) {
+      throw new Error('expected the discard cost to open a choice');
+    }
+    const done = applyOk(paying, {
+      type: 'ANSWER_CHOICE',
+      player: 'p1',
+      choiceId: choice.id,
+      answer: { kind: 'cards', selected: [choice.candidates[0] as InstanceId] },
+    }).state;
 
     // -1 played, -1 discarded as the cost, +1 drawn by the script.
     expect(done.players.p1.hand).toHaveLength(handBefore - 1);

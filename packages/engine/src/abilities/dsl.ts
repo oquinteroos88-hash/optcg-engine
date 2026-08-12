@@ -49,20 +49,33 @@ export type Trigger =
   | 'static';
 
 /**
+ * The printed properties of a card, without the zone and owner that say *where*
+ * to look for it.
+ *
+ * Split out of `Selector` for one caller. A `discardHand` cost always looks in
+ * its own controller's hand — "trash 1 {Land of Wano} type card from your hand"
+ * names the filter and nothing else — so the cost should not be able to say
+ * anything about zone or owner, right or wrong. Everything here reads off the
+ * card definition and needs no board state.
+ */
+export interface CardFilter {
+  category?: CardCategory[];
+  colors?: Color[];
+  types?: string[];
+  costMax?: number;
+  costMin?: number;
+}
+
+/**
  * A filter over cards in one zone. `owner` is relative to the ability's
  * controller.
  *
  * `deckTop` is the only zone where `count` means anything: it takes the first
  * `count` cards of the deck rather than filtering the whole deck.
  */
-export interface Selector {
+export interface Selector extends CardFilter {
   zone: 'field' | 'hand' | 'trash' | 'deckTop' | 'life';
   owner: 'you' | 'opponent' | 'any';
-  category?: CardCategory[];
-  colors?: Color[];
-  types?: string[];
-  costMax?: number;
-  costMin?: number;
   powerMax?: number;
   powerMin?: number;
   orientation?: Orientation;
@@ -126,7 +139,23 @@ export type Cost =
   | { kind: 'returnDon'; count: number }
   | { kind: 'trashSelf' }
   | { kind: 'restSelf' }
-  | { kind: 'discardHand'; count: number };
+  /**
+   * "Trash N card(s) from your hand" as the price of an ability.
+   *
+   * The one cost the *player* pays a choice for. CR 8-3-1-5 spells the shape out
+   * for the DON!! symbol — the player "must select" the cards that pay — and
+   * CR 8-4-1-3 puts that selection inside the payment step ("determine the
+   * activation costs and pay all activation costs"), not in 8-4-1-2, which only
+   * specifies *which effect* is being activated. So the choice suspends the
+   * payment, and the interpreter treats a cost list the way it treats a script:
+   * a cursor, and an answer that advances it.
+   *
+   * `filter` is the printed restriction and nothing more. Absent, any card in
+   * hand can pay; present, only matching cards are candidates — and
+   * `canPayCosts` counts *matching* cards, so an ability whose filter no hand
+   * card satisfies is never offered.
+   */
+  | { kind: 'discardHand'; count: number; filter?: CardFilter };
 
 export type Condition =
   | { kind: 'donAttached'; min: number }

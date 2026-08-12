@@ -162,6 +162,20 @@ export interface StackItem {
    * mandatory trigger overtake an earlier optional one.
    */
   status: 'optIn' | 'ready' | 'running';
+  /**
+   * How many entries of `Ability.cost` are already paid. Only meaningful while
+   * `status` is `'ready'`, which is the window CR 8-4-1-3 covers.
+   *
+   * The cost list is walked one entry at a time for the same reason the script
+   * is: a cost can ask a question. "Trash 1 card from your hand" is a player
+   * decision (CR 8-3-1-5 has the player *select* what pays), and a decision
+   * needs a `PendingChoice`, and a `PendingChoice` ends the reducer. So payment
+   * gets a cursor, and the same invariant as the script cursor holds over it —
+   * **a cost that suspends does not advance this number; the answer does.** A
+   * serialized state is never halfway through paying one cost; it is stopped
+   * before a cost that has not started.
+   */
+  costsPaid: number;
   /** Innermost frame last. Empty means the script ran to the end. */
   cursor: Frame[];
   vars: Record<string, VarValue>;
@@ -180,8 +194,13 @@ export interface PendingChoice {
    * without it the reducer would have to guess whether an answer belongs to a
    * script variable or to a rule the engine paused in the middle of, and that
    * guess is exactly the kind of implicit continuation this design forbids.
+   *
+   * `cost` is the third member and the reason the field was worth having: the
+   * answer to a `discardHand` cost is not a script variable at all — it is the
+   * payment itself, applied against `StackItem.costsPaid`, which names the cost
+   * being paid without the choice having to repeat it.
    */
-  sink: { kind: 'var'; name: string } | { kind: 'optIn' };
+  sink: { kind: 'var'; name: string } | { kind: 'optIn' } | { kind: 'cost' };
 }
 
 /**

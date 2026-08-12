@@ -23,10 +23,11 @@ import type {
   ResumeStep,
   StackItem,
 } from '../types.js';
-import { canPayCosts } from './costs.js';
+import { canPayCosts, discardCandidates } from './costs.js';
 import type {
   Ability,
   AbilityContext,
+  Cost,
   Duration,
   Instruction,
   PlayerRef,
@@ -107,82 +108,143 @@ function openChoice(
 // ---------------------------------------------------------------------------
 
 /**
- * Pays a checked cost list. `canPayCosts` ran first, so a shortfall here is an
- * engine bug, not a game move.
+ * The prompt a `discardHand` cost shows.
+ *
+ * Derived rather than printed on the cost, so it cannot drift from the filter
+ * it is describing: a card that says "{Land of Wano} type" in its prompt and
+ * filters on something else would be a lie the type system cannot catch.
+ */
+function discardPrompt(cost: Extract<Cost, { kind: 'discardHand' }>): string {
+  const types = cost.filter?.types;
+  const what = types === undefined ? 'card' : `${types.map((t) => `{${t}}`).join(' or ')} type card`;
+  return `Trash ${cost.count} ${what}${cost.count === 1 ? '' : 's'} from your hand`;
+}
+
+/**
+ * Trashes the cards a player chose to pay a `discardHand` cost.
+ *
+ * Shared by the two ends of the suspension: `applyAnswer` calls it with what the
+ * player picked. Nothing else may write this payment, which is what keeps the
+ * cost's effect identical whether it was answered in the same process or after
+ * a JSON round trip.
+ */
+function payChosenDiscard(
+  draft: GameState,
+  player: PlayerId,
+  chosen: readonly InstanceId[],
+  events: GameEvent[],
+): void {
+  const ps = draft.players[player];
+  for (const id of chosen) {
+    const at = ps.hand.indexOf(id);
+    if (at === -1) {
+      throw new Error('Engine bug: cost discard names a card that is not in hand');
+    }
+    ps.hand.splice(at, 1);
+    ps.trash.unshift(id);
+    emit(draft, events, { type: 'cardDiscarded', player, instanceId: id });
+  }
+  mark('cost.discardHand');
+}
+
+/**
+ * Pays one entry of a checked cost list, in printed order (CR 8-3-1-1: multiple
+ * actions in one activation cost "are to be carried out in order starting from
+ * the text closest to the top" — the order is the card's, never the player's).
+ *
+ * Returns `false` when the cost opened a choice instead of paying. That is the
+ * script's rule applied to the cost list: **the suspending step does not
+ * advance the cursor, the answer does.** `canPayCosts` ran before the first
+ * entry, so a shortfall here is an engine bug, not a game move.
  *
  * `returnDon` prefers already-rested DON!!, which keeps the player's usable
- * resources intact; `discardHand` takes from the front of the hand.
- * TODO phase 2B: let the player choose which cards a `discardHand` cost eats.
+ * resources intact.
  */
-function payCosts(draft: GameState, item: StackItem, ability: Ability, events: GameEvent[]): void {
-  for (const cost of ability.cost ?? []) {
-    switch (cost.kind) {
-      case 'restDon':
-        payDonCost(draft, item.controller, cost.count, events);
-        break;
-      case 'returnDon': {
-        let remaining = cost.count;
-        const don = draft.players[item.controller].don;
-        for (const orientation of ['rested', 'active'] as const) {
-          for (const card of don) {
-            if (remaining === 0) {
-              break;
-            }
-            if (card.location.kind === 'cost' && card.location.orientation === orientation) {
-              card.location = { kind: 'donDeck' };
-              remaining -= 1;
-            }
+function payCost(
+  draft: GameState,
+  item: StackItem,
+  cost: Cost,
+  events: GameEvent[],
+): boolean {
+  switch (cost.kind) {
+    case 'restDon':
+      payDonCost(draft, item.controller, cost.count, events);
+      return true;
+    case 'returnDon': {
+      let remaining = cost.count;
+      const don = draft.players[item.controller].don;
+      for (const orientation of ['rested', 'active'] as const) {
+        for (const card of don) {
+          if (remaining === 0) {
+            break;
+          }
+          if (card.location.kind === 'cost' && card.location.orientation === orientation) {
+            card.location = { kind: 'donDeck' };
+            remaining -= 1;
           }
         }
-        if (remaining > 0) {
-          throw new Error('Engine bug: not enough cost-area DON at return time');
-        }
-        mark('cost.returnDon');
-        emit(draft, events, {
-          type: 'donReturnedToDeck',
-          player: item.controller,
-          count: cost.count,
-        });
-        break;
       }
-      case 'trashSelf':
-        mark('cost.trashSelf');
-        if (isOnField(draft, item.source)) {
-          leaveField(draft, item.source, 'cost', events);
-        }
-        break;
-      case 'restSelf': {
-        // Paid here, before `status` becomes 'running', so by the time the first
-        // instruction executes the source is already rested — CR 8-4-1 runs
-        // "pay all activation costs" (8-4-1-3) ahead of activation (8-4-1-4) and
-        // resolution (8-4-1-5). A script that reads its own orientation, or a
-        // selector that filters on it, sees the paid state.
-        const source = draft.cards[item.source];
-        if (source === undefined || !isOnField(draft, item.source) || source.orientation !== 'active') {
-          throw new Error('Engine bug: rest-self cost paid by a source that cannot rest');
-        }
-        mark('cost.restSelf');
-        source.orientation = 'rested';
-        emit(draft, events, {
-          type: 'orientationChanged',
-          instanceId: item.source,
-          orientation: 'rested',
-        });
-        break;
+      if (remaining > 0) {
+        throw new Error('Engine bug: not enough cost-area DON at return time');
       }
-      case 'discardHand': {
-        const ps = draft.players[item.controller];
-        for (let i = 0; i < cost.count; i += 1) {
-          const id = ps.hand.shift();
-          if (id === undefined) {
-            throw new Error('Engine bug: empty hand at discard time');
-          }
-          ps.trash.unshift(id);
-          emit(draft, events, { type: 'cardDiscarded', player: item.controller, instanceId: id });
-        }
-        mark('cost.discardHand');
-        break;
+      mark('cost.returnDon');
+      emit(draft, events, {
+        type: 'donReturnedToDeck',
+        player: item.controller,
+        count: cost.count,
+      });
+      return true;
+    }
+    case 'trashSelf':
+      mark('cost.trashSelf');
+      if (isOnField(draft, item.source)) {
+        leaveField(draft, item.source, 'cost', events);
       }
+      return true;
+    case 'restSelf': {
+      // Paid here, before `status` becomes 'running', so by the time the first
+      // instruction executes the source is already rested — CR 8-4-1 runs
+      // "pay all activation costs" (8-4-1-3) ahead of activation (8-4-1-4) and
+      // resolution (8-4-1-5). A script that reads its own orientation, or a
+      // selector that filters on it, sees the paid state.
+      const source = draft.cards[item.source];
+      if (source === undefined || !isOnField(draft, item.source) || source.orientation !== 'active') {
+        throw new Error('Engine bug: rest-self cost paid by a source that cannot rest');
+      }
+      mark('cost.restSelf');
+      source.orientation = 'rested';
+      emit(draft, events, {
+        type: 'orientationChanged',
+        instanceId: item.source,
+        orientation: 'rested',
+      });
+      return true;
+    }
+    case 'discardHand': {
+      const candidates = discardCandidates(draft, ctxOf(item), cost);
+      if (candidates.length < cost.count) {
+        throw new Error('Engine bug: not enough matching hand cards at discard time');
+      }
+      // Always asked, even when the candidates are exactly the cards required.
+      // CR 8-3-1-5 has the player select what pays and does not make the
+      // selection conditional on there being alternatives, and a payment that
+      // sometimes asks and sometimes does not is a payment whose log a client
+      // cannot render the same way twice.
+      mark('cost.discardChoice');
+      openChoice(draft, events, {
+        player: item.controller,
+        kind: 'selectCards',
+        prompt: discardPrompt(cost),
+        candidates,
+        // A cost is exact. CR 8-3-1-3: if some or all of it cannot be paid it
+        // cannot be paid at all — there is no "up to" in a price, and the
+        // decline that CR 8-3-1-4 allows happens before payment starts, not
+        // inside it.
+        min: cost.count,
+        max: cost.count,
+        sink: { kind: 'cost' },
+      });
+      return false;
     }
   }
 }
@@ -664,20 +726,39 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
   }
 
   if (item.status === 'ready') {
-    const ctx = ctxOf(item);
-    // Re-checked at the moment of payment: an earlier effect in the same chain
-    // may have taken the resources away since the ability was queued.
-    if (!canPayCosts(draft, ctx, ability.cost)) {
-      mark('ability.costLostBeforeResolution');
-      draft.stack.pop();
-      return;
-    }
-    payCosts(draft, item, ability, events);
-    if (ability.oncePerTurn === true) {
-      const card = draft.cards[item.source];
-      if (card !== undefined && !card.usedThisTurn.includes(ability.id)) {
-        card.usedThisTurn.push(ability.id);
+    const costs = ability.cost ?? [];
+    // Re-checked at the moment of payment, and *only* on the first entry: an
+    // earlier effect in the same chain may have taken the resources away since
+    // the ability was queued. Re-asking once payment has begun would ask about
+    // a list that is already partly paid — the DON!! a `restDon` just spent are
+    // gone, and the whole list would read as unaffordable.
+    if (item.costsPaid === 0) {
+      if (!canPayCosts(draft, ctxOf(item), costs)) {
+        mark('ability.costLostBeforeResolution');
+        draft.stack.pop();
+        return;
       }
+      // Spent as payment *starts*, not once it finishes. CR 10-2-13-5: a
+      // [Once Per Turn] effect whose payment breaks down partway through may
+      // not be activated again that turn, "even if the effect following that
+      // activation cost did not resolve as a result". Charging it after the
+      // last cost would hand the use back.
+      if (ability.oncePerTurn === true) {
+        const card = draft.cards[item.source];
+        if (card !== undefined && !card.usedThisTurn.includes(ability.id)) {
+          card.usedThisTurn.push(ability.id);
+        }
+      }
+    }
+    // One entry per step, in printed order (CR 8-3-1-1), because an entry can
+    // stop and ask. `payCost` returning false means it opened a choice and this
+    // cursor stays where it is; the answer moves it.
+    const cost = costs[item.costsPaid];
+    if (cost !== undefined) {
+      if (payCost(draft, item, cost, events)) {
+        item.costsPaid += 1;
+      }
+      return;
     }
     item.status = 'running';
     mark('ability.resolved');
@@ -910,6 +991,19 @@ export function applyAnswer(
   if (item === undefined) {
     throw new Error('Engine bug: script answer with an empty stack');
   }
+
+  if (pending.sink.kind === 'cost') {
+    if (answer.kind !== 'cards') {
+      throw new Error('Engine bug: cost answered with a non-cards answer');
+    }
+    // The same rule the script cursor lives by, one level up: the cost that
+    // opened this choice did not advance `costsPaid`, so the answer both pays
+    // and advances. Between the two there is no half-paid state to serialize.
+    payChosenDiscard(draft, item.controller, answer.selected, events);
+    item.costsPaid += 1;
+    return;
+  }
+
   switch (answer.kind) {
     case 'cards':
       item.vars[pending.sink.name] = [...answer.selected];

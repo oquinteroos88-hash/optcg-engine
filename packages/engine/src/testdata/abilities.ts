@@ -396,6 +396,51 @@ export const ABIL_CARDS: CardDefinition[] = [
         },
         script: [{ op: 'draw', player: 'you', count: 1 }],
       },
+      // The three shapes a chosen payment has, all hung on this card rather than
+      // on new ones: a new ABIL id changes the deck list and reshuffles every
+      // seeded scenario in the package, and none of these needs its own body.
+      //
+      // Two costs, in printed order. CR 8-3-1-1 carries the actions of one
+      // activation cost out "in order starting from the text closest to the
+      // top", so the DON!! rest first and the discard second — and the player
+      // does not get to reorder them. This is ST02-001's shape exactly.
+      {
+        id: 'ABIL-020-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        cost: [
+          { kind: 'restDon', count: 2 },
+          { kind: 'discardHand', count: 1 },
+        ],
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      // A *filtered* payment: only cheap cards can pay. costMax rather than a
+      // type, because every ABIL card shares one type and a filter that matches
+      // everything proves nothing; the printed cards that filter by type live in
+      // the cards package and take the same path through resolveSelector.
+      //
+      // [Once Per Turn] is load-bearing here, not decoration: discard 1 to draw
+      // 1 is card-neutral, and without a limiter the random sweep rides it
+      // forever.
+      {
+        id: 'ABIL-020-cheap',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        cost: [{ kind: 'discardHand', count: 1, filter: { costMax: 2 } }],
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      // A condition the payment itself breaks: it asks for two cards in hand and
+      // then spends both, so by the time the script runs the condition it fired
+      // on is false. CR 8-4-1 checks conditions at 8-4-1-1 and pays at 8-4-1-3,
+      // and nothing re-checks in between — the effect resolves.
+      {
+        id: 'ABIL-020-brink',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        condition: { kind: 'countCards', selector: { zone: 'hand', owner: 'you' }, min: 2 },
+        cost: [{ kind: 'discardHand', count: 2 }],
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
     ],
   }),
 

@@ -3,8 +3,8 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
-> **Status — pile A is effectively done, in three batches.** Thirty-one cards
-> are written, taking OP-01 from 19 playable to **50 of 121**. Batch 1 was the
+> **Status — pile A is COMPLETE, in four batches.** All thirty-five writable
+> cards are written, taking OP-01 from 19 playable to **54 of 121**. Batch 1 was the
 > nine mechanical Characters and cost an engine change on the way
 > ([what it found](#what-batch-1-found--a-missing-rule-not-a-missing-word));
 > batch 2 the seven red/green Events, which cost nothing but found a coverage
@@ -13,8 +13,8 @@ each card reports **what it needs**, never what the API for it would look like.
 > whole blue/purple half — which is where the deck-construction wall came down
 > ([what it found](#what-batch-3-found--the-wall-was-made-of-unwritten-cards)).
 >
-> **Four cards remain, and the reason is arithmetic rather than difficulty** —
-> see [The residue](#the-residue-four-cards-and-why). The classification below is
+> Batch 4 closed the four-card residue batch 3 had left for size. **Nothing in
+> OP-01 that the DSL can express is unwritten.** The classification below is
 > **not re-cut**: it is what was read before any of it was built, and the ✅
 > marks in the card-by-card table are the only thing added to it.
 
@@ -104,7 +104,7 @@ for deck construction.
 | Pile | Meaning | Cards | Playable today |
 | --- | --- | --- | --- |
 | **vanilla** | No effect text and no trigger text. No `Ability` at all. | 16 | 16 |
-| **A** | The DSL expresses it as it stands. | 38 | **34** |
+| **A** | The DSL expresses it as it stands. | 38 | **38** |
 | **B** | Needs something bounded: one capability the DSL does not have. | 6 | 0 |
 | **C** | Hits a structural hole. | 60 | 0 |
 | **D** | Honestly ambiguous — the text does not settle where it belongs. | 1 | 1 |
@@ -114,8 +114,8 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 50 of 121, up from 19.** The `Playable today` column moves as
-batches land:
+**Playable today — 54 of 121, up from 19, and pile A is done.** The
+`Playable today` column moved as the batches landed:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
   number this document opened with.
@@ -129,8 +129,12 @@ batches land:
   the first printed cards to pay a `Cost`), `-068` (a keyword `static`), `-070`,
   `-078`, `-079`, `-080`, `-086`, `-089` (blue), and `-094`, `-096`, `-097`,
   `-108`, `-111`, `-117` (purple). Nothing from the engine.
-- **4 of pile A remain.** See [The residue](#the-residue-four-cards-and-why).
-- **66 of 121 still need something the DSL cannot say.**
+- **4 written in batch 4** — `OP01-001` and `-032` (power `static`s), `-007`
+  (`[On K.O.]`) and `-039` (`[On Block]`): the residue batch 3 cut for size.
+- **Pile A is complete — 38 of 38 playable**, 35 written and 3 that need no
+  `Ability` at all.
+- **66 of 121 still need something the DSL cannot say**, and those are what the
+  gap table below is about.
 
 `OP01-121` Yamato is counted as playable because its printed
 `[Double Attack]`/`[Banish]` already work and its one line of text has no
@@ -146,9 +150,9 @@ alone.
 That number is the single most actionable thing in this document, and it is why
 the recommendation at the end does not start with a gap.
 
-*Checked over three batches, and it held.* **31 of the 35 are written**, and the
-four that are not are a batch-size residue rather than a capability one — so the
-estimate was right to the card. Thirty of the thirty-one needed nothing from the
+*Checked over four batches, and it was right to the card.* **All 35 are written
+and OP-01 sits at exactly 54 of 121** — the number this section predicted before
+a line of it was built. Thirty-four of the thirty-five needed nothing from the
 engine, exactly as pile A claimed. The one exception, `OP01-017`, needed a
 **missing rule** before it could ship: the DSL expressed it perfectly, and the
 engine could not survive the position it created.
@@ -320,9 +324,9 @@ next batch does not re-check them:
   hand size, which `countCards` answers without re-entering `getPower`, so the
   declared OP06-002 divergence is untouched.
 
-### The residue: four cards, and why
+### The residue: four cards, and why — now closed
 
-`OP01-001`, `-007`, `-032` and `-039` are pile A, red/green, and unwritten. They
+`OP01-001`, `-007`, `-032` and `-039` were pile A, red/green, and unwritten. They
 are not hard and nothing blocks them: two power `static`s, one `[On K.O.]` draw
 and one `[On Block]` draw. They were cut because the group came to nineteen
 cards against a target of about twelve, and these four are the ones whose
@@ -330,11 +334,30 @@ cards against a target of about twelve, and these four are the ones whose
 `-108` are `[On K.O.]`s, `OP01-078` and `-111` are `[On Block]`s. Cutting them
 costs coverage of nothing.
 
-So pile A ends at **34 of 38 playable**: 31 written, 3 that need no `Ability` at
-all, and a 4-card residue whose cause is batch size rather than capability. The
-milestone this document was pointing at — *how much of a real expansion set does
-the DSL hold?* — is answered: **50 of 121 playable, and the remaining 66 are the
-ones the gap table below is about.**
+### Since closed — batch 4
+
+The four were written, and nothing about them surprised anyone: no discrepancy
+with the printed text, no card that turned out not to be pile A, no engine
+change. Two things are worth keeping.
+
+**`OP01-001` is the first `static` with a selector audience.** Every static
+written before it — `ST01-004`, `ST01-013`, `ST02-003`, `OP01-032`, `OP01-068` —
+names only its own source. This one buffs every Character its controller has,
+which is what `packages/client/tests/continuousBadge.test.ts` has been waiting
+for: its self-attribution fallback becomes visible the day a static is not
+self-targeting, and it says so. The starter decks the client reads are
+unaffected, so nothing there changes yet.
+
+**The power-condition check is now closed for the whole pile.** All five OP-01
+pile-A statics gate on something other than their own power — DON!! attached,
+whose turn it is, hand size, the opponent's rested board — so the declared
+OP06-002 divergence is never the thing answering. That question does not need
+asking again for this set.
+
+So pile A ends at **38 of 38 playable**: 35 written and 3 that need no `Ability`
+at all. The milestone this document was pointing at — *how much of a real
+expansion set does the DSL hold?* — is answered: **54 of 121 playable, and the
+remaining 66 are the ones the gap table below is about.**
 
 ## Gaps, with both columns
 
@@ -762,13 +785,13 @@ have been added to it as batches land:
 
 | Card | Name | Cat | Pile | What it needs, or how it is said |
 | --- | --- | --- | --- | --- |
-| OP01-001 | Roronoa Zoro (L) | leader | **A** | `static`, cond `and(donAttached 1, isYourTurn)`, `affects` selector {field, you, character}, `grants.power +1000` |
+| OP01-001 | Roronoa Zoro (L) | leader | **A** ✅ | `static`, cond `and(donAttached 1, isYourTurn)`, `affects` selector {field, you, character}, `grants.power +1000` |
 | OP01-002 | Trafalgar Law (L) | leader | **C** | put-into-play, **and** a selector predicated on a card held in a var ("a different color than the returned Character") |
 | OP01-003 | Monkey.D.Luffy (L) | leader | **A** ✅ | `activateMain`, `oncePerTurn`, cost `restDon 4`; select 0–1 {field, you, character, types, costMax 5} → `setActive` + `addPower +1000 endOfTurn` |
 | OP01-004 | Usopp | char | **C** | a trigger for "your opponent activates an Event" — **missing rule**, no engine site fires it |
 | OP01-005 | Uta | char | **B** | fits but for "other than [Uta]": `Selector` cannot exclude by card name |
 | OP01-006 | Otama | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character} → `addPower −2000 endOfTurn` |
-| OP01-007 | Caribou | char | **A** | `onKO`; select 0–1 {field, opponent, character, powerMax 4000} → `ko` |
+| OP01-007 | Caribou | char | **A** ✅ | `onKO`; select 0–1 {field, opponent, character, powerMax 4000} → `ko` |
 | OP01-008 | Cavendish | char | **B** | a `Cost` paid by moving a Life card to hand. Body is `grantKeyword self rush endOfTurn` |
 | OP01-009 | Carrot | char | **C** | put-into-play, and nothing else. Note: the `[Trigger]` text sits in `effectText`, not `triggerText` |
 | OP01-010 | Komachiyo | char | vanilla | — |
@@ -793,14 +816,14 @@ have been added to it as batches land:
 | OP01-029 | Radical Beam!! | event | **A** ✅ | select as `x` → `addPower x +2000 endOfBattle`; `if lifeAtMost(you, 2)` → `addPower x +2000` again |
 | OP01-030 | In Two Years!! … | event | **C** | `orderCards` + "the rest", and nothing else |
 | OP01-031 | Kouzuki Oden (L) | leader | **C** | a player-chosen, **type-filtered** discard. Body is `orientDon you active 2` |
-| OP01-032 | Ashura Doji | char | **A** | `static`, cond `and(donAttached 1, countCards {field, opponent, character, rested} min 2)`, `affects self` |
+| OP01-032 | Ashura Doji | char | **A** ✅ | `static`, cond `and(donAttached 1, countCards {field, opponent, character, rested} min 2)`, `affects self` |
 | OP01-033 | Izo | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 4} → `rest` |
 | OP01-034 | Inuarashi | char | **A** ✅ | `whenAttacking`, cond `donAttached 2` → `orientDon you active 1` |
 | OP01-035 | Okiku | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `donAttached 1`; select 0–1 {opponent, costMax 5} → `rest` |
 | OP01-036 | Otsuru | char | vanilla | — |
 | OP01-037 | Kawamatsu | char | **C** | put-into-play, and nothing else |
 | OP01-038 | Kanjuro | char | **C** | a discard **the opponent chooses** from your hand. `PendingChoice` already carries a `player`, so the chooser is not the hard part — suspension during the effect is. Its `whenAttacking` half is expressible |
-| OP01-039 | Killer | char | **A** | `onBlock`, cond `and(donAttached 1, countCards {field, you, character} min 3)` → `draw you 1` |
+| OP01-039 | Killer | char | **A** ✅ | `onBlock`, cond `and(donAttached 1, countCards {field, you, character} min 3)` → `draw you 1` |
 | OP01-040 | Kin'emon | char | **C** | put-into-play **and** "if your Leader is [Kouzuki Oden]". Its `whenAttacking` half is expressible |
 | OP01-041 | Kouzuki Momonosuke | char | **C** | `orderCards` + "the rest". Both costs already exist: `restDon 1` and `restSelf` |
 | OP01-042 | Komurasaki | char | **B** | fits but for "if your Leader is [Kouzuki Oden]" — a condition on a card's name |

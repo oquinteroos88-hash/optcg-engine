@@ -13,6 +13,10 @@ const STEP_LABELS: Record<'attack' | 'block' | 'counter' | 'damage', string> = {
 /**
  * Renders straight off `state.battle` — never queue-driven — so the powers it
  * shows are the live ones and update the moment a counter resolves.
+ *
+ * It lives in the left rail rather than floating over the table. Centred on the
+ * viewport it covered both Character rows, which is exactly what the defender
+ * has to look at and click during the Block Step.
  */
 export function BattleOverlay(): ReactElement | null {
   const battle = useBattleView();
@@ -34,7 +38,7 @@ export function BattleOverlay(): ReactElement | null {
             <span className={styles.power}>{battle.attackerPower}</span>
           </div>
           <span className={styles.arrow} aria-hidden="true">
-            →
+            ↓
           </span>
           <div className={styles.side}>
             <span className={styles.role}>

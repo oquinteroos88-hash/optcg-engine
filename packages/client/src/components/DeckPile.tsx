@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { MouseEvent, ReactElement } from 'react';
 import styles from './DeckPile.module.css';
 
 interface DeckPileProps {
@@ -6,23 +6,53 @@ interface DeckPileProps {
   count: number;
   /** Half height, for the DON!! row where three piles share the space. */
   compact?: boolean;
+  /**
+   * Present only on a pile whose contents a player is allowed to read — the
+   * trash, and nothing else. The deck stays a plain count on purpose: showing
+   * its order would hand a player information the game does not give them.
+   */
+  onOpen?: (() => void) | undefined;
 }
 
 /**
- * A face-down pile with a count: deck, trash, DON!! deck.
+ * A pile with a count: deck, trash, DON!! deck.
  *
- * Not clickable and not a card: nothing in the engine lets a player act on a
- * pile, so making it look actionable would be a lie. It is here because the
- * official playmat has these zones and a board without them reads as unfinished
- * — the counts are the information, and the counts are what it shows.
+ * Never an action. Nothing in the engine lets a player act on a pile, so a pile
+ * that looked actionable would be a lie — but reading the trash is not acting
+ * on it, and the trash is public information, so that one opens a viewer.
  */
-export function DeckPile({ label, count, compact = false }: DeckPileProps): ReactElement {
-  return (
-    <div className={`${styles.pile} ${compact ? styles.compact : ''}`}>
-      <span className={styles.label}>{label}</span>
-      <div className={`${styles.stack} ${count === 0 ? styles.empty : ''}`}>
-        <span className={styles.count}>{count}</span>
-      </div>
+export function DeckPile({ label, count, compact = false, onOpen }: DeckPileProps): ReactElement {
+  const body = (
+    <div className={`${styles.stack} ${count === 0 ? styles.empty : ''}`}>
+      <span className={styles.count}>{count}</span>
     </div>
+  );
+
+  if (onOpen === undefined) {
+    return (
+      <div className={`${styles.pile} ${compact ? styles.compact : ''}`}>
+        <span className={styles.label}>{label}</span>
+        {body}
+      </div>
+    );
+  }
+
+  const handleClick = (e: MouseEvent<HTMLButtonElement>): void => {
+    // The table background clears the current mode; a pile must not.
+    e.stopPropagation();
+    onOpen();
+  };
+
+  return (
+    <button
+      type="button"
+      className={`${styles.pile} ${styles.openable} ${compact ? styles.compact : ''}`}
+      onClick={handleClick}
+      disabled={count === 0}
+      aria-label={`${label}: ${count} cartas${count === 0 ? '' : ', ver'}`}
+    >
+      <span className={styles.label}>{label}</span>
+      {body}
+    </button>
   );
 }

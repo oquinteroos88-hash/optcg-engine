@@ -147,17 +147,29 @@ function applyOption(option: MenuOption, id: InstanceId, aff: Affordances): UiMo
 }
 
 /**
- * A click on a card: does the one thing it can do, or opens the menu when there
- * is genuinely more than one. A click on a card that can do nothing returns
- * `current` untouched, identity included — a no-op must not re-render the board.
+ * A click on a card.
+ *
+ * `alwaysConfirm` is what a card in **hand** gets: the menu opens even when
+ * there is only one thing to do, so playing a card is two clicks and the first
+ * one is recoverable. On the field a single-option click still acts directly —
+ * there is no version of "click your own attacker" that a player does by
+ * accident, and every one of those paths has a second step of its own anyway.
+ *
+ * A click on a card that can do nothing returns `current` untouched, identity
+ * included — a no-op must not re-render the board.
  */
-function clickCard(id: InstanceId, aff: Affordances, current: UiMode): UiModeResult {
+function clickCard(
+  id: InstanceId,
+  aff: Affordances,
+  current: UiMode,
+  alwaysConfirm: boolean,
+): UiModeResult {
   const options = menuOptions(aff, id);
   const only = options[0];
   if (only === undefined) {
     return { mode: current };
   }
-  if (options.length === 1) {
+  if (options.length === 1 && !alwaysConfirm) {
     return applyOption(only, id, aff);
   }
   return { mode: { kind: 'cardMenu', owner: aff.whoActs, card: id } };
@@ -335,10 +347,14 @@ function reduceAnsweringChoice(
 // be added without TypeScript demanding a branch here.
 function reduceIdle(mode: UiMode, ev: BoardEvent, aff: Affordances): UiModeResult {
   switch (ev.kind) {
+    // A card leaves your hand for good the moment it is played, and a hand is
+    // a row of small overlapping tiles you are dragging a pointer across. One
+    // click was enough to commit, which made a misplay a hand-tremor away —
+    // so from hand the click selects and asks, and never commits.
     case 'clickHandCard':
-      return clickCard(ev.instanceId, aff, mode);
+      return clickCard(ev.instanceId, aff, mode, true);
     case 'clickFieldCard':
-      return ev.mine ? clickCard(ev.instanceId, aff, mode) : { mode };
+      return ev.mine ? clickCard(ev.instanceId, aff, mode, false) : { mode };
     case 'clickDonArea': {
       if (anyCanReceiveDon(aff)) {
         return { mode: { kind: 'attachingDon', owner: aff.whoActs } };

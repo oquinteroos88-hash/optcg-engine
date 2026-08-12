@@ -11,6 +11,7 @@ import { EventLog } from '../components/EventLog';
 import { GameOverOverlay } from '../components/GameOverOverlay';
 import { MulliganOverlay } from '../components/MulliganOverlay';
 import { PassDeviceScreen } from '../components/PassDeviceScreen';
+import { PileViewer } from '../components/PileViewer';
 import { Table } from '../components/Table';
 import { TrashChoiceModal } from '../components/TrashChoiceModal';
 import { useChoosingTrash, useInputBlocked } from '../store/selectors';
@@ -37,17 +38,21 @@ export function GameScreen(): ReactElement {
       <AnimationDriver />
       <Banner />
       <div className={`${styles.main} ${blocked ? styles.blocked : ''}`}>
-        {/* Two constant-width rails around a fluid board: the preview on the
-            left, the log on the right. The preview slot is always rendered,
-            empty or not, so nothing on the board moves when the pointer does. */}
-        <CardPreview />
+        {/* Two constant-width rails around a fluid board: the preview and the
+            battle panel on the left, the log on the right. The preview slot is
+            always rendered, empty or not, so nothing on the board moves when
+            the pointer does. */}
+        <div className={styles.rail}>
+          <CardPreview />
+          <BattleOverlay />
+        </div>
         <Table />
         <EventLog />
       </div>
       <ActionBar />
-      <BattleOverlay />
       {cardToPlay === null ? null : <TrashChoiceModal cardToPlay={cardToPlay} />}
       <CardMenu />
+      <PileViewer />
       {/* Above the menu and the battle panel: an open choice is the only legal
           move its owner has, so nothing may sit on top of it. */}
       <ChoiceOverlay />

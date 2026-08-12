@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyAction, assertInvariants, createGame, getPower, getPowerWithoutStatics } from '@optcg/engine';
 import { decide } from '@optcg/engine/testing';
 import type { GameState } from '@optcg/engine';
-import { OP01_DECKS, OP01_ZORO_DECKS } from './support.js';
+import { OP01_DECKS, OP01_ODEN_DECKS, OP01_ZORO_DECKS } from './support.js';
 
 /**
  * The OP-01 batch-1 abilities firing in real games nobody staged.
@@ -227,6 +227,44 @@ describe('a real game of OP-01 against OP-01', () => {
       return false;
     });
     expect(seen).toBe(true);
+  });
+
+  it('activates the Oden Leader, and pays its filtered price from a real hand', () => {
+    // The second Leader in this repo with a written ability, and the first whose
+    // price the player has to *choose*: "trash 1 {Land of Wano} type card from
+    // your hand". `canPayCosts` counts matching cards, so it fires only in games
+    // whose hand really holds the type — which is what the mono-green fixture is
+    // built to guarantee and what this asserts rather than assumes.
+    //
+    // `OP01-059` BE-BENG!! pays the same price out of the same pool, so both of
+    // this batch's green cards are measured here and not in the red/green pair.
+    // Keeping them out of that pair is deliberate: putting BE-BENG!! into the Law
+    // deck cost three 4000-power bodies, and with them the only route a random
+    // red/green game had to the *attacker* side of CR 7-1-1-4.
+    const ODEN_SEEDS = [69, 90, 107, 108];
+    const fired = new Set<string>();
+    for (const seed of ODEN_SEEDS) {
+      let state = createGame({ seed, decks: OP01_ODEN_DECKS, firstPlayer: 'p1' });
+      for (let step = 0; step < ACTIONS; step += 1) {
+        if (state.status === 'finished') break;
+        const action = decide(state, state.priority, seed, step);
+        if (action === undefined) break;
+        const result = applyAction(state, action);
+        if (!result.ok) {
+          throw new Error(`action ${step} (${action.type}) rejected: ${result.reason}`);
+        }
+        state = result.state;
+        for (const event of result.events) {
+          if (event.type === 'abilityTriggered') fired.add(event.abilityId);
+        }
+        assertInvariants(state);
+      }
+      expect(state.pending, `seed ${seed}`).toBeNull();
+      expect(state.stack, `seed ${seed}`).toEqual([]);
+      expect(state.resume, `seed ${seed}`).toEqual([]);
+    }
+    expect(fired.has('OP01-031-main')).toBe(true);
+    expect(fired.has('OP01-059-main')).toBe(true);
   });
 
   it('reaches every [Trigger] half from real damage, not from a staged position', () => {

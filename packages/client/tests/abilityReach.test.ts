@@ -99,6 +99,7 @@ const FIRING_ABILITIES = [
   'ST01-015-main',
   'ST01-015-trigger',
   'ST01-017-main',
+  'ST02-001-main',
   'ST02-008-whenAttacking',
   'ST02-009-onPlay',
   'ST02-013-endOfTurn',
@@ -169,7 +170,19 @@ describe('every scripted ability is reachable through the UI', () => {
       // A life card's [Trigger] is offered as the damage resolves, and the
       // answer belongs to the DAMAGED player — the control crossing the choice
       // overlay has to survive.
-      ANSWER_CHOICE: ['ST01-014-trigger', 'ST01-015-trigger', 'ST02-015-trigger'],
+      // ST02-001 is here and not under ACTIVATE_ABILITY, which is the kind of
+      // thing this case exists to catch. Its **cost** opens a choice — "trash 1
+      // card from your hand" — and an ability announces itself only once its
+      // whole price is paid (CR 8-4-1-3 before 8-4-1-4). So the move that fires
+      // the ST-02 Leader is the answer to its own payment, not the activation
+      // that started it, and the UI has to publish a `pendingChoice` for a cost
+      // and not only for a script.
+      ANSWER_CHOICE: [
+        'ST01-014-trigger',
+        'ST01-015-trigger',
+        'ST02-001-main',
+        'ST02-015-trigger',
+      ],
     });
   });
 

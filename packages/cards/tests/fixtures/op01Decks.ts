@@ -116,9 +116,8 @@ export const OP01_RG_LAW: Decklist = {
     { cardId: 'OP01-058', qty: 3 }, // Punk Gibson — [Counter] boost + rest, [Trigger] rest
     { cardId: 'OP01-032', qty: 3 }, // Ashura Doji — static, +2000 against a rested board
     { cardId: 'OP01-039', qty: 3 }, // Killer — [Blocker], [On Block] draw
-    { cardId: 'OP01-059', qty: 3 }, // BE-BENG!! — [Main] filtered discard, wake
-    { cardId: 'OP01-012', qty: 1 }, // Sai — vanilla, cost 2, 4000
-    { cardId: 'OP01-053', qty: 1 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
+    { cardId: 'OP01-053', qty: 3 }, // Wire — vanilla, cost 2, 4000
     { cardId: 'OP01-025', qty: 3 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
     { cardId: 'OP01-010', qty: 1 }, // Komachiyo — vanilla, cost 1, 3000
   ],

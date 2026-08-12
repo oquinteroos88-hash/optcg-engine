@@ -246,6 +246,22 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
             : 'el ataque no tiene efecto';
       return { player, text: `combate resuelto: ${outcome}` };
     }
+    case 'battleEndedEarly': {
+      // Deliberately not "el ataque no tiene efecto", which is what a battle
+      // that reached the Damage Step and lost says. This one never got there:
+      // a participant left the field first (CR 7-1-1-4 / 7-1-2-3 / 7-1-3-3),
+      // and a player who cannot tell the two apart cannot tell whether their
+      // Character survived a hit or was never hit.
+      const attackerCard = state.cards[event.attacker];
+      const player = attackerCard === undefined ? null : attackerCard.controller;
+      const who =
+        event.gone === 'attacker'
+          ? nameOf(state, event.attacker)
+          : event.gone === 'target'
+            ? nameOf(state, event.target)
+            : 'ambos combatientes';
+      return { player, text: `el combate se disipa: ${who} ya no está en juego` };
+    }
     case 'lifeTaken':
       return { player: event.player, text: `pierde una carta de vida (quedan ${event.remaining})` };
     case 'koed':
@@ -358,6 +374,10 @@ const WINDOW_CLOSERS = new Set<GameEvent['type']>([
   'blockDeclared',
   'counterPlayed',
   'battleResolved',
+  // Closes an ability window like `battleResolved` does: it is the battle's
+  // last word, so an `abilityTriggered` before it with nothing in between
+  // really did resolve to nothing.
+  'battleEndedEarly',
   'turnStarted',
   'turnEnded',
   'gameEnded',

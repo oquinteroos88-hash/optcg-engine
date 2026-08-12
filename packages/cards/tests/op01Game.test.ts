@@ -12,35 +12,28 @@ import { OP01_DECKS } from './support.js';
  * the fixture decks with the shared stable-key policy and asserts the exact set
  * of abilities that resolved.
  *
- * **Three seeds cover all nine abilities** — 50, 15 and 6 — found by a greedy
- * cover over 300 games in a single pass. The least reachable ability in the
- * batch (`OP01-052` Raizo, which needs two rested Characters at the moment of
- * an attack) still fires in 30 of those 300.
+ * **Three seeds cover every ability a real game can reach** — 4, 358 and 43 —
+ * found by a greedy cover over 400 games in a single pass. Seeds 35 and 81 are
+ * added for the two "did it land" cases: 35 for a DON!! actually turning over,
+ * 81 for a battle actually ending early.
  *
- * The seed list moved once, when `OP01-017` Nico Robin joined the fixture decks
- * and displaced four filler slots. That is the **deck** changing, not the
- * driver: a different 50 cards deals a different game. It is the distinction
- * PR #22 was bought for — adding an ability to a deck that already held it
- * moves nothing, and the starter seeds two packages over did not move here.
- *
- * Seeds 69 and 10 are here for the last two cases only. Firing an ability and
- * *landing* it are different claims: 69 is one of 14 games in 300 where
- * Inuarashi attacks with two DON!! attached *and* a rested DON!! left in the
- * cost area to refresh, and **10 is one of only 2 games in 300 where a battle
- * ends early** because Robin K.O.d the Character she was attacking. Two in 300
- * is rare enough to be worth pinning by seed and common enough that the sweep
- * really does walk the new rule.
+ * The seed list moves whenever the **decks** move — Robin joining in batch 1,
+ * the Events joining in batch 2 — and that is not the driver drifting. A
+ * different 50 cards deals a different game. The distinction PR #22 bought is
+ * the other one: adding an ability to a deck that already held the card moves
+ * nothing, and the starter seeds two packages over have never moved.
  */
 
-const SEEDS = [50, 15, 6, 69, 10] as const;
+const SEEDS = [4, 358, 43, 35, 81] as const;
 const ACTIONS = 400;
 
 /**
- * Every ability this batch wrote. The manifestation assertion is an exact
- * equality rather than a subset, so a card that silently stops firing is a
- * failure and so is one that starts firing without being added here.
+ * Every ability a random game of these decks actually reaches, asserted as an
+ * exact set: a card that silently stops firing fails here, and so does one that
+ * starts firing without being listed.
  */
 const BATCH_ABILITIES = [
+  // Batch 1 — Characters.
   'OP01-006-onPlay',
   'OP01-017-whenAttacking',
   'OP01-022-whenAttacking',
@@ -50,6 +43,51 @@ const BATCH_ABILITIES = [
   'OP01-048-onPlay',
   'OP01-052-whenAttacking',
   'OP01-054-onPlay',
+  // Batch 2 — the [Main] halves, and every [Trigger] half, from real damage.
+  'OP01-026-trigger',
+  'OP01-027-main',
+  'OP01-028-trigger',
+  'OP01-029-trigger',
+  'OP01-056-main',
+  'OP01-057-trigger',
+  'OP01-058-trigger',
+] as const;
+
+/**
+ * The five `[Counter]` halves, which a random game **cannot** reach — measured,
+ * not assumed, and listed here the way `actionCoverage.test.ts` lists the
+ * actions its corpus does not observe.
+ *
+ * `PLAY_COUNTER_EVENT` is offered only when the defender's **active** cost-area
+ * DON!! covers the Event's printed cost (CR 7-1-3-2-2). The shared driver
+ * policy never leaves any: `ATTACH_DON` is legal while a single active DON!!
+ * remains — the Leader is always a legal recipient — and `END_TURN` is the
+ * policy's last tier, so a turn ends only once every DON!! has been spent or
+ * attached. A defender therefore arrives at every Counter Step with an empty
+ * active pool.
+ *
+ * The numbers, over the two corpora:
+ *
+ * | corpus | Counter Steps | `PLAY_COUNTER_EVENT` offered | avg active DON!! |
+ * | --- | --- | --- | --- |
+ * | ST-01 / ST-02 | 9,324 | 6 | 0.00 |
+ * | OP-01 fixtures | 7,921 | **0** | 0.00 |
+ *
+ * The OP-01 decks are not the problem and no fixture can be the fix — the
+ * behaviour belongs to the policy, and the policy is not this batch's to
+ * change. The five halves are covered instead by `op01Events.test.ts`, which
+ * stages the Counter Step directly, including the one that ends the battle.
+ *
+ * This list is an assertion, not a footnote: the test below checks these do
+ * *not* fire, so the day a policy or fixture change makes them reachable, it
+ * says so rather than passing quietly.
+ */
+const UNREACHED_BY_RANDOM_PLAY = [
+  'OP01-026-counter',
+  'OP01-028-counter',
+  'OP01-029-counter',
+  'OP01-057-counter',
+  'OP01-058-counter',
 ] as const;
 
 interface Run {
@@ -104,7 +142,7 @@ describe('a real game of OP-01 against OP-01', () => {
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 
-  it('fires every batch-1 ability at least once across five unscripted games', () => {
+  it('fires every reachable ability at least once across five unscripted games', () => {
     const fired = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
@@ -116,6 +154,42 @@ describe('a real game of OP-01 against OP-01', () => {
     }
     expect([...fired].sort()).toEqual([...BATCH_ABILITIES].sort());
   });
+
+  it('reaches every [Trigger] half from real damage, not from a staged position', () => {
+    // The sharper half of the claim above. A life card's [Trigger] resolves
+    // inside the Damage Step, so reaching one means a game really attacked a
+    // Leader, really won, and really turned that card over.
+    const fired = new Set<string>();
+    for (const seed of SEEDS) {
+      for (const id of Object.keys(run(seed).fired)) fired.add(id);
+    }
+    for (const id of [
+      'OP01-026-trigger',
+      'OP01-028-trigger',
+      'OP01-029-trigger',
+      'OP01-057-trigger',
+      'OP01-058-trigger',
+    ]) {
+      expect(fired, id).toContain(id);
+    }
+  });
+
+  it('does not reach the [Counter] halves, and says so on purpose', () => {
+    // See `UNREACHED_BY_RANDOM_PLAY`. Asserting the absence is what makes the
+    // measurement a test: if a later policy or fixture change starts reaching
+    // these, this fails and the list gets shorter deliberately rather than the
+    // coverage claim getting quietly stronger.
+    const fired = new Set<string>();
+    for (let seed = 1; seed <= 60; seed += 1) {
+      for (const id of Object.keys(run(seed).fired)) fired.add(id);
+    }
+    for (const id of UNREACHED_BY_RANDOM_PLAY) {
+      expect(fired, `${id} became reachable — update the list and its reasoning`).not.toContain(id);
+    }
+    // Not vacuous: the same sweep does reach the other halves of the same cards.
+    expect(fired.has('OP01-026-trigger')).toBe(true);
+    expect(fired.has('OP01-058-trigger')).toBe(true);
+  }, 60_000);
 
   it('lands the effects, not just the triggers', () => {
     // Membership in the set above only says a script resolved. These say the

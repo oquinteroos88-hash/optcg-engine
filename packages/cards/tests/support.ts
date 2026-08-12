@@ -3,9 +3,12 @@ import type { Action, ChoiceAnswer, GameEvent, GameState, InstanceId, PlayerId }
 import { buildScenario } from '@optcg/engine/testdata/scenarios';
 import type { ScenarioSpec } from '@optcg/engine/testdata/scenarios';
 import { registerEnglishCards, ST01_DECK, ST02_DECK, toEngineDecklist } from '../src/index.js';
+import { OP01_RG_LAW, OP01_RG_LUFFY, assertFixtureDecksAreLegal } from './fixtures/op01Decks.js';
 
 // The set has to be in the registry before a decklist naming it can be built.
 registerEnglishCards();
+// An illegal fixture would surface as "this ability never fired", several files away.
+assertFixtureDecksAreLegal();
 
 export const STARTER_DECKS = {
   p1: toEngineDecklist(ST01_DECK),
@@ -15,6 +18,22 @@ export const STARTER_DECKS = {
 /** `buildScenario` with the two real starter decks instead of the TEST ones. */
 export function starterScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
   return buildScenario({ ...spec, decks: STARTER_DECKS });
+}
+
+/**
+ * The same, with the constructed OP-01 fixture decks.
+ *
+ * `buildScenario` pulls the cards a spec names out of the deck, so a position
+ * can only stage cards the decklist actually contains. That is why the OP-01
+ * abilities need their own decks before they can have their own table cases.
+ */
+export const OP01_DECKS = {
+  p1: toEngineDecklist(OP01_RG_LUFFY),
+  p2: toEngineDecklist(OP01_RG_LAW),
+};
+
+export function op01Scenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: OP01_DECKS });
 }
 
 export function applyOk(state: GameState, action: Action): { state: GameState; events: GameEvent[] } {

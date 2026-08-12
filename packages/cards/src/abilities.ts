@@ -10,12 +10,17 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **15 cards** — every base card of the two starter
- * decks whose printed abilities the DSL can currently express. It opened with
- * the pile-A cards of `docs/starter-card-inventory.md` and has grown one closed
- * gap at a time (PRs #11, #12, #13, and the rest-the-source cost), so the pile
- * labels no longer describe its contents. The inventory's card-by-card table is
- * the map; this file is the code.
+ * Scope of this file today: **23 cards** — the 15 starter cards whose printed
+ * abilities the DSL can express, plus the first batch of 8 from OP-01. It
+ * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
+ * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
+ * cost), so the pile labels no longer describe its starter contents. The two
+ * inventories' card-by-card tables are the map; this file is the code.
+ *
+ * The map was called `STARTER_ABILITIES` until OP-01 arrived in it. Nothing
+ * about it was ever starter-specific — `cards.ts` looks up every English card
+ * here, and `starters.ts` looks up the starter subset — so the name was the
+ * only thing that had to change.
  *
  * Four cards are absent on purpose, so their absence is not read as an
  * oversight:
@@ -27,6 +32,27 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * - `ST02-005` and `ST02-017` — one printed half each fits the DSL today and
  *   the other needs a card *put into play*. A card whose printed text is half
  *   implemented is worse than one that is honestly missing.
+ *
+ * And one more, for a different reason entirely:
+ *
+ * - **`OP01-017` Nico Robin** — "[DON!! x1] [When Attacking] K.O. up to 1 of
+ *   your opponent's Characters with 3000 power or less." The DSL says this
+ *   exactly; the script was written, and its table cases passed. It is absent
+ *   because the **engine** cannot survive it. An attack may target a rested
+ *   Character (CR 7-1-1-2), and Robin's own trigger can K.O. that same
+ *   Character before the Damage Step — at which point `resolveBattle` calls
+ *   `leaveField` on a card already in the trash and `detachFromField` throws
+ *   `Engine bug: … is not on … field`. `state.battle.target` becomes a stale
+ *   reference the battle rules never check, and `checkInvariants`' own
+ *   `battleShape` rule says as much.
+ *
+ *   Four actions reproduce it with no randomness: attach a DON!! to Robin,
+ *   attack a rested Character, answer her choice with that Character, pass. It
+ *   is a **missing rule**, not a missing word — the same class of finding as
+ *   `counterEvent`, and it belongs to backlog A. No starter card can reach it,
+ *   because none of the fifteen written above can remove a card from the field
+ *   during a battle it is part of. Robin is the first card in this repo that
+ *   can, and she is held back until the battle rules can lose their target.
  *
  * Every script here is a transcription of the card's printed text. Where the
  * text and the inventory disagreed, the text won.
@@ -126,7 +152,7 @@ function counterBoostThenRefresh(value: number): Instruction[] {
   ];
 }
 
-export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
+export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
   // ST01-001 Monkey.D.Luffy (Leader)
   // "[Activate: Main] [Once Per Turn] Give this Leader or 1 of your Characters
   //  up to 1 rested DON!! card."
@@ -483,6 +509,236 @@ export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = O
         of: [{ kind: 'donAttached', min: 1 }, { kind: 'isYourTurn' }],
       },
       script: [{ op: 'setActive', target: { self: true } }],
+    },
+  ],
+
+  /* ------------------------------------------------------------------------
+   * OP-01, batch 1.
+   *
+   * Nine cards from pile A of `docs/op01-inventory.md`, all of them one
+   * trigger, at most one choice step, and one op. Nothing here needed anything
+   * the DSL did not already have — which is what pile A claimed, now checked
+   * against the printed text rather than against the inventory's summary of it.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-006 Otama
+  // "[On Play] Give up to 1 of your opponent's Characters −2000 power during
+  //  this turn."
+  //
+  // A negative `addPower`. The DSL has no separate "reduce power" op and needs
+  // none: `state.modifiers` are summed, so a negative value is subtraction
+  // (CR 2-6-3 — effects make a card's power higher *or lower* than printed).
+  // Nothing clamps at zero, which is right: a Character at −2000 effective
+  // power still loses every comparison, and the printed rule never mentions a
+  // floor.
+  'OP01-006': [
+    {
+      id: 'OP01-006-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'] },
+          min: 0,
+          max: 1,
+          prompt: "Give up to 1 of your opponent's Characters −2000 power",
+        },
+        { op: 'addPower', target: { var: 'victim' }, value: -2000, duration: 'endOfTurn' },
+      ],
+    },
+  ],
+
+  // OP01-033 Izo
+  // "[On Play] Rest up to 1 of your opponent's Characters with a cost of 4 or
+  //  less."
+  //
+  // No orientation filter, deliberately. The printed text names a cost and
+  // nothing else, so an already-rested Character is a legal choice and the
+  // effect simply does nothing to it — `rest` skips a card already in that
+  // orientation, and fewer than asked is a smaller number rather than a failed
+  // effect (CR 8-4-4-1). Contrast `ST02-008`, whose official Q&A *does* require
+  // an active DON!!; that ruling is about DON!! and `orientDon`'s by-quantity
+  // shape, not a general rule about resting.
+  'OP01-033': [
+    {
+      id: 'OP01-033-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 4 },
+          min: 0,
+          max: 1,
+          prompt: "Rest up to 1 of your opponent's Characters with a cost of 4 or less",
+        },
+        { op: 'rest', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  // OP01-048 Nekomamushi
+  // "[On Play] Rest up to 1 of your opponent's Characters with a cost of 3 or
+  //  less."
+  //
+  // Izo with a tighter cost gate. Written out rather than shared: the two are
+  // the same shape but not the same effect, and a shared helper parameterised
+  // by one number would hide that they are independent printed cards which can
+  // errata apart.
+  'OP01-048': [
+    {
+      id: 'OP01-048-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 3 },
+          min: 0,
+          max: 1,
+          prompt: "Rest up to 1 of your opponent's Characters with a cost of 3 or less",
+        },
+        { op: 'rest', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  // OP01-054 X.Drake
+  // "[On Play] K.O. up to 1 of your opponent's rested Characters with a cost of
+  //  4 or less."
+  //
+  // Here the orientation *is* printed, so it belongs in the selector rather
+  // than being checked after the fact: a card the effect cannot legally hit
+  // must never be offered as a candidate. That is the difference between this
+  // and Izo above, and it is the printed text making it.
+  'OP01-054': [
+    {
+      id: 'OP01-054-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: {
+            zone: 'field',
+            owner: 'opponent',
+            category: ['character'],
+            orientation: 'rested',
+            costMax: 4,
+          },
+          min: 0,
+          max: 1,
+          prompt: "K.O. up to 1 of your opponent's rested Characters with a cost of 4 or less",
+        },
+        { op: 'ko', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  // OP01-022 Brook
+  // "[DON!! x1] [When Attacking] Give up to 2 of your opponent's Characters
+  //  −2000 power during this turn."
+  //
+  // "Up to 2" is one select with `max: 2`, not two selects: the card asks for a
+  // set of Characters in one breath, and two steps would let a player see the
+  // first result before committing to the second. `addPower` loops over every
+  // id the variable holds, so one instruction covers both.
+  'OP01-022': [
+    {
+      id: 'OP01-022-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [
+        {
+          op: 'select',
+          as: 'victims',
+          from: { zone: 'field', owner: 'opponent', category: ['character'] },
+          min: 0,
+          max: 2,
+          prompt: "Give up to 2 of your opponent's Characters −2000 power",
+        },
+        { op: 'addPower', target: { var: 'victims' }, value: -2000, duration: 'endOfTurn' },
+      ],
+    },
+  ],
+
+  // OP01-035 Okiku
+  // "[DON!! x1] [When Attacking] [Once Per Turn] Rest up to 1 of your
+  //  opponent's Characters with a cost of 5 or less."
+  //
+  // The `[Once Per Turn]` is printed and load-bearing: a Character can be
+  // attacked back, set active by another effect and attack again in one turn,
+  // and without the flag this would fire each time.
+  'OP01-035': [
+    {
+      id: 'OP01-035-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      oncePerTurn: true,
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 5 },
+          min: 0,
+          max: 1,
+          prompt: "Rest up to 1 of your opponent's Characters with a cost of 5 or less",
+        },
+        { op: 'rest', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  // OP01-034 Inuarashi
+  // "[DON!! x2] [When Attacking] Set up to 1 of your DON!! cards as active."
+  //
+  // No select, because DON!! are fungible: `orientDon` takes a player, an
+  // orientation and a count, and never asks which one (CR 4-4-2 — a given DON!!
+  // is neither active nor rested, so attached DON!! are not candidates at all).
+  // The two DON!! this card needs attached to fire are therefore *not* among
+  // the ones it can refresh, which is the printed behaviour and not an
+  // accident of the op.
+  //
+  // "Up to 1" rides on `orientDon` itself: with no rested DON!! in the cost
+  // area it turns none and emits nothing.
+  'OP01-034': [
+    {
+      id: 'OP01-034-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 2 },
+      script: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 1 }],
+    },
+  ],
+
+  // OP01-052 Raizo
+  // "[When Attacking] [Once Per Turn] If you have 2 or more rested Characters,
+  //  draw 1 card."
+  //
+  // The attacker is rested *before* its own [When Attacking] fires
+  // (`applyDeclareAttack` sets the orientation, then calls `fireTriggers`),
+  // which is CR 7-1-1-1 declaring the attack and 8-4-1 resolving the trigger
+  // afterwards. So Raizo counts itself, and needs only one *other* rested
+  // Character. That is the printed behaviour and it is worth naming, because
+  // reading the card alone suggests two Characters besides the attacker.
+  //
+  // No `[DON!! xN]` is printed on this one, so there is no `donAttached`.
+  'OP01-052': [
+    {
+      id: 'OP01-052-whenAttacking',
+      trigger: 'whenAttacking',
+      oncePerTurn: true,
+      condition: {
+        kind: 'countCards',
+        selector: {
+          zone: 'field',
+          owner: 'you',
+          category: ['character'],
+          orientation: 'rested',
+        },
+        min: 2,
+      },
+      script: [{ op: 'draw', player: 'you', count: 1 }],
     },
   ],
 });

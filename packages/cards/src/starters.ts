@@ -1,6 +1,6 @@
 import { registerCardSet } from '@optcg/engine';
 import type { CardId } from '@optcg/engine';
-import { STARTER_ABILITIES } from './abilities.js';
+import { CARD_ABILITIES } from './abilities.js';
 import { STARTER_CARDS, STARTER_DECKLISTS } from './starters.generated.js';
 import type { Decklist, EnglishCardDefinition } from './types.js';
 
@@ -18,7 +18,7 @@ import type { Decklist, EnglishCardDefinition } from './types.js';
  * the same reason `cards.ts` attaches them: a script is code, not data.
  */
 function withAbilities(card: EnglishCardDefinition): EnglishCardDefinition {
-  const abilities = STARTER_ABILITIES[card.cardId];
+  const abilities = CARD_ABILITIES[card.cardId];
   return Object.freeze(abilities === undefined ? { ...card } : { ...card, abilities });
 }
 

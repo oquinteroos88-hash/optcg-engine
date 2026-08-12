@@ -3,19 +3,20 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
-> **Status — batches 1 and 2 landed.** Sixteen pile-A cards are written, taking
-> OP-01 from 19 playable to **35 of 121**. Batch 1 was the nine mechanical
-> `[On Play]` / `[When Attacking]` Characters and cost an engine change on the
-> way — see
-> [What batch 1 found](#what-batch-1-found--a-missing-rule-not-a-missing-word).
-> Batch 2 was the seven red/green Events, and cost nothing: `mainEvent`,
-> `counterEvent` and a life card's `trigger` all took their first OP-01 cards
-> without a line of engine change. It did turn up one coverage limit worth
-> knowing — see
-> [What batch 2 found](#what-batch-2-found--a-counter-event-a-random-game-cannot-pay-for).
-> The classification below is **not re-cut** — it is what was read before any of
-> it was built, and the ✅ marks in the card-by-card table are the only thing
-> added to it.
+> **Status — pile A is effectively done, in three batches.** Thirty-one cards
+> are written, taking OP-01 from 19 playable to **50 of 121**. Batch 1 was the
+> nine mechanical Characters and cost an engine change on the way
+> ([what it found](#what-batch-1-found--a-missing-rule-not-a-missing-word));
+> batch 2 the seven red/green Events, which cost nothing but found a coverage
+> limit ([what it found](#what-batch-2-found--a-counter-event-a-random-game-cannot-pay-for));
+> batch 3 the activated abilities, the statics, `[On K.O.]`, `[On Block]` and the
+> whole blue/purple half — which is where the deck-construction wall came down
+> ([what it found](#what-batch-3-found--the-wall-was-made-of-unwritten-cards)).
+>
+> **Four cards remain, and the reason is arithmetic rather than difficulty** —
+> see [The residue](#the-residue-four-cards-and-why). The classification below is
+> **not re-cut**: it is what was read before any of it was built, and the ✅
+> marks in the card-by-card table are the only thing added to it.
 
 `docs/starter-card-inventory.md` measured 34 cards from two preconstructed
 decks. It predicted 24 playable and got 24, and then PR #11 showed what a
@@ -103,7 +104,7 @@ for deck construction.
 | Pile | Meaning | Cards | Playable today |
 | --- | --- | --- | --- |
 | **vanilla** | No effect text and no trigger text. No `Ability` at all. | 16 | 16 |
-| **A** | The DSL expresses it as it stands. | 38 | **19** |
+| **A** | The DSL expresses it as it stands. | 38 | **34** |
 | **B** | Needs something bounded: one capability the DSL does not have. | 6 | 0 |
 | **C** | Hits a structural hole. | 60 | 0 |
 | **D** | Honestly ambiguous — the text does not settle where it belongs. | 1 | 1 |
@@ -113,27 +114,23 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 35 of 121, up from 19.** The `Playable today` column moves as
+**Playable today — 50 of 121, up from 19.** The `Playable today` column moves as
 batches land:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
   number this document opened with.
-- **9 written in batch 1** — `OP01-006`, `-017`, `-022`, `-033`, `-034`, `-035`,
-  `-048`, `-052`, `-054`: the mechanical `[On Play]` and `[When Attacking]`
-  Characters. Eight of the nine needed nothing from the engine, which is what
-  pile A claimed; the ninth needed a missing *rule*.
-- **7 written in batch 2** — `OP01-026`, `-027`, `-028`, `-029`, `-056`, `-057`,
-  `-058`: every red/green Event. Between them they took `mainEvent`,
-  `counterEvent` and a life card's `trigger` — three engine paths no OP-01 card
-  had run — and needed nothing new at all.
-- **19 more of pile A remain to write**, in later batches.
+- **9 written in batch 1** — the mechanical `[On Play]` and `[When Attacking]`
+  Characters. Eight needed nothing from the engine, which is what pile A
+  claimed; the ninth needed a missing *rule*.
+- **7 written in batch 2** — every red/green Event, taking `mainEvent`,
+  `counterEvent` and a life card's `trigger` for the first time, and needing
+  nothing new.
+- **15 written in batch 3** — `OP01-003` and `-020` (the two activated abilities,
+  the first printed cards to pay a `Cost`), `-068` (a keyword `static`), `-070`,
+  `-078`, `-079`, `-080`, `-086`, `-089` (blue), and `-094`, `-096`, `-097`,
+  `-108`, `-111`, `-117` (purple). Nothing from the engine.
+- **4 of pile A remain.** See [The residue](#the-residue-four-cards-and-why).
 - **66 of 121 still need something the DSL cannot say.**
-
-The three blue and purple Events (`OP01-086`, `-089`, `-117`) are pile A and
-unwritten for a **deck-construction** reason rather than a DSL one: OP-01's blue
-and purple pools cannot fill a legal 50-card fixture out of cards whose text the
-engine already honours, which is the same wall `OP01-070` Mihawk hit in batch 1.
-They wait for a batch that writes enough of that half of the set to field them.
 
 `OP01-121` Yamato is counted as playable because its printed
 `[Double Attack]`/`[Banish]` already work and its one line of text has no
@@ -149,11 +146,12 @@ alone.
 That number is the single most actionable thing in this document, and it is why
 the recommendation at the end does not start with a gap.
 
-*Since checked, and it holds — with one asterisk worth keeping.* Batch 1 wrote 9
-of the 35 and the ceiling of 54 stands. Eight of the nine needed nothing from the
-engine, exactly as pile A claimed. The ninth, `OP01-017`, needed a **missing
-rule** before it could ship: the DSL expressed it perfectly, and the engine could
-not survive the position it created.
+*Checked over three batches, and it held.* **31 of the 35 are written**, and the
+four that are not are a batch-size residue rather than a capability one — so the
+estimate was right to the card. Thirty of the thirty-one needed nothing from the
+engine, exactly as pile A claimed. The one exception, `OP01-017`, needed a
+**missing rule** before it could ship: the DSL expressed it perfectly, and the
+engine could not survive the position it created.
 
 That is the asterisk, and it is about this document's method rather than about
 its numbers. "The DSL can say it" and "the engine can play it" are two claims,
@@ -264,6 +262,79 @@ It is worth naming what this is not. It is not the `counterEvent` finding again:
 the trigger is reachable, the move exists, and a real player pays for these
 Events every game. It is the **driver** that cannot, and the driver is a test
 instrument.
+
+## What batch 3 found — the wall was made of unwritten cards
+
+Batch 1 recorded a hard stop and it was right about the arithmetic:
+
+> A legal deck is 50 cards at 4 copies, so it needs 13 distinct. OP-01's blue
+> pool holds **five** cards whose printed text the engine already honours;
+> widening to a blue/purple Leader reaches nine, or 36 of the 50. There is no way
+> to fill a blue deck out of cards whose printed text the engine already honours.
+
+`OP01-070` Mihawk waited there for two batches, joined by `-086`, `-089` and
+`-117`. Every batch deferred them with the same sentence, and every batch was
+right — and all three missed the same thing, which is the finding:
+
+> **The wall was never about rules, or about the DSL. It was about written
+> cards, and the four cards behind it were themselves the material it was made
+> of.**
+
+Batch 3 wrote thirteen blue and purple cards, and the pool went from nine
+distinct to twenty-two — 88 slots against the 50 needed. The four deferred cards
+did not need anything built *for* them. They needed each other, and eleven
+neighbours. Two legal blue/purple decks now exist (`OP01_BP_CROCODILE`,
+`OP01_BP_KAIDO`) and `op01BpGame.test.ts` plays real games of them.
+
+One property of that pool survives and is worth carrying forward: it is
+**top-heavy**. Only three cards in it cost 2 or less, against a 9-, a 10- and a
+7-cost among the scripted, so blue/purple games run visibly longer than
+red/green ones.
+
+### Three firsts, and nothing broke
+
+Batch 3 put three engine paths under a printed card for the first time, and each
+held:
+
+- **A `Cost` paid by an activated ability.** `OP01-003` rests four DON!! and
+  `OP01-020` rests itself. `canPayCosts` gates `legalActions`, so an unpayable
+  ability is *invisible* rather than refused — Hyogoro needs no printed
+  `[Once Per Turn]` because a rested card cannot pay to rest again.
+- **A script that suspends twice.** `OP01-096` King asks two questions with
+  different cost gates. The interpreter has supported it since Phase 2A — the
+  cursor is a frame stack — but nothing printed had exercised it. The state
+  *between* the two questions round-trips through JSON and answers identically
+  after rehydrating.
+- **A battle ended by a bounce.** `OP01-089` returns a Character to hand, and
+  "moved areas" is what CR 7-1-1-4 says — so it can end a battle by removing the
+  attacker without K.O.ing it. The vanished-participant rule covers it, from the
+  Counter Step.
+
+Two things were checked and found *not* to bite, which is worth recording so the
+next batch does not re-check them:
+
+- **No card in this batch uses `discardHand`.** The deterministic front-of-hand
+  discard is still a declared divergence, and nothing here had to be written
+  around it or held back for it.
+- **No `static` in this batch asks about its own power.** `OP01-068` gates on
+  hand size, which `countCards` answers without re-entering `getPower`, so the
+  declared OP06-002 divergence is untouched.
+
+### The residue: four cards, and why
+
+`OP01-001`, `-007`, `-032` and `-039` are pile A, red/green, and unwritten. They
+are not hard and nothing blocks them: two power `static`s, one `[On K.O.]` draw
+and one `[On Block]` draw. They were cut because the group came to nineteen
+cards against a target of about twelve, and these four are the ones whose
+**shapes this batch already covers** — `OP01-068` is a static, `OP01-080` and
+`-108` are `[On K.O.]`s, `OP01-078` and `-111` are `[On Block]`s. Cutting them
+costs coverage of nothing.
+
+So pile A ends at **34 of 38 playable**: 31 written, 3 that need no `Ability` at
+all, and a 4-card residue whose cause is batch size rather than capability. The
+milestone this document was pointing at — *how much of a real expansion set does
+the DSL hold?* — is answered: **50 of 121 playable, and the remaining 66 are the
+ones the gap table below is about.**
 
 ## Gaps, with both columns
 
@@ -693,7 +764,7 @@ have been added to it as batches land:
 | --- | --- | --- | --- | --- |
 | OP01-001 | Roronoa Zoro (L) | leader | **A** | `static`, cond `and(donAttached 1, isYourTurn)`, `affects` selector {field, you, character}, `grants.power +1000` |
 | OP01-002 | Trafalgar Law (L) | leader | **C** | put-into-play, **and** a selector predicated on a card held in a var ("a different color than the returned Character") |
-| OP01-003 | Monkey.D.Luffy (L) | leader | **A** | `activateMain`, `oncePerTurn`, cost `restDon 4`; select 0–1 {field, you, character, types, costMax 5} → `setActive` + `addPower +1000 endOfTurn` |
+| OP01-003 | Monkey.D.Luffy (L) | leader | **A** ✅ | `activateMain`, `oncePerTurn`, cost `restDon 4`; select 0–1 {field, you, character, types, costMax 5} → `setActive` + `addPower +1000 endOfTurn` |
 | OP01-004 | Usopp | char | **C** | a trigger for "your opponent activates an Event" — **missing rule**, no engine site fires it |
 | OP01-005 | Uta | char | **B** | fits but for "other than [Uta]": `Selector` cannot exclude by card name |
 | OP01-006 | Otama | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character} → `addPower −2000 endOfTurn` |
@@ -710,7 +781,7 @@ have been added to it as batches land:
 | OP01-017 | Nico Robin | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
 | OP01-018 | Hajrudin | char | vanilla | — |
 | OP01-019 | Bartolomeo | char | **C** | `[Opponent's Turn]` — `Condition` has no negation. Freed by that alone; `[Blocker]` is printed |
-| OP01-020 | Hyogoro | char | **A** | `activateMain`, cost `restSelf`; select 0–1 {field, you, leader+character} → `addPower +2000 endOfTurn` |
+| OP01-020 | Hyogoro | char | **A** ✅ | `activateMain`, cost `restSelf`; select 0–1 {field, you, leader+character} → `addPower +2000 endOfTurn` |
 | OP01-021 | Franky | char | **C** | an attack-legality modifier — **new hole**, `Modifier` is `power`/`grantKeyword` only |
 | OP01-022 | Brook | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–2 {field, opponent, character} → `addPower −2000 endOfTurn` |
 | OP01-023 | Marco | char | vanilla | — |
@@ -758,9 +829,9 @@ have been added to it as batches land:
 | OP01-065 | Vergo | char | vanilla | — |
 | OP01-066 | Krieg | char | vanilla | — |
 | OP01-067 | Crocodile | char | **C** | cost modification — "give blue Events in your hand −1 cost". `[Banish]` is printed |
-| OP01-068 | Gecko Moria | char | **A** | `static`, cond `and(isYourTurn, countCards {hand, you} min 5)`, `affects self`, `grants.keyword doubleAttack` |
+| OP01-068 | Gecko Moria | char | **A** ✅ | `static`, cond `and(isYourTurn, countCards {hand, you} min 5)`, `affects self`, `grants.keyword doubleAttack` |
 | OP01-069 | Caesar Clown | char | **C** | put-into-play **from the whole deck**, a name reference, and a `shuffle` op |
-| OP01-070 | Dracule Mihawk | char | **A** | `onPlay`; select 0–1 {field, any, character, costMax 7} → `moveCard {deck}, position 'bottom'` |
+| OP01-070 | Dracule Mihawk | char | **A** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 7} → `moveCard {deck}, position 'bottom'` |
 | OP01-071 | Jinbe | char | **C** | put-into-play for the `[Trigger]` half. The `[On Play]` half is expressible |
 | OP01-072 | Smiley | char | **C** | a scaling grant — "+1000 for every card in your hand". `grants.power` is a constant |
 | OP01-073 | Donquixote Doflamingo | char | **C** | `orderCards`, in its top-**or**-bottom form. `[Blocker]` is printed |
@@ -768,26 +839,26 @@ have been added to it as batches land:
 | OP01-075 | Pacifista | char | **A** | `[Blocker]` reminder only. Its deckbuilding line belongs to `validateDecklist` — see the deck-construction note |
 | OP01-076 | Bellamy | char | vanilla | — |
 | OP01-077 | Perona | char | **C** | `orderCards`, top-or-bottom form, and nothing else |
-| OP01-078 | Boa Hancock | char | **A** | two abilities (`whenAttacking`, `onBlock`) sharing one script; cond `and(donAttached 1, countCards {hand, you} max 5)` → `draw` |
-| OP01-079 | Ms. All Sunday | char | **A** | `onKO`, cond `countCards {field, you, leader, types ['Baroque Works']} min 1`; select 0–1 {trash, you, event} → `moveCard {hand}` |
-| OP01-080 | Miss Doublefinger(Zala) | char | **A** | `onKO` → `draw you 1` |
+| OP01-078 | Boa Hancock | char | **A** ✅ | two abilities (`whenAttacking`, `onBlock`) sharing one script; cond `and(donAttached 1, countCards {hand, you} max 5)` → `draw` |
+| OP01-079 | Ms. All Sunday | char | **A** ✅ | `onKO`, cond `countCards {field, you, leader, types ['Baroque Works']} min 1`; select 0–1 {trash, you, event} → `moveCard {hand}` |
+| OP01-080 | Miss Doublefinger(Zala) | char | **A** ✅ | `onKO` → `draw you 1` |
 | OP01-081 | Mocha | char | vanilla | — |
 | OP01-082 | Monet | char | **C** | put-into-play, and nothing else |
 | OP01-083 | Mr.1(Daz.Bonez) | char | **C** | a scaling grant — "+1000 for every 2 Events in your trash". The Leader-type condition is expressible |
 | OP01-084 | Mr.2.Bon.Kurei(Bentham) | char | **C** | `orderCards` + "the rest", and nothing else |
 | OP01-085 | Mr.3(Galdino) | char | **C** | a prohibition (cannot attack) **and** a duration longer than end of turn |
-| OP01-086 | Overheat | event | **A** | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
+| OP01-086 | Overheat | event | **A** ✅ | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
 | OP01-087 | Officer Agents | event | **C** | put-into-play, and nothing else |
 | OP01-088 | Desert Spada | event | **C** | `orderCards` on the `[Counter]` half **and** a player-chosen discard on the `[Trigger]` half |
-| OP01-089 | Crescent Cutlass | event | **A** | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
+| OP01-089 | Crescent Cutlass | event | **A** ✅ | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
 | OP01-090 | Baroque Works | event | **C** | `orderCards` + "the rest" **and** "other than [Baroque Works]" |
 | OP01-091 | King (L) | leader | **C** | a condition on how many DON!! you have on the field. Everything else is a `static` with a selector `affects` |
 | OP01-092 | Urashima | char | vanilla | — |
 | OP01-093 | Ulti | char | **C** | the DON!! deck, and nothing else. The `restDon 1` cost already exists |
-| OP01-094 | Kaido | char | **A** | `onPlay`, `optional`, cost `returnDon 6`; `if countCards {leader, types}` → `ko {selector: {field, any, character, excludeSelf}}` |
+| OP01-094 | Kaido | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 6`; `if countCards {leader, types}` → `ko {selector: {field, any, character, excludeSelf}}` |
 | OP01-095 | Kyoshirou | char | **C** | a condition on how many DON!! you have on the field, and nothing else |
-| OP01-096 | King | char | **A** | `onPlay`, `optional`, cost `returnDon 2`; two selects, two `ko` |
-| OP01-097 | Queen | char | **A** | `onPlay`, `optional`, cost `returnDon 1`; `grantKeyword self rush endOfTurn`, then `addPower −2000 endOfTurn` |
+| OP01-096 | King | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 2`; two selects, two `ko` |
+| OP01-097 | Queen | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 1`; `grantKeyword self rush endOfTurn`, then `addPower −2000 endOfTurn` |
 | OP01-098 | Kurozumi Orochi | char | **C** | search the whole deck by name, and `shuffle` |
 | OP01-099 | Kurozumi Semimaru | char | **C** | a prohibition (board-wide K.O. immunity) **and** a name reference |
 | OP01-100 | Kurozumi Higurashi | char | **A** | `[Blocker]` reminder only. No `Ability` needed |
@@ -798,16 +869,16 @@ have been added to it as batches land:
 | OP01-105 | Bao Huang | char | **B** | `reveal` takes a `Selector`; this needs it to take a `Ref` so it can reveal the cards just chosen. See the hidden-information note |
 | OP01-106 | Basil Hawkins | char | **C** | the DON!! deck **and** put-into-play |
 | OP01-107 | Babanuki | char | vanilla | — |
-| OP01-108 | Hitokiri Kamazo | char | **A** | `onKO`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 5} → `ko` |
+| OP01-108 | Hitokiri Kamazo | char | **A** ✅ | `onKO`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 5} → `ko` |
 | OP01-109 | Who's.Who | char | **C** | a condition on how many DON!! you have on the field, and nothing else |
 | OP01-110 | Fukurokuju | char | vanilla | — |
-| OP01-111 | Black Maria | char | **A** | `onBlock`, `optional`, cost `returnDon 1` → `addPower self +1000 endOfTurn`. `[Blocker]` is printed |
+| OP01-111 | Black Maria | char | **A** ✅ | `onBlock`, `optional`, cost `returnDon 1` → `addPower self +1000 endOfTurn`. `[Blocker]` is printed |
 | OP01-112 | Page One | char | **C** | an attack-legality modifier, with a duration — the same hole as `OP01-021` |
 | OP01-113 | Holedem | char | **C** | the DON!! deck, and nothing else |
 | OP01-114 | X.Drake | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |
 | OP01-115 | Elephant's Marchoo | event | **C** | the DON!! deck, and nothing else. The `ko` half is expressible |
 | OP01-116 | Artificial Devil Fruit SMILE | event | **C** | put-into-play **from the deck** **and** `orderCards` |
-| OP01-117 | Sheep's Horn | event | **A** | `mainEvent`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 6} → `rest` |
+| OP01-117 | Sheep's Horn | event | **A** ✅ | `mainEvent`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 6} → `rest` |
 | OP01-118 | Ulti-Mortar | event | **C** | the DON!! deck on the `[Trigger]` half. The `[Counter]` half is expressible |
 | OP01-119 | Thunder Bagua | event | **C** | the DON!! deck on both halves. Everything else, `lifeAtMost` included, is expressible |
 | OP01-120 | Shanks | char | **C** | a `[Blocker]` prohibition **and** a printed-keyword filter — `ST01-002`'s shape exactly. `[Rush]` is printed |

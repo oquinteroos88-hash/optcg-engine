@@ -12,10 +12,14 @@ import { OP01_DECKS } from './support.js';
  * the fixture decks with the shared stable-key policy and asserts the exact set
  * of abilities that resolved.
  *
- * **Three seeds cover every ability a real game can reach** — 4, 358 and 43 —
- * found by a greedy cover over 400 games in a single pass. Seeds 35 and 81 are
- * added for the two "did it land" cases: 35 for a DON!! actually turning over,
- * 81 for a battle actually ending early.
+ * **Three seeds cover every ability a real game can reach** — 1, 109 and 240 —
+ * found by a greedy cover over 300 games in a single pass. Seeds 10 and 158 are
+ * added for the two "did it land" cases: 10 for a DON!! actually turning over,
+ * 158 for a battle actually ending early.
+ *
+ * This file is the **red/green** corpus. Batch 3's blue and purple cards have
+ * their own, in `op01BpGame.test.ts`, because a deck may only hold cards that
+ * share a colour with its Leader.
  *
  * The seed list moves whenever the **decks** move — Robin joining in batch 1,
  * the Events joining in batch 2 — and that is not the driver drifting. A
@@ -24,7 +28,7 @@ import { OP01_DECKS } from './support.js';
  * nothing, and the starter seeds two packages over have never moved.
  */
 
-const SEEDS = [4, 358, 43, 35, 81] as const;
+const SEEDS = [1, 109, 240, 10, 158] as const;
 const ACTIONS = 400;
 
 /**
@@ -33,6 +37,9 @@ const ACTIONS = 400;
  * starts firing without being listed.
  */
 const BATCH_ABILITIES = [
+  // Batch 3 — the two activated abilities, which are red/green.
+  'OP01-003-main',
+  'OP01-020-main',
   // Batch 1 — Characters.
   'OP01-006-onPlay',
   'OP01-017-whenAttacking',
@@ -142,7 +149,7 @@ describe('a real game of OP-01 against OP-01', () => {
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 
-  it('fires every reachable ability at least once across five unscripted games', () => {
+  it('fires every reachable red/green ability across five unscripted games', () => {
     const fired = new Set<string>();
     for (const seed of SEEDS) {
       const game = run(seed);
@@ -244,14 +251,17 @@ describe('a real game of OP-01 against OP-01', () => {
 
 describe('the sweep survives a battle losing its participant', () => {
   // The pinned seeds above say the rule is reached. This says nothing else
-  // broke: 150 games with Robin in both decks, none of which may throw. Before
+  // broke: 200 games with Robin in both decks, none of which may throw. The
+  // range grew with the decks — an early end is rare (1 game in 300 now that
+  // batch 2 and 3 diluted the Characters), so the sweep has to be wide enough
+  // to contain one. Before
   // the fix, seed 10 alone was enough to bring the whole run down with
   // `Engine bug: … is not on … field`, so a sweep of this size is the honest
   // regression test for it.
-  it('plays 150 games without an Engine bug, and dissipates some battles', () => {
+  it('plays 200 games without an Engine bug, and dissipates some battles', () => {
     let earlyEndings = 0;
     let gamesWithOne = 0;
-    for (let seed = 1; seed <= 150; seed += 1) {
+    for (let seed = 1; seed <= 200; seed += 1) {
       const game = run(seed);
       const early = game.state.log.filter((event) => event.type === 'battleEndedEarly').length;
       earlyEndings += early;

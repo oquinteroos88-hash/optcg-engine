@@ -73,6 +73,22 @@ describe('the OP-01 test decks are legal', () => {
       'OP01-056',
       'OP01-057',
       'OP01-058',
+      // Batch 3 — activated, statics, [On K.O.], [On Block], blue/purple.
+      'OP01-003',
+      'OP01-020',
+      'OP01-068',
+      'OP01-070',
+      'OP01-078',
+      'OP01-079',
+      'OP01-080',
+      'OP01-086',
+      'OP01-089',
+      'OP01-094',
+      'OP01-096',
+      'OP01-097',
+      'OP01-108',
+      'OP01-111',
+      'OP01-117',
     ]);
     const KEYWORD_ONLY = /^\[(Blocker|Rush|Banish|Double Attack)\]/;
     for (const deck of OP01_TEST_DECKS) {

@@ -11,30 +11,23 @@ import type { Decklist } from '../../src/types.js';
  * still deals ST-01 against ST-02, which is correct until OP-01 has enough
  * written cards to be a real deck.
  *
- * ## Why two red/green decks and not one of each colour
+ * ## Six decks, in three pairs
  *
  * OP-01 prints eight Leaders across four colours, and deck legality wants every
- * card to share a colour with the Leader. Nine of the ten cards this batch
- * looked at are red or green, so a red/green Leader carries all nine at once —
- * `OP01-003` Luffy and `OP01-002` Law are the two that do.
+ * card to share a colour with the Leader — so the fixtures come in colour pairs.
+ * **Luffy** and **Law** are red/green and deal the manifestation games for
+ * batches 1 and 2; **Crocodile** and **Kaido** are blue/purple and do the same
+ * for batch 3. The two `*_EVERYTHING` decks are for the hand-built table tests
+ * only, and exist because `buildScenario` can stage only what a decklist holds.
  *
- * The tenth, `OP01-070` Dracule Mihawk, is blue, and it could not be shipped in
- * this batch for a reason worth writing down rather than rediscovering:
+ * Batch 1 recorded that a legal blue deck could not be built at all: OP-01's
+ * blue pool held five cards whose printed text the engine already honoured, and
+ * a blue/purple Leader reached nine — 36 of the 50 slots. Four pile-A cards sat
+ * deferred behind that. **It was never a rules problem**; it was a written-card
+ * problem, and batch 3 wrote thirteen. The arithmetic is under
+ * `OP01_BP_CROCODILE`.
  *
- * > A legal deck is 50 cards at 4 copies each, so it needs at least 13 distinct
- * > cards. OP-01's blue pool contains **four** Characters with no printed effect
- * > at all (`OP01-065`, `-066`, `-076`, `-081`) plus `OP01-075` Pacifista, whose
- * > only in-game text is `[Blocker]`. Five distinct cards is 20 of the 50.
- * > Widening to a blue/purple Leader adds four more vanilla purple bodies and
- * > `OP01-100`, reaching 40. **There is no way to fill a blue deck out of cards
- * > whose printed text the engine already honours.**
- *
- * Filling the rest with cards whose abilities are not written would put bodies
- * on the board that lie about what they do, which is the one thing a fixture
- * must not do. So Mihawk waits for a batch that also writes enough blue cards
- * to field him.
- *
- * ## What is in them
+ * ## What is in the red/green pair
  *
  * Both decks carry all nine **batch-1 Characters**, at 3 copies rather than 4 —
  * batch 2 needed the room. Each carries the batch-2 **Events of one colour**:
@@ -97,8 +90,9 @@ export const OP01_RG_LUFFY: Decklist = {
     { cardId: 'OP01-028', qty: 3 }, // Green Star Rafflesia — [Counter] and [Trigger], one list
     { cardId: 'OP01-029', qty: 3 }, // Radical Beam!! — [Counter] boost + life gate, [Trigger] +1000
     { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
-    { cardId: 'OP01-036', qty: 4 }, // Otsuru — vanilla, cost 1, 3000
-    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-036', qty: 2 }, // Otsuru — vanilla, cost 1, 3000
+    { cardId: 'OP01-053', qty: 3 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-020', qty: 3 }, // Hyogoro — [Activate: Main] rest itself, +2000
   ],
 };
 
@@ -170,8 +164,148 @@ export const OP01_RG_EVERYTHING: Decklist = {
     { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
     { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-020', qty: 2 }, // Hyogoro — [Activate: Main] rest itself, +2000
     { cardId: 'OP01-036', qty: 3 }, // Otsuru — vanilla, cost 1, 3000
-    { cardId: 'OP01-025', qty: 3 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+    { cardId: 'OP01-025', qty: 1 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+  ],
+};
+
+/* ---------------------------------------------------------- blue and purple */
+
+/**
+ * ## The blue/purple wall, and how it came down
+ *
+ * Batch 1 could not build a legal blue deck and said why: a legal deck is 50
+ * cards at 4 copies, so it needs 13 distinct, and OP-01's blue pool held **five**
+ * cards whose printed text the engine already honoured. Widening to a
+ * blue/purple Leader reached nine — 36 of the 50 — and filling the rest with
+ * unwritten abilities would have put bodies on the board that lie about what
+ * they do. `OP01-070` Mihawk waited there for two batches, joined by `-086`,
+ * `-089` and `-117` in batch 2.
+ *
+ * The wall was never about rules. It was about **written cards**, and batch 3
+ * wrote thirteen blue and purple ones. The arithmetic now:
+ *
+ * | | distinct | slots |
+ * | --- | --- | --- |
+ * | inert blue (`-065`, `-066`, `-076`, `-081`) | 4 | 16 |
+ * | inert purple (`-092`, `-100`, `-103`, `-107`, `-110`) | 5 | 20 |
+ * | **scripted in batch 3** | **13** | **52** |
+ * | total | 22 | 88 |
+ *
+ * Fifty needed, eighty-eight available. The four deferred cards did not need
+ * anything built for them — they needed *each other*, and eleven neighbours.
+ *
+ * One property of the pool survives and is worth knowing: it is **top-heavy**.
+ * Only three cards in it cost 2 or less (`-076`, `-100`, and `-117`), against a
+ * 9-, a 10- and a 7-cost among the scripted. These decks are slower than the
+ * red/green pair and their games run longer.
+ */
+
+/** Every scripted blue/purple card, two copies, for the hand-built tests. */
+const BATCH_3_BP = [
+  { cardId: 'OP01-068', qty: 2 }, // Gecko Moria — static [Double Attack]
+  { cardId: 'OP01-070', qty: 2 }, // Dracule Mihawk — [On Play] bottom-deck
+  { cardId: 'OP01-078', qty: 2 }, // Boa Hancock — [When Attacking]/[On Block] draw
+  { cardId: 'OP01-079', qty: 2 }, // Ms. All Sunday — [On K.O.] recover an Event
+  { cardId: 'OP01-080', qty: 2 }, // Miss Doublefinger — [On K.O.] draw
+  { cardId: 'OP01-086', qty: 2 }, // Overheat — [Counter] and [Trigger] bounce
+  { cardId: 'OP01-089', qty: 2 }, // Crescent Cutlass — [Counter] bounce
+  { cardId: 'OP01-094', qty: 2 }, // Kaido — [On Play] board wipe
+  { cardId: 'OP01-096', qty: 2 }, // King — [On Play] two K.O.s, two selections
+  { cardId: 'OP01-097', qty: 2 }, // Queen — [On Play] Rush then −2000
+  { cardId: 'OP01-108', qty: 2 }, // Hitokiri Kamazo — [On K.O.] K.O.
+  { cardId: 'OP01-111', qty: 2 }, // Black Maria — [On Block] +1000
+  { cardId: 'OP01-117', qty: 2 }, // Sheep's Horn — [Main] rest
+] as const;
+
+/**
+ * Leader `OP01-062` Crocodile, and the first legal blue deck this project has
+ * been able to build.
+ *
+ * The Leader is chosen, not defaulted: it carries **both**
+ * {The Seven Warlords of the Sea} and {Baroque Works}, which are exactly the two
+ * types `OP01-089` and `OP01-079` gate on. Under any other Leader those two
+ * abilities would fire and resolve to nothing, and the fixture would be quietly
+ * measuring less than it looks like it measures.
+ */
+export const OP01_BP_CROCODILE: Decklist = {
+  id: 'OP01-BP-CROC',
+  name: 'OP-01 blue/purple (test fixture, Crocodile)',
+  packId: '569101',
+  leader: 'OP01-062',
+  cards: [
+    { cardId: 'OP01-068', qty: 4 },
+    { cardId: 'OP01-070', qty: 2 }, // cost 9 — two is already a lot of dead weight
+    { cardId: 'OP01-078', qty: 4 },
+    { cardId: 'OP01-079', qty: 4 },
+    { cardId: 'OP01-080', qty: 4 },
+    { cardId: 'OP01-086', qty: 4 },
+    { cardId: 'OP01-089', qty: 4 },
+    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-065', qty: 4 }, // Vergo — vanilla, cost 5
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+  ],
+};
+
+/**
+ * Leader `OP01-061` Kaido, for the purple half.
+ *
+ * Also a deliberate choice: `OP01-094` gates on an {Animal Kingdom Pirates}
+ * Leader, and this is the only blue/purple Leader that has the type.
+ */
+export const OP01_BP_KAIDO: Decklist = {
+  id: 'OP01-BP-KAIDO',
+  name: 'OP-01 blue/purple (test fixture, Kaido)',
+  packId: '569101',
+  leader: 'OP01-061',
+  cards: [
+    { cardId: 'OP01-094', qty: 2 }, // cost 10
+    { cardId: 'OP01-096', qty: 3 }, // cost 7
+    { cardId: 'OP01-097', qty: 3 }, // cost 6
+    { cardId: 'OP01-108', qty: 4 },
+    { cardId: 'OP01-111', qty: 4 },
+    { cardId: 'OP01-117', qty: 4 },
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-107', qty: 4 }, // Babanuki — vanilla, cost 5
+    { cardId: 'OP01-110', qty: 2 }, // Fukurokuju — vanilla, cost 6
+    { cardId: 'OP01-092', qty: 2 }, // Urashima — vanilla, cost 7
+    // Blue, and legal under a blue/purple Leader. Present so the type-gated
+    // abilities of OP01-079 and OP01-089 can be tested where the gate FAILS —
+    // Kaido carries neither {Baroque Works} nor {The Seven Warlords of the Sea}.
+    { cardId: 'OP01-079', qty: 1 },
+    { cardId: 'OP01-089', qty: 1 },
+  ],
+};
+
+/**
+ * Every scripted blue/purple card in one legal deck, for the table tests — the
+ * blue/purple twin of `OP01_RG_EVERYTHING`, and for the same reason.
+ *
+ * Crocodile-led, so the two type-gated abilities are live. `OP01-094`'s gate
+ * wants a different Leader, so its own cases stage from `OP01_BP_KAIDO`
+ * instead — the one place a table test names a deck by hand.
+ */
+export const OP01_BP_EVERYTHING: Decklist = {
+  id: 'OP01-BP-ALL',
+  name: 'OP-01 blue/purple (test fixture, every scripted card)',
+  packId: '569101',
+  leader: 'OP01-062',
+  cards: [
+    ...BATCH_3_BP,
+    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-065', qty: 4 }, // Vergo — vanilla, cost 5
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
   ],
 };
 
@@ -179,6 +313,9 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
   OP01_RG_LAW,
   OP01_RG_EVERYTHING,
+  OP01_BP_CROCODILE,
+  OP01_BP_KAIDO,
+  OP01_BP_EVERYTHING,
 ]);
 
 /**

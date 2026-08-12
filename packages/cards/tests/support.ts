@@ -4,6 +4,9 @@ import { buildScenario } from '@optcg/engine/testdata/scenarios';
 import type { ScenarioSpec } from '@optcg/engine/testdata/scenarios';
 import { registerEnglishCards, ST01_DECK, ST02_DECK, toEngineDecklist } from '../src/index.js';
 import {
+  OP01_BP_CROCODILE,
+  OP01_BP_EVERYTHING,
+  OP01_BP_KAIDO,
   OP01_RG_EVERYTHING,
   OP01_RG_LAW,
   OP01_RG_LUFFY,
@@ -35,11 +38,37 @@ export function starterScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameSta
 /** The deck the hand-built table tests stage from. */
 export const OP01_TABLE_DECK = toEngineDecklist(OP01_RG_EVERYTHING);
 
-/** The two decks the manifestation playouts deal from. */
+/** The red/green pair the batch-1 and batch-2 manifestation playouts deal from. */
 export const OP01_DECKS = {
   p1: toEngineDecklist(OP01_RG_LUFFY),
   p2: toEngineDecklist(OP01_RG_LAW),
 };
+
+/** The blue/purple pair, which batch 3 made buildable for the first time. */
+export const OP01_BP_DECKS = {
+  p1: toEngineDecklist(OP01_BP_CROCODILE),
+  p2: toEngineDecklist(OP01_BP_KAIDO),
+};
+
+const OP01_BP_TABLE_DECK = toEngineDecklist(OP01_BP_EVERYTHING);
+const OP01_BP_KAIDO_DECK = toEngineDecklist(OP01_BP_KAIDO);
+
+/**
+ * Hand-built blue/purple positions, Crocodile-led so the two type-gated
+ * abilities (OP01-079, OP01-089) are live.
+ */
+export function op01BpScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_BP_TABLE_DECK, p2: OP01_BP_TABLE_DECK } });
+}
+
+/**
+ * The same, Kaido-led. Only OP01-094 needs it: its gate wants an
+ * {Animal Kingdom Pirates} Leader, and Kaido is the one blue/purple Leader with
+ * the type.
+ */
+export function op01KaidoScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_BP_KAIDO_DECK, p2: OP01_BP_KAIDO_DECK } });
+}
 
 /**
  * Hand-built OP-01 positions. Both sides use the everything deck, because a

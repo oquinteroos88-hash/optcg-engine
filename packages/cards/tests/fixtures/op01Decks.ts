@@ -126,7 +126,60 @@ export const OP01_RG_LAW: Decklist = {
   ],
 };
 
-export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([OP01_RG_LUFFY, OP01_RG_LAW]);
+/**
+ * Every scripted OP-01 card in one legal deck, for the **table tests only**.
+ *
+ * `buildScenario` stages a card by taking it out of the deck, so a position can
+ * only name cards the decklist holds — and the two manifestation decks above
+ * deliberately split the Events by colour, which leaves each of them unable to
+ * stage half of them.
+ *
+ * Rather than un-split those (the split is what leaves room for bodies, and
+ * bodies are what the batch-1 abilities point at), the hand-built tests get a
+ * deck whose only job is availability. Its filler is thin on purpose: nothing
+ * here is ever shuffled and dealt, because every position these tests use is
+ * constructed.
+ *
+ * Kept legal all the same — it is asserted alongside the other two, so it
+ * cannot drift into something the deckbuilding rules would refuse.
+ */
+export const OP01_RG_EVERYTHING: Decklist = {
+  id: 'OP01-RG-ALL',
+  name: 'OP-01 red/green (test fixture, every scripted card)',
+  packId: '569101',
+  leader: 'OP01-003',
+  cards: [
+    // Two of each scripted card: a staged position never needs a third.
+    { cardId: 'OP01-006', qty: 2 },
+    { cardId: 'OP01-017', qty: 2 },
+    { cardId: 'OP01-022', qty: 2 },
+    { cardId: 'OP01-026', qty: 2 },
+    { cardId: 'OP01-027', qty: 2 },
+    { cardId: 'OP01-028', qty: 2 },
+    { cardId: 'OP01-029', qty: 2 },
+    { cardId: 'OP01-033', qty: 2 },
+    { cardId: 'OP01-034', qty: 2 },
+    { cardId: 'OP01-035', qty: 2 },
+    { cardId: 'OP01-048', qty: 2 },
+    { cardId: 'OP01-052', qty: 2 },
+    { cardId: 'OP01-054', qty: 2 },
+    { cardId: 'OP01-056', qty: 2 },
+    { cardId: 'OP01-057', qty: 2 },
+    { cardId: 'OP01-058', qty: 2 },
+    // And the inert bodies the positions are built out of.
+    { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
+    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-036', qty: 3 }, // Otsuru — vanilla, cost 1, 3000
+    { cardId: 'OP01-025', qty: 3 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+  ],
+};
+
+export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
+  OP01_RG_LUFFY,
+  OP01_RG_LAW,
+  OP01_RG_EVERYTHING,
+]);
 
 /**
  * Throws unless both decks are legal.

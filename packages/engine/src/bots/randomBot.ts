@@ -1,98 +1,54 @@
+import { answerFor, chooseFrom, decide } from '../testing/policy.js';
 import { legalActions } from '../legalActions.js';
-import { nextInt } from '../rng.js';
-import type { RngState } from '../rng.js';
-import type { Action, ChoiceAnswer, GameState, InstanceId, PendingChoice, PlayerId } from '../types.js';
-
-// Derived from the game seed so a bot run is reproducible without ever touching
-// state.rng: the engine's stream must stay a pure function of the action log.
-export function botRngFor(seed: number): RngState {
-  return { seed: (seed ^ 0x9e3779b9) | 0, cursor: 0 };
-}
+import type { Action, ChoiceAnswer, GameState, PendingChoice, PlayerId } from '../types.js';
 
 /**
- * Uniform choice over legalActions with two deliberate biases:
+ * The sweep's bot, now a thin adapter over the shared policy.
  *
- * - CONCEDE is excluded. With concede in a uniform pool virtually every game
- *   ends by random concession within a few turns, which makes the endReason
- *   distribution meaningless and leaves the rules untested.
- * - END_TURN is taken only when nothing else remains, so turns actually spend
- *   resources and games progress toward a real ending.
+ * It used to carry its own uniform-over-index implementation and thread an
+ * `RngState` derived from the game seed. Both are gone:
  *
- * Returns null when the game offers no move (finished).
+ * - **Index choice violated local perturbation.** A new legal action displaced
+ *   every action after it in `legalActions`, so adding one ability shifted every
+ *   later decision of every game. `testing/policy.ts` documents what that cost.
+ * - **The threaded RNG is what made it hard to share.** A stream of draws is
+ *   order-dependent by construction: two drivers that consume a different number
+ *   of draws diverge even from the same seed. A hash of
+ *   `(seed, decision, action key)` needs no stream, so the same policy can be
+ *   called from four suites and give the same answer in each.
+ *
+ * `decision` replaces the RNG cursor and is simply the driver's step counter.
  */
-/**
- * Builds a uniformly random valid answer to an open choice.
- *
- * `legalActions` deliberately does not enumerate answers — for a "select 2 of
- * 7" the subsets alone are 21 entries — so the bot reads the shape of a legal
- * answer out of `state.pending` instead, which is exactly what any other client
- * has to do.
- */
-export function answerChoice(
-  pending: PendingChoice,
-  rng: RngState,
-): { answer: ChoiceAnswer; rng: RngState } {
-  switch (pending.kind) {
-    case 'yesNo': {
-      const draw = nextInt(rng, 2);
-      return { answer: { kind: 'yesNo', value: draw.value === 1 }, rng: draw.rng };
-    }
-    case 'selectOption': {
-      const draw = nextInt(rng, Math.max(1, pending.max));
-      return { answer: { kind: 'option', index: draw.value }, rng: draw.rng };
-    }
-    case 'selectCards':
-    case 'orderCards': {
-      // A random cardinality in [min, max], then that many distinct candidates.
-      const sizeDraw = nextInt(rng, pending.max - pending.min + 1);
-      const size = pending.min + sizeDraw.value;
-      let current = sizeDraw.rng;
-      const pool: InstanceId[] = [...pending.candidates];
-      const selected: InstanceId[] = [];
-      for (let i = 0; i < size; i += 1) {
-        const pick = nextInt(current, pool.length);
-        current = pick.rng;
-        const [taken] = pool.splice(pick.value, 1);
-        if (taken === undefined) {
-          throw new Error('Bot bug: ran out of candidates while answering a choice');
-        }
-        selected.push(taken);
-      }
-      return { answer: { kind: 'cards', selected }, rng: current };
-    }
-  }
-}
 
+/** One decision: the action to submit, answer included. `undefined` when none. */
 export function chooseAction(
   state: GameState,
   player: PlayerId,
-  rng: RngState,
-): { action: Action; rng: RngState } | null {
-  // An open choice leaves exactly one real move, and its payload is data rather
-  // than an enumerated option.
-  if (state.pending !== null && state.pending.player === player) {
-    const pending = state.pending;
-    const answered = answerChoice(pending, rng);
-    return {
-      action: {
-        type: 'ANSWER_CHOICE',
-        player,
-        choiceId: pending.id,
-        answer: answered.answer,
-      },
-      rng: answered.rng,
-    };
-  }
-  const options = legalActions(state, player).filter((action) => action.type !== 'CONCEDE');
-  if (options.length === 0) {
-    return null;
-  }
-  const preferred = options.filter((action) => action.type !== 'END_TURN');
-  const pool = preferred.length > 0 ? preferred : options;
-  const draw = nextInt(rng, pool.length);
-  const action = pool[draw.value];
-  if (action === undefined) {
-    throw new Error('Bot bug: index out of range while choosing an action');
-  }
-  return { action, rng: draw.rng };
+  seed: number,
+  decision: number,
+): Action | undefined {
+  return decide(state, player, seed, decision);
+}
+
+/** A legal answer to an open choice, for a driver that already has the pending. */
+export function answerChoice(
+  pending: PendingChoice,
+  seed: number,
+  decision: number,
+): ChoiceAnswer {
+  return answerFor(pending, seed, decision);
+}
+
+/** The action the policy takes out of an already-enumerated list. */
+export function chooseFromActions(
+  actions: readonly Action[],
+  seed: number,
+  decision: number,
+): Action | undefined {
+  return chooseFrom(actions, seed, decision);
+}
+
+/** `legalActions` for `player`, as the bot sees it before the policy runs. */
+export function botOptions(state: GameState, player: PlayerId): Action[] {
+  return legalActions(state, player);
 }

@@ -6,9 +6,9 @@ import {
   getPower,
   getPowerWithoutStatics,
   hasKeyword,
-  legalActions,
 } from '@optcg/engine';
-import type { Action, ChoiceAnswer, GameState, PendingChoice, PlayerId } from '@optcg/engine';
+import { decide } from '@optcg/engine/testing';
+import type { Action, GameState, PlayerId } from '@optcg/engine';
 import { registerEnglishCards, ST01_DECK, ST02_DECK, toEngineDecklist } from '../src/index.js';
 
 registerEnglishCards();
@@ -16,45 +16,20 @@ registerEnglishCards();
 const ACTIONS = 400;
 
 /**
- * A deterministic driver, deliberately not the engine's own bot: that one is
- * internal to the engine package. What matters here is that real printed costs,
- * powers, Counter values and Life totals survive a real game — and, now that
- * some of these cards have scripts, that their effects fire and resolve inside
- * one.
- */
-function pick(actions: Action[], step: number): Action | undefined {
-  const usable = actions.filter((action) => action.type !== 'CONCEDE');
-  if (usable.length === 0) return undefined;
-  const rest = usable.filter((action) => action.type !== 'END_TURN');
-  const pool = rest.length > 0 ? rest : usable;
-  // A cheap LCG over the action index: reproducible, and enough to reach
-  // attacks, blocks and Counter-step plays across a few hundred actions.
-  return pool[((step * 1103515245 + 12345) >>> 8) % pool.length];
-}
-
-/**
- * A valid answer to whatever is being asked.
+ * The driver is `@optcg/engine/testing`'s shared policy — `decide` — rather
+ * than a local one.
  *
- * `legalActions` only emits a marker for ANSWER_CHOICE — the shape of a legal
- * answer is data in `state.pending` — so a driver has to read it, exactly as
- * any real client does. Always takes the maximum allowed, which is what makes
- * the abilities visible: an "up to 1" answered with nothing fires but does
- * nothing, and the empty case has its own tests.
+ * It used to be a local LCG over the *index* into `legalActions`, and the cost
+ * of that is written into this file's own history: seed 107 died the day
+ * `ST01-017` gained an activatable ability, because a new action displaces
+ * every action after it and every later decision in every game moves. The
+ * policy now scores each action by a hash of its content, so an ability the
+ * driver does not pick changes nothing.
+ *
+ * What matters here is unchanged: real printed costs, powers, Counter values
+ * and Life totals surviving a real game, and the scripted effects firing and
+ * resolving inside one.
  */
-function answerFor(pending: PendingChoice, step: number): ChoiceAnswer {
-  switch (pending.kind) {
-    case 'yesNo':
-      return { kind: 'yesNo', value: true };
-    case 'selectOption':
-      return { kind: 'option', index: 0 };
-    case 'selectCards':
-    case 'orderCards': {
-      const offset = ((step * 2654435761) >>> 8) % Math.max(pending.candidates.length, 1);
-      const rotated = [...pending.candidates.slice(offset), ...pending.candidates.slice(0, offset)];
-      return { kind: 'cards', selected: rotated.slice(0, pending.max) };
-    }
-  }
-}
 
 interface Run {
   state: GameState;
@@ -109,16 +84,7 @@ function run(seed: number): Run {
   for (let step = 0; step < ACTIONS; step += 1) {
     if (state.status === 'finished') break;
     const player: PlayerId = state.priority;
-    const pending = state.pending;
-    const action: Action | undefined =
-      pending !== null && pending.player === player
-        ? {
-            type: 'ANSWER_CHOICE',
-            player,
-            choiceId: pending.id,
-            answer: answerFor(pending, step),
-          }
-        : pick(legalActions(state, player), step);
+    const action: Action | undefined = decide(state, player, seed, step);
     if (action === undefined) break;
 
     const result = applyAction(state, action);
@@ -141,7 +107,7 @@ function run(seed: number): Run {
 
 describe('a real game, ST-01 against ST-02', () => {
   it('starts and runs without the engine rejecting a legal action', () => {
-    const { state, taken } = run(20260806);
+    const { state, taken } = run(82);
     expect(taken).toBeGreaterThan(50);
     expect(['mulligan', 'playing', 'finished']).toContain(state.status);
   });
@@ -149,7 +115,7 @@ describe('a real game, ST-01 against ST-02', () => {
   it('reaches combat with real costs, powers and Counter values', () => {
     // Without this the run above could pass by only ever attaching DON!! and
     // passing, which would exercise none of the printed numbers.
-    const { mix, state } = run(20260806);
+    const { mix, state } = run(82);
     expect(mix.PLAY_CARD ?? 0).toBeGreaterThan(0);
     expect(mix.DECLARE_ATTACK ?? 0).toBeGreaterThan(0);
     expect(mix.PLAY_COUNTER ?? 0).toBeGreaterThan(0);
@@ -178,26 +144,25 @@ describe('a real game, ST-01 against ST-02', () => {
 
   it('fires and manifests each ability at least once across five unscripted games', () => {
     // Which abilities a single game reaches is a matter of what gets drawn, so
-    // one seed covers only some of them. These seeds between them reach every
-    // scripted ability in a real game nobody staged — including both halves of
-    // Gum-Gum Jet Pistol and all three DON!!-givers, which recycle rested DON!!
-    // the bots spent attacking. Seed 2 draws and plays Brook; seed 12 is the one
-    // that gets Urouge onto a three-Character board with a DON!! so its static
-    // switches on — the hardest of the three continuous effects to reach.
+    // one seed covers only some of them. These five between them reach every
+    // scripted ability and every static in a real game nobody staged.
     //
-    // Seed 9 attacks with Scratchmen Apoo carrying a DON!!, which is the only
-    // way its [When Attacking] reaches the opponent's cost area. Seed 224 is the
-    // one that spends both Counter Events in the same game — Scalpel and Repel
-    // are the rarest abilities in this deck to reach unprompted, because they
-    // need a battle the driver chooses to answer with an Event rather than a
-    // Counter card. Seeds 12 and 9 both play Thousand Sunny and rest it.
+    // - **82** is the broad one and the seed the tests above also use: a full
+    //   game ending on Life, and the largest single-seed coverage in the search.
+    // - **465** and **160** complete the cover. 160 is the expensive one: it is
+    //   1 of only 4 seeds in 600 that fire `ST02-016` Repel, still the hardest
+    //   ability in these decks to reach unprompted, and it fires `ST02-015`
+    //   Scalpel too — so it is this set's answer to what seed 224 used to be.
+    // - **9** and **8** are pinned by the two tests below and are kept in the
+    //   set so the file has one seed list rather than three.
     //
-    // Seed 224 replaced seed 107 when `ST01-017` was written, and the reason is
-    // worth recording: the driver picks by index out of `legalActions`, so a new
-    // activatable ability shifts every later choice in every game. These seeds
-    // are a search result over a fixed driver, not a property of the cards —
-    // adding an ability re-runs the search rather than invalidating the test.
-    const SEEDS = [20260806, 5, 99, 2, 12, 9, 224];
+    // These seeds are a search result over a *fixed driver*, not a property of
+    // the cards. What changed with this PR is what "fixed" costs: the driver now
+    // chooses by a hash of each action's content rather than by its index into
+    // `legalActions`, so an ability it does not pick cannot move any other
+    // decision. Adding a card no longer re-runs this search — which is the whole
+    // reason seed 107 died for `ST01-017` and seed 224 replaced it.
+    const SEEDS = [82, 465, 160, 9, 8, 46, 105];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {
@@ -234,9 +199,9 @@ describe('a real game, ST-01 against ST-02', () => {
   it('rests Thousand Sunny to pay, and the +1000 lands, in an unstaged game', () => {
     // Membership in the set above only says the script resolved. This says the
     // board moved, which is the claim worth making about a cost that spends the
-    // source: in seed 12's game the Stage really turned sideways to pay, and the
+    // source: in seed 9's game the Stage really turned sideways to pay, and the
     // power really went somewhere.
-    const game = run(12);
+    const game = run(9);
     expect(game.fired['ST01-017-main']).toBeGreaterThan(0);
 
     const at = game.state.log.findIndex(
@@ -270,14 +235,15 @@ describe('a real game, ST-01 against ST-02', () => {
   });
 
   it('reaches the [Trigger] half of an event from a life card', () => {
-    // Seed 5 turns a Gum-Gum Jet Pistol over as damage. That is the path that
+    // Seed 8 turns a Gum-Gum Jet Pistol over as damage. That is the path that
     // has an event resolving from the hand rather than from a Main-phase play,
-    // and it is worth naming rather than leaving inside a union.
-    expect(run(5).fired['ST01-015-trigger']).toBeGreaterThan(0);
+    // and it is worth naming rather than leaving inside a union. (Seed 5 under
+    // the old index-based driver; re-searched once when the policy changed.)
+    expect(run(8).fired['ST01-015-trigger']).toBeGreaterThan(0);
   });
 
   it('answers every choice its own abilities open', () => {
-    const { mix } = run(20260806);
+    const { mix } = run(82);
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 

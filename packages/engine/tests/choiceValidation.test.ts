@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction, createGame, legalActions } from '../src/index.js';
 import type { Action, GameState, InstanceId, PendingChoice } from '../src/index.js';
-import { botRngFor, chooseAction } from '../src/bots/randomBot.js';
+import { chooseAction } from '../src/bots/randomBot.js';
 import { checkInvariants, checkTurnLeak } from '../src/invariants.js';
 import { ABIL_DECK } from '../src/testdata/abilityDecks.js';
 
@@ -25,19 +25,19 @@ function pendingCorpus(games: number, cap: number): GameState[] {
       decks: { p1: ABIL_DECK, p2: ABIL_DECK },
       firstPlayer: 'p1',
     });
-    let rng = botRngFor(seed);
+    let decision = 0;
     let guard = 0;
     while (state.status !== 'finished' && guard < 4000) {
       guard += 1;
       if (state.pending !== null && found.length < cap) {
         found.push(state);
       }
-      const picked = chooseAction(state, state.priority, rng);
-      if (picked === null) {
+      const action = chooseAction(state, state.priority, seed, decision);
+      decision += 1;
+      if (action === undefined) {
         break;
       }
-      rng = picked.rng;
-      const result = applyAction(state, picked.action);
+      const result = applyAction(state, action);
       if (!result.ok) {
         throw new Error(`bot produced an illegal action: ${result.reason}`);
       }

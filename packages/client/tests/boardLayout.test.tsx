@@ -40,12 +40,24 @@ function loadState(state: GameState): void {
   });
 }
 
-/** A position with both halves populated: characters on the board, cards in hand. */
+/**
+ * A position with both halves populated: characters on the board, and a hand
+ * wide enough to actually be fanned.
+ *
+ * The hand-size clause is new and is not a relaxation — it is the opposite. The
+ * fan tests below have always needed more than three cards in the hand of the
+ * player on priority ("still routes a click on a card inside the arc" asserts
+ * exactly that), and until the driver changed they got one by luck: the first
+ * state matching the old predicate happened to have a wide hand. A corpus query
+ * that depends on an unstated precondition is a test that fails for a reason
+ * unrelated to what it claims, which is what happened here.
+ */
 const populated = firstStarterStateWhere(
   (state) =>
     state.pending === null &&
     state.players.p1.characters.length > 0 &&
-    state.players.p2.characters.length > 0,
+    state.players.p2.characters.length > 0 &&
+    state.players[state.priority].hand.length > 3,
 );
 
 /**

@@ -589,22 +589,58 @@ open choice directly rather than playing toward one.
 
 ## Bot and simulation
 
-The bot picks uniformly from `legalActions`, except when a choice is open: then
-it reads `state.pending` and builds a uniformly random valid answer — a random
-cardinality in `[min, max]` and that many distinct candidates for a card
-selection. That is not a special case for the bot's convenience, it is the same
-thing any client has to do, since the answers are deliberately not enumerated.
+The bot is a thin adapter over the one policy every test driver in this repo
+shares, `src/testing/policy.ts`, published as `@optcg/engine/testing`. When a
+choice is open it reads `state.pending` and builds a valid answer from it — not
+a special case for the bot's convenience, but the same thing any client has to
+do, since the answers are deliberately not enumerated.
 
-Otherwise it has two deliberate biases:
+### Stable keys, not indices
+
+The policy scores each option by a hash of `(seed, decision, key)` and takes the
+best, where the **key comes from the option's content** — the action's type plus
+the ids it carries — and never from its position in the list. Ties break on the
+key, so a decision is a pure function of the *set* of options.
+
+That buys one property, and the property is the reason the module exists:
+
+> **Local perturbation.** If a state gains a new legal action and the driver does
+> not pick it, the decision is identical to the one it would have made without
+> it.
+
+Every driver used to choose by index into `legalActions`, which violates that by
+construction — a new action displaces every action after it, so adding one
+ability moved every later decision of every game. It cost the repo seed 107
+(killed when `ST01-017` gained an activatable ability), then seed 224, then the
+first phase-2C driver's whole trajectory set. `tests/stableKeys.test.ts` asserts
+the property over 13,608 injected decisions on real games and, in the same file,
+asserts that the index-based policy it replaced fails it.
+
+### The two biases, and the exploration rate
+
+The biases are expressed as **tiers over content**, never as filters over
+position, so they cannot reintroduce the ordering dependence:
 
 - `CONCEDE` is excluded. Left in a uniform pool, essentially every game ends by
   random concession within a few turns, and the resulting statistics validate
   nothing. This is a documented deviation from a strictly uniform bot.
-- `END_TURN` is only taken when nothing else remains, so turns actually spend
-  resources and games progress toward a real ending.
+- `END_TURN` is the last tier, so turns actually spend resources and games
+  progress toward a real ending.
 
-The bot draws from its own RNG stream and never touches `state.rng`, so the
-engine's stream stays a pure function of the action log.
+Answers take the **strong line by default** — the full selection, yes to an
+optional ability — and explore the rest of the range on 1 decision in 8. That
+rate is measured rather than chosen: answering uniformly took `ST02-016` Repel
+from 5 reachable seeds in 500 to 0, because half-strength answers stop the board
+reaching the positions where a [Counter] Event is holdable and payable at all.
+1 in 8 costs ~15% of that reach and buys the empty selection and the declined
+opt-in inside a single pass — which is what retired the client corpus's second,
+minimum-answer playout. The table is in `cardinalityFor`.
+
+The policy needs no RNG stream. A hash of the decision number replaces the
+cursor, which is also what makes it shareable: a stream is order-dependent, so
+two drivers that consume a different number of draws diverge from the same seed.
+Nothing here touches `state.rng`, so the engine's stream stays a pure function of
+the action log.
 
 `runGame` asserts after **every** action: the action was accepted, all state
 invariants hold, the non-priority player has only `[CONCEDE]`, the state survives

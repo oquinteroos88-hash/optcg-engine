@@ -10,10 +10,11 @@ export const MAX_STEPS = 150;
  * Seeds carried over from `packages/cards/tests/game.test.ts`, where they were
  * searched for reaching every scripted ability in ST-01/ST-02 at least once —
  * including the two [Counter] Events, which are the hardest to reach unprompted.
+ *
+ * Re-searched once when the driver stopped choosing by index; that is the whole
+ * price of the change, and it is not paid again when a card is added.
  */
-export const STARTER_SEEDS = [20260806, 5, 99, 2, 12, 9, 224] as const;
-/** A short second pass answering every selection at its minimum — see AnswerPolicy. */
-export const STARTER_MIN_ANSWER_SEEDS = [5, 12] as const;
+export const STARTER_SEEDS = [82, 465, 160, 9, 8, 46, 105] as const;
 export const STARTER_MAX_STEPS = 400;
 
 function mustApply(state: GameState, action: Parameters<typeof applyAction>[1]): GameState {
@@ -75,10 +76,7 @@ export function attachedDonScenario(): GameState {
 export function starterCorpusStates(): GameState[] {
   const states: GameState[] = [];
   for (const seed of STARTER_SEEDS) {
-    states.push(...starterPlayout(seed, STARTER_MAX_STEPS, 'max'));
-  }
-  for (const seed of STARTER_MIN_ANSWER_SEEDS) {
-    states.push(...starterPlayout(seed, STARTER_MAX_STEPS, 'min'));
+    states.push(...starterPlayout(seed, STARTER_MAX_STEPS));
   }
   return states;
 }
@@ -94,7 +92,7 @@ export function firstPendingState(
   accept: (pending: NonNullable<GameState['pending']>) => boolean,
 ): GameState {
   for (const seed of STARTER_SEEDS) {
-    for (const state of starterPlayout(seed, STARTER_MAX_STEPS, 'max')) {
+    for (const state of starterPlayout(seed, STARTER_MAX_STEPS)) {
       const pending = state.pending;
       if (pending !== null && accept(pending)) {
         return state;
@@ -107,7 +105,7 @@ export function firstPendingState(
 /** The first starter-corpus state matching `accept`. Real positions only. */
 export function firstStarterStateWhere(accept: (state: GameState) => boolean): GameState {
   for (const seed of STARTER_SEEDS) {
-    for (const state of starterPlayout(seed, STARTER_MAX_STEPS, 'max')) {
+    for (const state of starterPlayout(seed, STARTER_MAX_STEPS)) {
       if (accept(state)) {
         return state;
       }

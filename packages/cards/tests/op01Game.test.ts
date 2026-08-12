@@ -167,3 +167,38 @@ describe('a real game of OP-01 against OP-01', () => {
     expect(run(SEEDS[1]).state.log.length).toBe(run(SEEDS[1]).state.log.length);
   });
 });
+
+describe('the sweep survives a battle losing its participant', () => {
+  // The pinned seeds above say the rule is reached. This says nothing else
+  // broke: 150 games with Robin in both decks, none of which may throw. Before
+  // the fix, seed 10 alone was enough to bring the whole run down with
+  // `Engine bug: … is not on … field`, so a sweep of this size is the honest
+  // regression test for it.
+  it('plays 150 games without an Engine bug, and dissipates some battles', () => {
+    let earlyEndings = 0;
+    let gamesWithOne = 0;
+    for (let seed = 1; seed <= 150; seed += 1) {
+      const game = run(seed);
+      const early = game.state.log.filter((event) => event.type === 'battleEndedEarly').length;
+      earlyEndings += early;
+      if (early > 0) {
+        gamesWithOne += 1;
+      }
+      // A finished game left no battle open, and no `endOfBattle` modifier
+      // parked (CR 7-1-5-3 / 7-1-5-4). Not asserted on a game that ran into
+      // this file's 400-action cap: that one stopped mid-battle because the
+      // *test* stopped it, and its open battle is correct.
+      if (game.state.status === 'finished') {
+        expect(game.state.battle, `seed ${seed}`).toBeNull();
+        expect(
+          game.state.modifiers.filter((modifier) => modifier.duration === 'endOfBattle'),
+          `seed ${seed}`,
+        ).toEqual([]);
+      } else {
+        expect(game.taken, `seed ${seed} stopped early without finishing`).toBe(ACTIONS);
+      }
+    }
+    expect(gamesWithOne).toBeGreaterThan(0);
+    expect(earlyEndings).toBeGreaterThanOrEqual(gamesWithOne);
+  }, 120_000);
+});

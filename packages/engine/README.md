@@ -757,7 +757,7 @@ once, so counts are inflated by exactly 3.
 Phase 2A adds marks for the effect system — every `op`, the suspend/resume
 cycle, the cost kinds, the keywords, and the damage branches.
 
-Measured over 200 games with `--abilities --marks`, **four of the 60 declared
+Measured over 200 games with `--abilities --marks`, **five of the 61 declared
 marks are never reached**:
 
 | Dead mark | Why |
@@ -766,6 +766,7 @@ marks are never reached**:
 | `concede` | The bot excludes it on purpose; left in a uniform pool it ends nearly every game at random. Pinned by `winConditions.test.ts`. |
 | `op.targetGone` | Needs something to remove a target *between* choosing it and acting on it. Random play essentially never builds that chain, and "abort the whole script" is the natural wrong implementation, so `staleTargets.test.ts` builds the position directly. |
 | `ability.costLostBeforeResolution` | The defensive re-check when an earlier effect in a chain spends the resources a queued ability needed. Pinned by `staleTargets.test.ts` with a hand-queued stack item. |
+| `battle.endedEarly` | Needs an effect that removes a battle participant *during* the battle, and no ABIL card does — the set was cut before any card could. `battleVanished.test.ts` registers its own cards for it, and it fires in ordinary play elsewhere: `packages/cards` reaches it in 2 of 300 OP-01 games, on `OP01-017` Nico Robin K.O.ing the Character she is attacking. Dead in *this* sweep, not in the repo. |
 
 `battle.blocked` was dead in Phase 0 and is now reached 294 times: the ABIL set
 has real Blockers, so the redirect branch is exercised by ordinary play for the

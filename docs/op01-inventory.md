@@ -3,13 +3,16 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
-> **Status — batch 1 landed, and the rule it needed with it.** Nine pile-A cards
-> are written, taking OP-01 from 19 playable to **28 of 121**. One of the nine,
-> `OP01-017` Nico Robin, cost an engine change first: she can K.O. the very
-> Character her own attack is targeting, and the battle rules had no way to lose
-> their target. That is the most valuable thing the batch produced and it has its
-> own section,
+> **Status — batches 1 and 2 landed.** Sixteen pile-A cards are written, taking
+> OP-01 from 19 playable to **35 of 121**. Batch 1 was the nine mechanical
+> `[On Play]` / `[When Attacking]` Characters and cost an engine change on the
+> way — see
 > [What batch 1 found](#what-batch-1-found--a-missing-rule-not-a-missing-word).
+> Batch 2 was the seven red/green Events, and cost nothing: `mainEvent`,
+> `counterEvent` and a life card's `trigger` all took their first OP-01 cards
+> without a line of engine change. It did turn up one coverage limit worth
+> knowing — see
+> [What batch 2 found](#what-batch-2-found--a-counter-event-a-random-game-cannot-pay-for).
 > The classification below is **not re-cut** — it is what was read before any of
 > it was built, and the ✅ marks in the card-by-card table are the only thing
 > added to it.
@@ -100,7 +103,7 @@ for deck construction.
 | Pile | Meaning | Cards | Playable today |
 | --- | --- | --- | --- |
 | **vanilla** | No effect text and no trigger text. No `Ability` at all. | 16 | 16 |
-| **A** | The DSL expresses it as it stands. | 38 | **12** |
+| **A** | The DSL expresses it as it stands. | 38 | **19** |
 | **B** | Needs something bounded: one capability the DSL does not have. | 6 | 0 |
 | **C** | Hits a structural hole. | 60 | 0 |
 | **D** | Honestly ambiguous — the text does not settle where it belongs. | 1 | 1 |
@@ -110,22 +113,27 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 28 of 121, up from 19.** The `Playable today` column moves as
-batches land, and the first one has:
+**Playable today — 35 of 121, up from 19.** The `Playable today` column moves as
+batches land:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
   number this document opened with.
-- **9 more are written** as of batch 1 — `OP01-006`, `-017`, `-022`, `-033`,
-  `-034`, `-035`, `-048`, `-052`, `-054`, the mechanical `[On Play]` and
-  `[When Attacking]` cards. Eight of the nine needed nothing from the engine,
-  which is what pile A claimed. The ninth needed a missing *rule*, which is a
-  different thing and is the section below.
-- **26 more of pile A remain to write**, in later batches.
+- **9 written in batch 1** — `OP01-006`, `-017`, `-022`, `-033`, `-034`, `-035`,
+  `-048`, `-052`, `-054`: the mechanical `[On Play]` and `[When Attacking]`
+  Characters. Eight of the nine needed nothing from the engine, which is what
+  pile A claimed; the ninth needed a missing *rule*.
+- **7 written in batch 2** — `OP01-026`, `-027`, `-028`, `-029`, `-056`, `-057`,
+  `-058`: every red/green Event. Between them they took `mainEvent`,
+  `counterEvent` and a life card's `trigger` — three engine paths no OP-01 card
+  had run — and needed nothing new at all.
+- **19 more of pile A remain to write**, in later batches.
 - **66 of 121 still need something the DSL cannot say.**
 
-One card left pile A on contact, and it is the most useful thing batch 1 found:
-`OP01-017` Nico Robin. See
-[What batch 1 found](#what-batch-1-found--a-missing-rule-not-a-missing-word).
+The three blue and purple Events (`OP01-086`, `-089`, `-117`) are pile A and
+unwritten for a **deck-construction** reason rather than a DSL one: OP-01's blue
+and purple pools cannot fill a legal 50-card fixture out of cards whose text the
+engine already honours, which is the same wall `OP01-070` Mihawk hit in batch 1.
+They wait for a batch that writes enough of that half of the set to field them.
 
 `OP01-121` Yamato is counted as playable because its printed
 `[Double Attack]`/`[Banish]` already work and its one line of text has no
@@ -219,6 +227,43 @@ Damage Step: no damage, `endOfBattle` modifiers expire (7-1-5-3, 7-1-5-4), the
 attacker **stays rested** because 7-1-1-1 spent it and nothing in 7-1-5 gives it
 back, and a `battleEndedEarly` event tells the log the attack dissipated rather
 than failed. Robin is written.
+
+## What batch 2 found — a [Counter] Event a random game cannot pay for
+
+Nothing in batch 2 broke, and nothing needed the engine. What it found is a
+**coverage limit**, and it is worth writing down because it looks like a card
+problem and is not one.
+
+Five of the seven Events carry a `[Counter]` half. Across 400 random games of
+the fixture decks, **not one of the five ever fired** — while every `[Main]`
+half and every one of the five `[Trigger]` halves fired freely, from real
+damage. The measurement, taken over both corpora:
+
+| Corpus | Counter Steps | `PLAY_COUNTER_EVENT` offered | avg active DON!! |
+| --- | --- | --- | --- |
+| ST-01 / ST-02 | 9,324 | 6 | 0.00 |
+| OP-01 fixtures | 7,921 | **0** | 0.00 |
+
+The cause is neither the cards nor the decks. `PLAY_COUNTER_EVENT` is offered
+only when the defender's **active** cost-area DON!! covers the Event's printed
+cost (CR 7-1-3-2-2), and DON!! return to active only in their controller's own
+Refresh Phase (CR 6-2). The shared driver policy never leaves any: `ATTACH_DON`
+is legal while a single active DON!! remains — the Leader is always a legal
+recipient — and `END_TURN` is the policy's last tier, so a turn ends only after
+every DON!! has been spent or attached. A defender therefore arrives at every
+Counter Step with an empty active pool, in **both** corpora. The starters' six
+offers in 9,324 steps are the same near-zero, one rounding away.
+
+**No fixture can fix this**, which is why the fixtures were not bent trying. The
+five halves are covered by hand-built Counter Steps in `op01Events.test.ts`
+instead, and `op01Game.test.ts` asserts their *absence* from random play with
+the reasoning attached — so the day a policy change makes them reachable, the
+test says so rather than quietly getting stronger.
+
+It is worth naming what this is not. It is not the `counterEvent` finding again:
+the trigger is reachable, the move exists, and a real player pays for these
+Events every game. It is the **driver** that cannot, and the driver is a test
+instrument.
 
 ## Gaps, with both columns
 
@@ -671,10 +716,10 @@ have been added to it as batches land:
 | OP01-023 | Marco | char | vanilla | — |
 | OP01-024 | Monkey.D.Luffy | char | **C** | a prohibition (K.O. immunity in battle) **and** an attribute filter. Its `activateMain` half is expressible |
 | OP01-025 | Roronoa Zoro | char | **A** | `[Rush]` reminder only. No `Ability` needed |
-| OP01-026 | Gum-Gum … Red Hawk | event | **A** | `counterEvent`: select 0–1 own → `addPower +4000 endOfBattle`, then select 0–1 {opponent, powerMax 4000} → `ko`. `trigger`: `addPower −10000 endOfTurn` |
-| OP01-027 | Round Table | event | **A** | `mainEvent`; select 0–1 {field, opponent, character} → `addPower −10000 endOfTurn` |
-| OP01-028 | Green Star Rafflesia | event | **A** | `counterEvent` + `trigger` sharing one instruction list, as `ST01-015` does |
-| OP01-029 | Radical Beam!! | event | **A** | select as `x` → `addPower x +2000 endOfBattle`; `if lifeAtMost(you, 2)` → `addPower x +2000` again |
+| OP01-026 | Gum-Gum … Red Hawk | event | **A** ✅ | `counterEvent`: select 0–1 own → `addPower +4000 endOfBattle`, then select 0–1 {opponent, powerMax 4000} → `ko`. `trigger`: `addPower −10000 endOfTurn` |
+| OP01-027 | Round Table | event | **A** ✅ | `mainEvent`; select 0–1 {field, opponent, character} → `addPower −10000 endOfTurn` |
+| OP01-028 | Green Star Rafflesia | event | **A** ✅ | `counterEvent` + `trigger` sharing one instruction list, as `ST01-015` does |
+| OP01-029 | Radical Beam!! | event | **A** ✅ | select as `x` → `addPower x +2000 endOfBattle`; `if lifeAtMost(you, 2)` → `addPower x +2000` again |
 | OP01-030 | In Two Years!! … | event | **C** | `orderCards` + "the rest", and nothing else |
 | OP01-031 | Kouzuki Oden (L) | leader | **C** | a player-chosen, **type-filtered** discard. Body is `orientDon you active 2` |
 | OP01-032 | Ashura Doji | char | **A** | `static`, cond `and(donAttached 1, countCards {field, opponent, character, rested} min 2)`, `affects self` |
@@ -701,9 +746,9 @@ have been added to it as batches land:
 | OP01-053 | Wire | char | vanilla | — |
 | OP01-054 | X.Drake | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, rested, costMax 4} → `ko` |
 | OP01-055 | You Can Be My Samurai!! | event | **C** | a `Cost` that rests 2 Characters **you choose** — a chosen payment and a new cost member |
-| OP01-056 | Demon Face | event | **A** | `mainEvent`; select 0–2 {field, opponent, character, rested, costMax 5} → `ko` |
-| OP01-057 | Paradise Waterfall | event | **A** | `counterEvent`: `addPower +2000 endOfBattle` then `setActive`. `trigger`: `ko` a rested opponent Character |
-| OP01-058 | Punk Gibson | event | **A** | as `OP01-057`, with `rest` instead of `setActive` |
+| OP01-056 | Demon Face | event | **A** ✅ | `mainEvent`; select 0–2 {field, opponent, character, rested, costMax 5} → `ko` |
+| OP01-057 | Paradise Waterfall | event | **A** ✅ | `counterEvent`: `addPower +2000 endOfBattle` then `setActive`. `trigger`: `ko` a rested opponent Character |
+| OP01-058 | Punk Gibson | event | **A** ✅ | as `OP01-057`, with `rest` instead of `setActive` |
 | OP01-059 | BE-BENG!! | event | **C** | a player-chosen, type-filtered discard, and nothing else |
 | OP01-060 | Donquixote Doflamingo (L) | leader | **C** | put-into-play, **from the deck and rested**. The condition on the revealed card is expressible: a re-resolved `deckTop` selector with `count: 1` names the same card |
 | OP01-061 | Kaido (L) | leader | **C** | a trigger for "your opponent's Character is K.O.'d" (**missing rule**) **and** the DON!! deck |

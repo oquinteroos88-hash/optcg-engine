@@ -7,6 +7,7 @@ import {
   OP01_BP_CROCODILE,
   OP01_BP_EVERYTHING,
   OP01_BP_KAIDO,
+  OP01_G_ODEN,
   OP01_RG_EVERYTHING,
   OP01_RG_LAW,
   OP01_R_ZORO,
@@ -67,6 +68,23 @@ export function op01ZoroScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameSt
 export const OP01_ZORO_DECKS = {
   p1: OP01_ZORO_DECK,
   p2: toEngineDecklist(OP01_RG_LUFFY),
+};
+
+const OP01_ODEN_DECK = toEngineDecklist(OP01_G_ODEN);
+
+/**
+ * Mono-green, Oden-led. The only deck that can reach `OP01-031`'s activated
+ * ability, and the only one holding `OP01-059` in quantity — both pay the same
+ * {Land of Wano} price out of the same hand, so the two share a fixture.
+ */
+export function op01OdenScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_ODEN_DECK, p2: OP01_ODEN_DECK } });
+}
+
+/** Oden against Law, for the manifestation of the two filtered-discard cards. */
+export const OP01_ODEN_DECKS = {
+  p1: OP01_ODEN_DECK,
+  p2: toEngineDecklist(OP01_RG_LAW),
 };
 
 /**

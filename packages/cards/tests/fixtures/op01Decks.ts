@@ -116,8 +116,9 @@ export const OP01_RG_LAW: Decklist = {
     { cardId: 'OP01-058', qty: 3 }, // Punk Gibson — [Counter] boost + rest, [Trigger] rest
     { cardId: 'OP01-032', qty: 3 }, // Ashura Doji — static, +2000 against a rested board
     { cardId: 'OP01-039', qty: 3 }, // Killer — [Blocker], [On Block] draw
-    { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
-    { cardId: 'OP01-053', qty: 3 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-059', qty: 3 }, // BE-BENG!! — [Main] filtered discard, wake
+    { cardId: 'OP01-012', qty: 1 }, // Sai — vanilla, cost 2, 4000
+    { cardId: 'OP01-053', qty: 1 }, // Wire — vanilla, cost 2, 4000
     { cardId: 'OP01-025', qty: 3 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
     { cardId: 'OP01-010', qty: 1 }, // Komachiyo — vanilla, cost 1, 3000
   ],
@@ -215,6 +216,50 @@ export const OP01_R_ZORO: Decklist = {
   ],
 };
 
+/**
+ * Leader `OP01-031` Kouzuki Oden, mono-green, and the second fixture in this
+ * repo whose Leader has a written ability.
+ *
+ * It exists for the same reason `OP01_R_ZORO` does — a Leader's ability is only
+ * reachable in a game that Leader is leading — and it is mono-green for the same
+ * reason that one is mono-red: Oden prints one colour, so the deck cannot borrow
+ * another's cards.
+ *
+ * The deck is built around a *cost* rather than around an effect, which is new.
+ * Oden pays "trash 1 {Land of Wano} type card from your hand", and `canPayCosts`
+ * counts matching cards — so a green deck with a thin {Land of Wano} count would
+ * simply never offer the ability and the fixture would measure nothing. Ten of
+ * its thirteen entries carry the type, 40 of the 50 slots — the green pool holds
+ * exactly two inert {Land of Wano} bodies, so the rest of the curve has to come
+ * from outside the type. `OP01-059` BE-BENG!!
+ * pays out of the same pool and gates its effect on the same type, so the two
+ * cards this batch adds to the green pool share one deck rather than needing two.
+ */
+export const OP01_G_ODEN: Decklist = {
+  id: 'OP01-G-ODEN',
+  name: 'OP-01 mono-green (test fixture, Oden)',
+  packId: '569101',
+  leader: 'OP01-031',
+  cards: [
+    { cardId: 'OP01-036', qty: 4 }, // Otsuru — {Land of Wano}, vanilla, cost 1
+    // Wire and not Kawamatsu, who is the pool's other {Land of Wano} 2-drop:
+    // Kawamatsu prints "[Trigger] Play this card", and a fixture whose filler
+    // has unwritten text is a fixture that quietly measures less than it says.
+    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-043', qty: 4 }, // Shinobu — {Land of Wano}, vanilla, cost 3
+    { cardId: 'OP01-048', qty: 4 }, // Nekomamushi — [On Play] rest
+    { cardId: 'OP01-033', qty: 4 }, // Izo — [On Play] rest
+    { cardId: 'OP01-034', qty: 4 }, // Inuarashi — [When Attacking] refresh DON!!
+    { cardId: 'OP01-035', qty: 4 }, // Okiku — [When Attacking] rest
+    { cardId: 'OP01-052', qty: 4 }, // Raizo — [When Attacking] draw
+    { cardId: 'OP01-032', qty: 4 }, // Ashura Doji — static against a rested board
+    { cardId: 'OP01-057', qty: 4 }, // Paradise Waterfall — [Counter] and [Trigger]
+    { cardId: 'OP01-059', qty: 4 }, // BE-BENG!! — the filtered discard, again
+    { cardId: 'OP01-054', qty: 3 }, // X.Drake — [On Play] K.O. a rested Character
+    { cardId: 'OP01-045', qty: 3 }, // Jean Bart — vanilla, cost 4, 6000
+  ],
+};
+
 /* ---------------------------------------------------------- blue and purple */
 
 /**
@@ -262,6 +307,7 @@ const BATCH_3_BP = [
   { cardId: 'OP01-108', qty: 2 }, // Hitokiri Kamazo — [On K.O.] K.O.
   { cardId: 'OP01-111', qty: 2 }, // Black Maria — [On Block] +1000
   { cardId: 'OP01-117', qty: 2 }, // Sheep's Horn — [Main] rest
+  { cardId: 'OP01-064', qty: 2 }, // Alvida — [When Attacking] discard, bounce
 ] as const;
 
 /**
@@ -287,11 +333,11 @@ export const OP01_BP_CROCODILE: Decklist = {
     { cardId: 'OP01-080', qty: 4 },
     { cardId: 'OP01-086', qty: 4 },
     { cardId: 'OP01-089', qty: 4 },
+    { cardId: 'OP01-064', qty: 4 }, // Alvida — [When Attacking] discard, bounce
     { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
     { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
-    { cardId: 'OP01-065', qty: 4 }, // Vergo — vanilla, cost 5
     { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
   ],
 };
@@ -349,7 +395,7 @@ export const OP01_BP_EVERYTHING: Decklist = {
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
     { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
-    { cardId: 'OP01-065', qty: 4 }, // Vergo — vanilla, cost 5
+    { cardId: 'OP01-065', qty: 2 }, // Vergo — vanilla, cost 5
     { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
   ],
 };
@@ -358,6 +404,7 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
   OP01_R_ZORO,
   OP01_RG_LAW,
+  OP01_G_ODEN,
   OP01_RG_EVERYTHING,
   OP01_BP_CROCODILE,
   OP01_BP_KAIDO,

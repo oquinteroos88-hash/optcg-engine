@@ -282,9 +282,15 @@ describe('the contextual menu comes back with N options', () => {
     expect(menuOptions(single, 'c1')).toHaveLength(1);
   });
 
-  it('offers a [Counter] Event without a target step', () => {
+  it('offers a [Counter] Event without a target step, once confirmed', () => {
+    // Still no targeting - a [Counter] Event picks its own targets through
+    // `pending`. The menu in front of it is the hand's confirm step, which
+    // every card in hand now gets.
     const a = aff({ h1: card({ canPlayCounterEvent: true }) });
-    const result = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    const opened = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    expect(opened.mode).toEqual({ kind: 'cardMenu', owner: 'p1', card: 'h1' });
+
+    const result = reduceUiMode(opened.mode, { kind: 'chooseMenuOption', index: 0 }, a);
     expect(result.mode).toEqual(IDLE);
     expect(result.intent).toEqual({ type: 'PLAY_COUNTER_EVENT', instanceId: 'h1' });
   });

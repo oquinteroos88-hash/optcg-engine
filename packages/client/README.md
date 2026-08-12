@@ -184,6 +184,19 @@ after its player, containing a group `Campo de <player>` and a group
 `Mano de <player>`. The click-routing tests address the DOM through those names,
 which is what let this re-layout happen without touching a single assertion.
 
+## A click from hand never commits
+
+Clicking a card in your hand opens the contextual menu, even when there is only
+one thing that card can do. Playing is two clicks and the first one is free.
+
+That is not symmetry for its own sake: the hand is a row of small overlapping
+tiles you drag a pointer across, and a card that leaves it is gone. One click
+was enough to commit, which put a misplay a hand-tremor away. On the field a
+single-option click still acts immediately — nobody clicks their own attacker by
+accident, and every field path has a second step of its own anyway.
+
+Drag-and-drop would replace this. Until then the menu is the confirm.
+
 ## The hand fan
 
 An arc: each card tilts a little, lifts with the square of its distance from the
@@ -207,6 +220,28 @@ The fan rotation and the 90° `rested` rotation cannot collide: the fan is on th
 wrapper, `rested` is on the tile inside it. They never meet anyway —
 `tests/handFan.test.ts` measures that no card in any hand of the corpus is
 rested, over more than ten thousand hand cards.
+
+## Where the battle panel is
+
+In the left rail, under the card preview — not over the board.
+
+It used to be `position: fixed; inset: 0`, centred on the viewport, which put it
+squarely across both Character rows. The Block Step is exactly when the defender
+has to see and click a Character, so the panel covered the one thing it was
+asking about. In the rail it covers nothing and keeps its danger-red border so
+it is still impossible to miss.
+
+## The trash is readable
+
+The trash pile is a button; clicking it opens every card in it as real tiles, so
+hovering one fills the preview panel like anywhere else. Either player's pile,
+at any time — it is public information in the real game.
+
+It is deliberately **not** a `UiMode`: a mode is a step of an interaction that
+ends in an action, and reading a pile ends in nothing. Keeping it out means it
+cannot be invalidated by a change of priority or clobber a targeting mode
+halfway through. The deck stays a plain count, because showing its order would
+hand a player information the game does not give them.
 
 ## The preview panel
 

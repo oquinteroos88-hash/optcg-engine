@@ -1,26 +1,30 @@
-/* The wrapper must not swallow board clicks: the defender still has to click
-   their own cards to play a counter. Only the panel itself is interactive. */
+/*
+  The battle panel lives in the left rail, not over the board.
+
+  It used to be `position: fixed; inset: 0` centred on the viewport, which put
+  it squarely over both Character rows - and the Block Step is precisely when
+  the defender needs to see and click a Character. A panel that covers the one
+  thing you are being asked to choose is not an overlay, it is a blindfold.
+
+  It sits at the bottom of the rail so the card preview above it keeps its
+  place, and it is bordered in danger red so it is impossible to miss even
+  though it no longer sits in the middle of the screen.
+*/
 .wrapper {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 5;
+  flex: 0 0 auto;
+  padding: var(--space-2);
+  border-top: 1px solid var(--color-danger);
 }
 
 .panel {
-  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-2);
   background: rgba(28, 37, 54, 0.96);
   border: 1px solid var(--color-danger);
   border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .step {
@@ -31,17 +35,24 @@
   font-weight: 700;
 }
 
+/* Stacked, because the rail is ~160px: attacker over defender, arrow between.
+   `min-width: 0` and the wrap on `.name` keep a long card name from widening
+   the rail, which would move the board. */
 .matchup {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
 }
 
 .side {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 130px;
+  width: 100%;
+  min-width: 0;
 }
 
 .role {
@@ -51,8 +62,10 @@
 }
 
 .name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .power {
@@ -62,11 +75,13 @@
 }
 
 .arrow {
-  font-size: 22px;
+  font-size: 18px;
+  line-height: 1;
   color: var(--color-danger);
 }
 
 .pass {
+  width: 100%;
   background: var(--color-surface-2);
   color: var(--color-text);
   border: 1px solid var(--color-border);

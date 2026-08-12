@@ -14,3 +14,20 @@
 .blocked {
   pointer-events: none;
 }
+
+/* The left rail: card preview on top, battle panel below it when a battle is
+   open. Both are constant-width and neither overlaps the board.
+
+   The battle panel used to be `position: fixed; inset: 0` centred on the
+   viewport, which put it exactly over the two Character rows - so at the Block
+   Step the defender could not see, let alone click, the Character they wanted
+   to block with. */
+.rail {
+  width: var(--preview-w);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+}

@@ -21,6 +21,15 @@ export interface UiState {
    * mode is a step of an interaction and hovering is not one.
    */
   hovered: InstanceId | null;
+  /**
+   * Whose trash is open in the pile viewer, or null.
+   *
+   * Presentation only, and deliberately not a `UiMode`: a mode is a step of an
+   * interaction that ends in an action, and looking through a trash pile ends
+   * in nothing. Keeping it out means it cannot be invalidated by a priority
+   * change or clobber a targeting mode a player was halfway through.
+   */
+  viewingTrash: PlayerId | null;
 }
 
 export interface StoreState {
@@ -51,10 +60,12 @@ export interface StoreState {
   ackDevice: () => void;
   /** Points the preview panel at a card, or clears it. Never blocked. */
   hover: (instanceId: InstanceId | null) => void;
+  /** Opens or closes the trash viewer. Reading a public zone, never an action. */
+  viewTrash: (player: PlayerId | null) => void;
 }
 
 function idleUi(): UiState {
-  return { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null };
+  return { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null, viewingTrash: null };
 }
 
 export const useStore = create<StoreState>()((set, get) => {
@@ -189,6 +200,16 @@ export const useStore = create<StoreState>()((set, get) => {
         return;
       }
       set({ ui: { ...ui, hovered: instanceId } });
+    },
+
+    viewTrash: (player) => {
+      // The trash is public information in the real game — both players may
+      // read either pile, at any time, and doing so is not a move.
+      const ui = get().ui;
+      if (ui.viewingTrash === player) {
+        return;
+      }
+      set({ ui: { ...ui, viewingTrash: player } });
     },
 
     ackDevice: () => {

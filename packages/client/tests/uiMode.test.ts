@@ -37,26 +37,49 @@ function aff(
 const IDLE: UiMode = { kind: 'idle' };
 
 describe('reduceUiMode transitions', () => {
-  it('idle + playable hand card (no trash) emits PLAY_CARD without a trash key', () => {
+  // A card in hand never commits on the first click: it opens the menu, even
+  // with one option, so a misclick costs nothing. The routing each option takes
+  // is unchanged - that is what the second click below asserts.
+  it('idle + playable hand card asks first, then emits PLAY_CARD without a trash key', () => {
     const a = aff({ h1: card({ canPlay: true }) });
-    const result = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    const opened = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    expect(opened.mode).toEqual({ kind: 'cardMenu', owner: 'p1', card: 'h1' });
+    expect(opened.intent).toBeUndefined();
+
+    const result = reduceUiMode(opened.mode, { kind: 'chooseMenuOption', index: 0 }, a);
     expect(result.mode).toEqual(IDLE);
     expect(result.intent).toEqual({ type: 'PLAY_CARD', instanceId: 'h1' });
     expect(result.intent !== undefined && 'trashCharacter' in result.intent).toBe(false);
   });
 
-  it('idle + playable hand card requiring trash enters choosingTrash', () => {
+  it('idle + playable hand card requiring trash reaches choosingTrash through the menu', () => {
     const a = aff({ h1: card({ canPlay: true, playRequiresTrash: true, trashCandidates: ['c1'] }) });
-    const result = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    const opened = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    expect(opened.mode).toEqual({ kind: 'cardMenu', owner: 'p1', card: 'h1' });
+
+    const result = reduceUiMode(opened.mode, { kind: 'chooseMenuOption', index: 0 }, a);
     expect(result.mode).toEqual({ kind: 'choosingTrash', owner: 'p1', cardToPlay: 'h1' });
     expect(result.intent).toBeUndefined();
   });
 
-  it('idle + counterable hand card enters countering', () => {
+  it('idle + counterable hand card reaches countering through the menu', () => {
     const a = aff({ h1: card({ canCounter: true, counterTargets: ['L1'] }) });
-    const result = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    const opened = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    expect(opened.mode).toEqual({ kind: 'cardMenu', owner: 'p1', card: 'h1' });
+
+    const result = reduceUiMode(opened.mode, { kind: 'chooseMenuOption', index: 0 }, a);
     expect(result.mode).toEqual({ kind: 'countering', owner: 'p1', counterCard: 'h1' });
     expect(result.intent).toBeUndefined();
+  });
+
+  it('cancels a hand click with no cost: escape from the menu changes nothing', () => {
+    // The point of the confirm step. The board is untouched and the card is
+    // still in hand, which single-click play could not offer at all.
+    const a = aff({ h1: card({ canPlay: true }) });
+    const opened = reduceUiMode(IDLE, { kind: 'clickHandCard', instanceId: 'h1' }, a);
+    const cancelled = reduceUiMode(opened.mode, { kind: 'escape' }, a);
+    expect(cancelled.mode).toEqual(IDLE);
+    expect(cancelled.intent).toBeUndefined();
   });
 
   it('idle + own attacker enters attacking; valid target emits DECLARE_ATTACK', () => {

@@ -275,8 +275,16 @@ describe('battle interaction through the store', () => {
     const targetId = battleBefore.target;
     const basePower = getPower(mustGameState(), targetId);
 
-    // Defender picks a counter card, then its target.
+    // Defender picks a counter card, confirms it, then picks its target. The
+    // confirm is the hand's, not the counter step's: nothing leaves a hand on
+    // one click any more.
     useStore.getState().uiEvent({ kind: 'clickHandCard', instanceId: counterCard });
+    expect(useStore.getState().ui.mode).toEqual({
+      kind: 'cardMenu',
+      owner: 'p2',
+      card: counterCard,
+    });
+    useStore.getState().uiEvent({ kind: 'chooseMenuOption', index: 0 });
     expect(useStore.getState().ui.mode).toEqual({ kind: 'countering', owner: 'p2', counterCard });
 
     useStore.getState().uiEvent({ kind: 'clickFieldCard', instanceId: targetId, mine: true });

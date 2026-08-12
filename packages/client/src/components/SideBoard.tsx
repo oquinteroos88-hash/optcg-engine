@@ -36,6 +36,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   const gameState = useStore((s) => s.gameState);
   const veilOpponentHand = useStore((s) => s.ui.veilOpponentHand);
   const uiEvent = useStore((s) => s.uiEvent);
+  const viewTrash = useStore((s) => s.viewTrash);
   const attachingDon = useStore((s) => s.ui.mode.kind === 'attachingDon');
   const whoActs = useWhoActs();
   const canAttachDon = useCanAttachDon();
@@ -79,7 +80,13 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
             attaching={mine && attachingDon}
             onClick={() => uiEvent({ kind: 'clickDonArea' })}
           />
-          <DeckPile label="Descarte" count={ps.trash.length} compact />
+          {/* The one pile you may read: public information in the real game. */}
+          <DeckPile
+            label="Descarte"
+            count={ps.trash.length}
+            compact
+            onOpen={() => viewTrash(player)}
+          />
         </div>
       </div>
 

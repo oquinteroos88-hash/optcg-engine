@@ -714,6 +714,26 @@ export function useChoiceOverlay(): ChoiceOverlayView | null {
 }
 
 // ---------------------------------------------------------------------------
+// Pile viewer
+
+export interface TrashView {
+  player: PlayerId;
+  /** Most recent first, which is the order the engine already stores. */
+  ids: readonly InstanceId[];
+}
+
+const trashOf = memoize1((state: GameState | null, player: PlayerId | null): TrashView | null => {
+  if (state === null || player === null) {
+    return null;
+  }
+  return { player, ids: state.players[player].trash };
+});
+
+export function useTrashView(): TrashView | null {
+  return useStore((s) => trashOf(s.gameState, s.ui.viewingTrash));
+}
+
+// ---------------------------------------------------------------------------
 // Preview panel
 
 export interface PreviewView {

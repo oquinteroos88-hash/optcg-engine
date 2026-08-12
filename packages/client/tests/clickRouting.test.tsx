@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { UserEvent } from '@testing-library/user-event';
 import { applyAction, createGame, registerCardSet } from '@optcg/engine';
 import type { Action, CardId, Decklist, GameState, InstanceId, PlayerId } from '@optcg/engine';
 import { buildScenario, characterAt, handCard } from '@optcg/engine/testdata/scenarios';
@@ -31,7 +32,7 @@ function loadState(state: GameState): void {
     screen: 'playing',
     gameState: state,
     animQueue: [],
-    ui: { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null },
+    ui: { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null, viewingTrash: null },
     deviceAckFor: state.priority,
   });
 }
@@ -142,6 +143,25 @@ function battlePanel(step: string): HTMLElement {
 
 function cardIn(scope: HTMLElement, name: RegExp): HTMLElement {
   return within(scope).getByRole('button', { name });
+}
+
+/**
+ * The contextual menu, addressed through the control only it renders.
+ *
+ * Every card in hand goes through it now: a click there selects and asks, and
+ * only the menu commits. On the field a single-option click still acts on the
+ * first click, which is why the attack and block tests below have no menu step.
+ */
+function cardMenu(): HTMLElement {
+  const menu = screen.getByRole('button', { name: 'Cancelar' }).parentElement;
+  if (menu === null) {
+    throw new Error('contextual menu not rendered');
+  }
+  return menu;
+}
+
+async function confirmInMenu(user: UserEvent, name: RegExp): Promise<void> {
+  await user.click(within(cardMenu()).getByRole('button', { name }));
 }
 
 function donAreaOf(player: PlayerId): HTMLElement {
@@ -304,6 +324,11 @@ describe('one click per mode routes to the right intent', () => {
     const toPlay = handCard(state, 'p1', 'TEST-003');
 
     await user.click(cardIn(handOf('p1'), /^Red Brawler/));
+    // The first click only asks. Nothing has left the hand yet.
+    expect(mode()).toEqual({ kind: 'cardMenu', owner: 'p1', card: toPlay });
+    expect(mustState()).toBe(state);
+
+    await confirmInMenu(user, /^Jugar/);
 
     expect(mode()).toEqual({ kind: 'idle' });
     expect(mustState().players.p1.characters).toContain(toPlay);
@@ -319,6 +344,7 @@ describe('one click per mode routes to the right intent', () => {
     const sacrificed = characterAt(state, 'p1', 0);
 
     await user.click(cardIn(handOf('p1'), /^Red Champion/));
+    await confirmInMenu(user, /^Jugar/);
     // No dispatch yet: the play is pending on a choice.
     expect(mode()).toEqual({ kind: 'choosingTrash', owner: 'p1', cardToPlay: toPlay });
     expect(mustState()).toBe(state);
@@ -389,6 +415,7 @@ describe('one click per mode routes to the right intent', () => {
     const boosted = state.players.p2.leader;
 
     await user.click(cardIn(handOf('p2'), /^Green Recruit/));
+    await confirmInMenu(user, /^Usar de contraataque/);
     expect(mode()).toEqual({ kind: 'countering', owner: 'p2', counterCard });
     expect(mustState()).toBe(state);
 
@@ -458,7 +485,11 @@ describe('input is held while the animation queue drains', () => {
 
     drainQueue();
 
+    // The same click now works — through the menu, which is what a hand click
+    // does. It is the click being accepted at all that this test is about.
     fireEvent.click(cardIn(handOf('p1'), /^Red Brawler/));
+    expect(mode()).toEqual({ kind: 'cardMenu', owner: 'p1', card: toPlay });
+    fireEvent.click(within(cardMenu()).getByRole('button', { name: /^Jugar/ }));
     expect(mustState()).not.toBe(held);
     expect(mustState().players.p1.characters).toContain(toPlay);
   });

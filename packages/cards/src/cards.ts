@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { registerCardSet } from '@optcg/engine';
 import type { CardId } from '@optcg/engine';
-import { STARTER_ABILITIES } from './abilities.js';
+import { CARD_ABILITIES } from './abilities.js';
 import type { EnglishCardDefinition } from './types.js';
 
 /**
@@ -82,7 +82,7 @@ function validate(card: EnglishCardDefinition, seen: Set<CardId>): void {
  * `getAbilities` already treats as "vanilla".
  */
 function withAbilities(card: EnglishCardDefinition): EnglishCardDefinition {
-  const abilities = STARTER_ABILITIES[card.cardId];
+  const abilities = CARD_ABILITIES[card.cardId];
   if (abilities === undefined) {
     return Object.freeze(card);
   }
@@ -101,10 +101,10 @@ function load(): EnglishCardDefinition[] {
   const seen = new Set<CardId>();
   for (const card of cards) validate(card, seen);
 
-  // A mistyped key in STARTER_ABILITIES would otherwise attach to nothing and
+  // A mistyped key in CARD_ABILITIES would otherwise attach to nothing and
   // fail silently: the card would simply have no effect, which is exactly what
   // a vanilla card looks like.
-  for (const cardId of Object.keys(STARTER_ABILITIES)) {
+  for (const cardId of Object.keys(CARD_ABILITIES)) {
     if (!seen.has(cardId)) {
       throw new Error(`abilities.ts: ${cardId} is not a card in this set`);
     }

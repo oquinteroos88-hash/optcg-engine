@@ -10,12 +10,17 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **15 cards** — every base card of the two starter
- * decks whose printed abilities the DSL can currently express. It opened with
- * the pile-A cards of `docs/starter-card-inventory.md` and has grown one closed
- * gap at a time (PRs #11, #12, #13, and the rest-the-source cost), so the pile
- * labels no longer describe its contents. The inventory's card-by-card table is
- * the map; this file is the code.
+ * Scope of this file today: **24 cards** — the 15 starter cards whose printed
+ * abilities the DSL can express, plus the first batch of 9 from OP-01. It
+ * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
+ * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
+ * cost), so the pile labels no longer describe its starter contents. The two
+ * inventories' card-by-card tables are the map; this file is the code.
+ *
+ * The map was called `STARTER_ABILITIES` until OP-01 arrived in it. Nothing
+ * about it was ever starter-specific — `cards.ts` looks up every English card
+ * here, and `starters.ts` looks up the starter subset — so the name was the
+ * only thing that had to change.
  *
  * Four cards are absent on purpose, so their absence is not read as an
  * oversight:
@@ -126,7 +131,7 @@ function counterBoostThenRefresh(value: number): Instruction[] {
   ];
 }
 
-export const STARTER_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
+export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
   // ST01-001 Monkey.D.Luffy (Leader)
   // "[Activate: Main] [Once Per Turn] Give this Leader or 1 of your Characters
   //  up to 1 rested DON!! card."

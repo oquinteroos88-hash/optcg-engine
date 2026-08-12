@@ -36,7 +36,7 @@ import type { Decklist } from '../../src/types.js';
  *
  * ## What is in them
  *
- * Both decks carry all nine batch cards at 4 copies, so the abilities fire from
+ * Both decks carry all eight batch cards at 4 copies, so the abilities fire from
  * both sides of the table rather than only from the deck that happens to be p1.
  * The remaining fourteen slots differ between the two, and are **only** cards
  * with no printed effect or with nothing but a printed keyword — never a card
@@ -54,10 +54,9 @@ import type { Decklist } from '../../src/types.js';
  * this problem.
  */
 
-/** The nine cards this batch scripted, four copies each. */
+/** The eight cards this batch scripted, four copies each. */
 const BATCH_1 = [
   { cardId: 'OP01-006', qty: 4 }, // Otama — [On Play] −2000
-  { cardId: 'OP01-017', qty: 4 }, // Nico Robin — [When Attacking] K.O.
   { cardId: 'OP01-022', qty: 4 }, // Brook — [When Attacking] −2000 to two
   { cardId: 'OP01-033', qty: 4 }, // Izo — [On Play] rest
   { cardId: 'OP01-034', qty: 4 }, // Inuarashi — [When Attacking] refresh DON!!
@@ -82,7 +81,8 @@ export const OP01_RG_LUFFY: Decklist = {
     { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-036', qty: 4 }, // Otsuru — vanilla, cost 1, 3000
     { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
-    { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
+    { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
+    { cardId: 'OP01-023', qty: 2 }, // Marco — vanilla, cost 3, 5000
   ],
 };
 
@@ -101,7 +101,8 @@ export const OP01_RG_LAW: Decklist = {
     { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
     { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
     { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
-    { cardId: 'OP01-010', qty: 2 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-043', qty: 2 }, // Shinobu — vanilla, cost 3, 5000
   ],
 };
 

@@ -56,7 +56,6 @@ describe('the OP-01 test decks are legal', () => {
     // writes would silently change what these decks measure the day it lands.
     const BATCH = new Set([
       'OP01-006',
-      'OP01-017',
       'OP01-022',
       'OP01-033',
       'OP01-034',

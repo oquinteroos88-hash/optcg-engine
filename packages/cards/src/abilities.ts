@@ -10,8 +10,8 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **24 cards** — the 15 starter cards whose printed
- * abilities the DSL can express, plus the first batch of 9 from OP-01. It
+ * Scope of this file today: **23 cards** — the 15 starter cards whose printed
+ * abilities the DSL can express, plus the first batch of 8 from OP-01. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -32,6 +32,27 @@ import type { Ability, CardId, Instruction } from '@optcg/engine';
  * - `ST02-005` and `ST02-017` — one printed half each fits the DSL today and
  *   the other needs a card *put into play*. A card whose printed text is half
  *   implemented is worse than one that is honestly missing.
+ *
+ * And one more, for a different reason entirely:
+ *
+ * - **`OP01-017` Nico Robin** — "[DON!! x1] [When Attacking] K.O. up to 1 of
+ *   your opponent's Characters with 3000 power or less." The DSL says this
+ *   exactly; the script was written, and its table cases passed. It is absent
+ *   because the **engine** cannot survive it. An attack may target a rested
+ *   Character (CR 7-1-1-2), and Robin's own trigger can K.O. that same
+ *   Character before the Damage Step — at which point `resolveBattle` calls
+ *   `leaveField` on a card already in the trash and `detachFromField` throws
+ *   `Engine bug: … is not on … field`. `state.battle.target` becomes a stale
+ *   reference the battle rules never check, and `checkInvariants`' own
+ *   `battleShape` rule says as much.
+ *
+ *   Four actions reproduce it with no randomness: attach a DON!! to Robin,
+ *   attack a rested Character, answer her choice with that Character, pass. It
+ *   is a **missing rule**, not a missing word — the same class of finding as
+ *   `counterEvent`, and it belongs to backlog A. No starter card can reach it,
+ *   because none of the fifteen written above can remove a card from the field
+ *   during a battle it is part of. Robin is the first card in this repo that
+ *   can, and she is held back until the battle rules can lose their target.
  *
  * Every script here is a transcription of the card's printed text. Where the
  * text and the inventory disagreed, the text won.
@@ -609,33 +630,6 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
           min: 0,
           max: 1,
           prompt: "K.O. up to 1 of your opponent's rested Characters with a cost of 4 or less",
-        },
-        { op: 'ko', target: { var: 'victim' } },
-      ],
-    },
-  ],
-
-  // OP01-017 Nico Robin
-  // "[DON!! x1] [When Attacking] K.O. up to 1 of your opponent's Characters
-  //  with 3000 power or less."
-  //
-  // `powerMax` reads the power a card has *now*, statics and attached DON!!
-  // included (CR 2-6-3, and PR #9 which made the three condition sites agree).
-  // So a 2000-power Character carrying one DON!! is 3000 and still a legal
-  // target; carrying two it is 4000 and is not.
-  'OP01-017': [
-    {
-      id: 'OP01-017-whenAttacking',
-      trigger: 'whenAttacking',
-      condition: { kind: 'donAttached', min: 1 },
-      script: [
-        {
-          op: 'select',
-          as: 'victim',
-          from: { zone: 'field', owner: 'opponent', category: ['character'], powerMax: 3000 },
-          min: 0,
-          max: 1,
-          prompt: "K.O. up to 1 of your opponent's Characters with 3000 power or less",
         },
         { op: 'ko', target: { var: 'victim' } },
       ],

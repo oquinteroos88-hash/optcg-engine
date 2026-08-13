@@ -748,6 +748,8 @@ export interface ChoiceOverlayView {
   min: number;
   max: number;
   selected: readonly InstanceId[];
+  /** Candidates flagged for the top of the deck. Only a partition uses it. */
+  toTop: readonly InstanceId[];
   canConfirm: boolean;
   /** The card whose ability is asking, so the prompt is not a bare ability id. */
   sourceName: string | null;
@@ -778,6 +780,7 @@ const choiceOverlayOf = memoize1(
     const top = state.stack[state.stack.length - 1];
     const source = top === undefined ? undefined : state.cards[top.source];
     const selected = mode.selected;
+    const toTop = mode.toTop;
     return {
       choiceId: choice.id,
       kind: choice.kind,
@@ -787,6 +790,7 @@ const choiceOverlayOf = memoize1(
       min: choice.min,
       max: choice.max,
       selected,
+      toTop,
       canConfirm: selected.length >= choice.min && selected.length <= choice.max,
       sourceName: source === undefined ? null : getCardDef(source.cardId).name,
       sourceText:

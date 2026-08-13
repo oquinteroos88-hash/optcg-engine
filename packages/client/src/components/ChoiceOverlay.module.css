@@ -114,3 +114,24 @@
   color: var(--color-text);
   font-weight: 600;
 }
+
+/* The partition's side toggle. Deliberately a plain, wide, obviously-pressable
+   control rather than an icon: it is the only place in the overlay where two
+   different clicks on the same card mean two different things, so it has to
+   look like a separate thing to click. */
+.side {
+  width: 100%;
+  padding: var(--space-1) 0;
+  border: 1px solid var(--color-border, currentColor);
+  border-radius: var(--radius-sm, 4px);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-muted);
+  background: var(--color-surface-2, transparent);
+}
+
+.side[data-top='true'] {
+  color: var(--color-text);
+  border-color: var(--color-accent, currentColor);
+}

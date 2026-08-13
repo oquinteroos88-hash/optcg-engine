@@ -44,8 +44,12 @@ function selectCards(overrides: Partial<ChoiceView> = {}): ChoiceView {
 
 const IDLE: UiMode = { kind: 'idle' };
 
-function answering(selected: readonly InstanceId[] = [], choiceId = 'c1'): UiMode {
-  return { kind: 'answeringChoice', owner: 'p1', choiceId, selected };
+function answering(
+  selected: readonly InstanceId[] = [],
+  choiceId = 'c1',
+  toTop: readonly InstanceId[] = [],
+): UiMode {
+  return { kind: 'answeringChoice', owner: 'p1', choiceId, selected, toTop };
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +312,10 @@ describe('ensureModeValid against a real open choice', () => {
       owner: state.priority,
       choiceId: state.pending?.id,
       selected: [],
+      // Both fields start empty. `toTop` is only read for a partition, and it
+      // being present-and-empty everywhere else is the point: the mode has one
+      // shape, and a kind that does not use a field does not get a different one.
+      toTop: [],
     });
   });
 
@@ -319,6 +327,7 @@ describe('ensureModeValid against a real open choice', () => {
       owner: state.priority,
       choiceId,
       selected: [candidate],
+      toTop: [],
     };
     expect(ensureModeValid(kept, state)).toBe(kept);
 
@@ -328,7 +337,13 @@ describe('ensureModeValid against a real open choice', () => {
 
   it('drops the mode once the choice is answered', () => {
     const choiceId = state.pending?.id ?? '';
-    const mode: UiMode = { kind: 'answeringChoice', owner: state.priority, choiceId, selected: [] };
+    const mode: UiMode = {
+      kind: 'answeringChoice',
+      owner: state.priority,
+      choiceId,
+      selected: [],
+      toTop: [],
+    };
     const answered = applyAction(state, {
       type: 'ANSWER_CHOICE',
       player: state.priority,

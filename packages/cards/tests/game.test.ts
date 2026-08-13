@@ -107,7 +107,7 @@ function run(seed: number): Run {
 
 describe('a real game, ST-01 against ST-02', () => {
   it('starts and runs without the engine rejecting a legal action', () => {
-    const { state, taken } = run(82);
+    const { state, taken } = run(3);
     expect(taken).toBeGreaterThan(50);
     expect(['mulligan', 'playing', 'finished']).toContain(state.status);
   });
@@ -115,7 +115,7 @@ describe('a real game, ST-01 against ST-02', () => {
   it('reaches combat with real costs, powers and Counter values', () => {
     // Without this the run above could pass by only ever attaching DON!! and
     // passing, which would exercise none of the printed numbers.
-    const { mix, state } = run(82);
+    const { mix, state } = run(3);
     expect(mix.PLAY_CARD ?? 0).toBeGreaterThan(0);
     expect(mix.DECLARE_ATTACK ?? 0).toBeGreaterThan(0);
     expect(mix.PLAY_COUNTER ?? 0).toBeGreaterThan(0);
@@ -164,7 +164,7 @@ describe('a real game, ST-01 against ST-02', () => {
     // the cards: the driver chooses by a hash of each action's content rather
     // than by its index into `legalActions`, so adding a card does not re-run
     // this search. Changing the policy does, and this was that change.
-    const SEEDS = [186, 39, 1, 41, 99];
+    const SEEDS = [661, 39, 136, 1, 320];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {
@@ -179,13 +179,18 @@ describe('a real game, ST-01 against ST-02', () => {
 
     expect([...fired].sort()).toEqual([
       'ST01-001-main',
+      'ST01-002-trigger',
+      'ST01-002-whenAttacking',
       'ST01-005-whenAttacking',
       'ST01-007-main',
       'ST01-011-onPlay',
+      'ST01-012-whenAttacking',
       'ST01-014-counter',
       'ST01-014-trigger',
       'ST01-015-main',
       'ST01-015-trigger',
+      'ST01-016-main',
+      'ST01-016-trigger',
       'ST01-017-main',
       'ST02-001-main',
       'ST02-005-onPlay',
@@ -251,7 +256,7 @@ describe('a real game, ST-01 against ST-02', () => {
   });
 
   it('answers every choice its own abilities open', () => {
-    const { mix } = run(82);
+    const { mix } = run(3);
     expect(mix.ANSWER_CHOICE ?? 0).toBeGreaterThan(0);
   });
 

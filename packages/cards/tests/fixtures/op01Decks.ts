@@ -93,8 +93,23 @@ export const OP01_RG_LUFFY: Decklist = {
     { cardId: 'OP01-014', qty: 2 }, // Jinbe — [Blocker], [On Block] play a red 2-drop
     // Usopp watches the *opponent* activate an Event, so what makes him fire is
     // the other deck's [Counter] Events, not this one's.
-    { cardId: 'OP01-004', qty: 3 }, // Usopp — draw when your opponent plays an Event
-    { cardId: 'OP01-010', qty: 1 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-004', qty: 1 }, // Usopp — draw when your opponent plays an Event
+    // Batch 8's two red cards, and the three slots they cost were chosen so
+    // nothing measured paid for them. Two came off Usopp, whose line this file
+    // already carries on `UNREACHED_BY_RANDOM_PLAY` with 1,200 games of evidence
+    // — copies of a card no random game can reach buy nothing — and one off the
+    // lone vanilla body. The *other* deck was left alone on purpose: its
+    // 4000-power bodies are the only attackers `OP01-026` Red Hawk's [Counter]
+    // can K.O., and that is the sole route a random red/green game has to the
+    // attacker side of CR 7-1-1-4. Cutting them was tried first and measured:
+    // it took `OP01-058-counter` and the attacker-side early ending out of the
+    // corpus at once.
+    //
+    // Franky at 2 because his is a `static` read off the board rather than an
+    // event, so what it needs is a body with a DON!! on it while the other side
+    // has an active Character standing. Shanks at 1 because he costs 9.
+    { cardId: 'OP01-021', qty: 2 }, // Franky — [DON!! x1] may attack active Characters
+    { cardId: 'OP01-120', qty: 1 }, // Shanks — [Rush]; bans Blockers of 2000 or less
     { cardId: 'OP01-020', qty: 2 }, // Hyogoro — [Activate: Main] rest itself, +2000
     { cardId: 'OP01-007', qty: 2 }, // Caribou — [On K.O.] K.O. up to 1 with 4000 or less
   ],
@@ -156,10 +171,10 @@ export const OP01_RG_EVERYTHING: Decklist = {
     { cardId: 'OP01-017', qty: 2 },
     { cardId: 'OP01-020', qty: 2 },
     { cardId: 'OP01-022', qty: 2 },
-    { cardId: 'OP01-026', qty: 2 },
+    { cardId: 'OP01-026', qty: 1 },
     { cardId: 'OP01-027', qty: 2 },
-    { cardId: 'OP01-028', qty: 2 },
-    { cardId: 'OP01-029', qty: 2 },
+    { cardId: 'OP01-028', qty: 1 },
+    { cardId: 'OP01-029', qty: 1 },
     { cardId: 'OP01-032', qty: 2 },
     { cardId: 'OP01-033', qty: 2 },
     { cardId: 'OP01-034', qty: 2 },
@@ -177,6 +192,12 @@ export const OP01_RG_EVERYTHING: Decklist = {
     // And the inert bodies the positions are built out of. Every one of these
     // is named by a table case somewhere: dropping one silently breaks a test
     // several files away with "no OP01-0xx left in the deck".
+    // Batch 8. Their three slots came off `OP01-026`, `OP01-028` and `OP01-029`,
+    // whose table cases stage one copy at a time — the filler below could not
+    // pay, because every inert body here is named by a case somewhere and
+    // dropping one fails a test several files away with "no OP01-0xx left".
+    { cardId: 'OP01-021', qty: 2 }, // Franky — [DON!! x1] may attack active Characters
+    { cardId: 'OP01-120', qty: 1 }, // Shanks — bans Blockers of 2000 or less
     { cardId: 'OP01-010', qty: 2 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
     { cardId: 'OP01-053', qty: 1 }, // Wire — vanilla, cost 2, 4000
@@ -382,8 +403,12 @@ export const OP01_BP_KAIDO: Decklist = {
     { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
     { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
-    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+    { cardId: 'OP01-103', qty: 1 }, // Scratchmen Apoo — vanilla, cost 4
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    // Batch 8's purple card. Three copies: the permission is *bought* with an
+    // [Activate: Main] that hands a DON!! back, so it needs the body on the
+    // board, the cost payable, and an active enemy Character to point at.
+    { cardId: 'OP01-112', qty: 3 }, // Page One — DON!! -1: may attack active Characters
     { cardId: 'OP01-107', qty: 2 }, // Babanuki — vanilla, cost 5
     { cardId: 'OP01-104', qty: 4 }, // Speed — [Trigger] Play this card
     { cardId: 'OP01-110', qty: 2 }, // Fukurokuju — vanilla, cost 6

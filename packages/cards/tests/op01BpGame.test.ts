@@ -23,7 +23,7 @@ import { OP01_BP_DECKS, OP01_DOFFY_DECKS } from './support.js';
  * turning sideways.
  */
 
-const SEEDS = [63, 10, 92, 24, 5, 112, 113, 211] as const;
+const SEEDS = [1, 15, 56, 24, 63, 13, 112, 132, 92] as const;
 const ACTIONS = 400;
 
 /** Every blue/purple ability a random game of these decks reaches. */
@@ -49,6 +49,9 @@ const BATCH_3_BP_ABILITIES = [
   'OP01-087-counter',
   'OP01-087-trigger',
   'OP01-104-trigger',
+  // Batch 8 - the permission bought with a DON!! handed back. Franky's static
+  // twin, written by a script instead of read off the board.
+  'OP01-112-main',
   // Batch 7 — the Leader that has been dealing these games since batch 3 with
   // its printed ability doing nothing. It fires in 183 games of 300.
   'OP01-062-onOwnEvent',

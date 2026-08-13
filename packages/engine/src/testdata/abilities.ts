@@ -811,6 +811,52 @@ export const ABIL_CARDS: CardDefinition[] = [
       },
     ],
   }),
+
+  /**
+   * "[Activate: Main] [Once Per Turn] Add up to 2 DON!! cards from your DON!!
+   * deck and rest them."
+   *
+   * `OP01-093` Ulti with the cost taken off and the count raised from one to
+   * two, and both departures are the named gap. The count is two because every
+   * printed card in OP-01 adds exactly one, so nothing there can exercise a
+   * *partial* add — "up to 2 with 1 left in the deck" is the shortfall rule
+   * (CR 1-3-2) and it needs a card that asks for more than one. Six cards in the
+   * full set do; none of them is in this set's colour.
+   *
+   * `[Once Per Turn]` for the reason `ABIL-029` has one: an activated ability
+   * with no cost is a free repeatable action, and the sweep stopped finishing
+   * games inside its action cap the last time one went in without a limiter.
+   */
+  character('ABIL-030', 'Quartermaster’s Ledger', 2, 2000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-030-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [{ op: 'addDon', count: 2, orientation: 'rested' }],
+      },
+    ],
+  }),
+
+  /**
+   * "[Activate: Main] [Once Per Turn] Add up to 1 DON!! card from your DON!!
+   * deck and set it as active."
+   *
+   * The active half of the same op, on its own card so a staged position can
+   * ask for one orientation without getting the other. `OP01-115` and
+   * `OP01-061` print this shape; both attach it to something else happening
+   * first, which is what makes a bare one worth having here.
+   */
+  character('ABIL-031', 'Standard Bearer’s Call', 2, 2000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-031-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [{ op: 'addDon', count: 1, orientation: 'active' }],
+      },
+    ],
+  }),
 ];
 
 registerCardSet(ABIL_CARDS);

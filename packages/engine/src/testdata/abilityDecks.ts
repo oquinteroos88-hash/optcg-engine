@@ -37,7 +37,15 @@ const TRIGGER_COPIES_NEEDED = 2;
  * is not named here fails loudly at the scenario, which is the same trade
  * `TRIGGER_COPIES_NEEDED` already made.
  */
-const PAIRED: readonly CardId[] = ['ABIL-021', 'ABIL-022', 'ABIL-023', 'ABIL-029'];
+const PAIRED: readonly CardId[] = [
+  'ABIL-003',
+  'ABIL-015',
+  'ABIL-016',
+  'ABIL-021',
+  'ABIL-022',
+  'ABIL-023',
+  'ABIL-029',
+];
 
 const DECK_SIZE = 50;
 

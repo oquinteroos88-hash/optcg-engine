@@ -108,6 +108,17 @@ export type GameEvent =
   /** Placed at the bottom of the deck in this order, first card shallowest. */
   | { type: 'deckOrdered'; player: PlayerId; instanceIds: InstanceId[] }
   | { type: 'donReturnedToDeck'; player: PlayerId; count: number }
+  /**
+   * DON!! moved from the DON!! deck into the cost area by a card effect.
+   *
+   * Distinct from `donGained`, which is the DON!! Phase's own step (CR 6-4-1):
+   * that one is bounded by the turn and always places active, this one by a
+   * printed number and places in whichever orientation the card names. And
+   * distinct from `donReturnedToDeck`, which is the *inverse* movement that
+   * sixteen cards in the full set watch for — `count` here is DON!! that
+   * arrived, never DON!! that left.
+   */
+  | { type: 'donAdded'; player: PlayerId; count: number; orientation: Orientation }
   | { type: 'lifeBanished'; player: PlayerId; instanceId: InstanceId; remaining: number }
   | { type: 'turnEnded'; turn: number; player: PlayerId }
   | { type: 'gameEnded'; winner: PlayerId; endReason: 'lifeOut' | 'deckOut' | 'concede' };

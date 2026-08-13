@@ -337,6 +337,51 @@ export type Instruction =
    * DON!! card from your opponent's cost area."
    */
   | { op: 'orientDon'; player: PlayerRef; orientation: Orientation; count: number }
+  /**
+   * Moves up to `count` DON!! from the controller's DON!! deck into their cost
+   * area, in `orientation`.
+   *
+   * `orientDon`'s sibling, and by the same decision: DON!! are **fungible** and
+   * are operated by quantity, never as selectable entities. There is nothing to
+   * choose between two face-down DON!! in a deck (CR 3-3-2 lets both players see
+   * and reorder that deck freely, which is precisely why which one moves cannot
+   * matter), so this takes a number and never opens a choice.
+   *
+   * **Two shapes and one mechanism.** 141 cards in the full set add DON!! this
+   * way, in fifteen distinct phrasings, and every one of them reduces to a count
+   * and an orientation: "add up to 1 … and set it as active", "add up to 1 …
+   * and rest it", "add 1 …" without the "up to", and the compound "set 1 active,
+   * and add 1 additional and rest it" — which is this op twice. Nothing adds a
+   * DON!! *attached* to a card, and exactly one card in the game adds from the
+   * **opponent's** DON!! deck (`OP12-075`), which is why there is no `player`
+   * field here: `discardHand` and `lookAt` set the precedent that an op which
+   * can only ever touch its own controller's zone should not be able to say
+   * otherwise, right or wrong.
+   *
+   * `orientation` is required rather than defaulted, because the printed text
+   * always says. CR 3-9-3 does supply a default — "when placing DON!! cards in
+   * the cost area, they should be set as active unless otherwise specified" —
+   * and an optional field carrying it would be a field no card ever sets.
+   *
+   * **A short DON!! deck yields what there is**, and an empty one yields
+   * nothing: CR 1-3-2 performs "as many of the actions as possible", CR 8-4-4-1
+   * says the same of a specified number, and the DON!! Phase already reads that
+   * way in the rules themselves (CR 6-4-2 places 1 from a 1-card deck, 6-4-3
+   * places none from an empty one).
+   *
+   * **It cannot overfill the cost area, and not because a rule stops it.** No
+   * rule caps that area at ten. CR 5-1-2 gives each player "a 10-card DON!!
+   * deck" and those ten cards are the whole supply, so a cost area of eleven
+   * would need an eleventh DON!! card to exist. The engine's own DON!!
+   * conservation invariant says the same thing from the other side.
+   *
+   * **It adds; it never returns.** The inverse movement — a DON!! going back to
+   * the deck — is `returnDon`'s, and it emits `donReturnedToDeck`. Sixteen cards
+   * in the full set watch for that event ("when a DON!! card on your field is
+   * returned to your DON!! deck") and none of them may wake on this op, so this
+   * one emits `donAdded` and nothing else.
+   */
+  | { op: 'addDon'; count: number; orientation: Orientation }
   | { op: 'reveal'; as: string; from: Selector }
   /**
    * Records the top `count` cards of the controller's deck in `vars[as]`,

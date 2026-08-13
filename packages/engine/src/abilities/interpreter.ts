@@ -530,6 +530,56 @@ function giveDon(
 }
 
 /**
+ * Moves up to `count` DON!! out of a player's DON!! deck and into their cost
+ * area, in `orientation`.
+ *
+ * The DON!! Phase's own gain (`reducer/startTurn.ts`) does the same movement
+ * with the orientation fixed to active, and the two are deliberately not shared:
+ * that one is a phase step bounded by "2 per turn, 1 for the first player on
+ * turn 1" (CR 6-4-1) and this one is a card effect bounded by its own printed
+ * number. What they *do* share is the shortfall rule, and it is a rule rather
+ * than a coincidence — CR 6-4-2 and 6-4-3 place 1 from a 1-card deck and none
+ * from an empty one, which is CR 1-3-2's "as many of the actions as possible"
+ * applied to this exact movement.
+ *
+ * Nothing here checks a ten-card ceiling, and nothing needs to: the ten DON!!
+ * of CR 5-1-2 are the entire supply, so the cost area cannot hold an eleventh
+ * for want of one existing. `checkDonConservation` asserts that from the other
+ * end after every action.
+ */
+function addDon(
+  draft: GameState,
+  player: PlayerId,
+  orientation: Orientation,
+  count: number,
+  events: GameEvent[],
+): void {
+  let remaining = count;
+  for (const don of draft.players[player].don) {
+    if (remaining === 0) {
+      break;
+    }
+    if (don.location.kind === 'donDeck') {
+      don.location = { kind: 'cost', orientation };
+      remaining -= 1;
+    }
+  }
+  const added = count - remaining;
+  if (added === 0) {
+    // An empty DON!! deck, which is what a player with all ten in play has.
+    mark('op.addDonNone');
+    return;
+  }
+  if (added < count) {
+    mark('op.addDonShort');
+  }
+  mark('op.addDon');
+  // Never `donReturnedToDeck`: that is the inverse movement, and sixteen cards
+  // in the full set watch for it. This one adds.
+  emit(draft, events, { type: 'donAdded', player, count: added, orientation });
+}
+
+/**
  * Turns up to `count` of one player's cost-area DON!! to `orientation`.
  *
  * Works by quantity because DON!! are fungible — there is nothing to choose
@@ -676,6 +726,10 @@ function execute(
     }
     case 'setLegality': {
       setLegality(draft, item, instruction, events);
+      return;
+    }
+    case 'addDon': {
+      addDon(draft, item.controller, instruction.orientation, instruction.count, events);
       return;
     }
     case 'lookAt': {

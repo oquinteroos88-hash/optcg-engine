@@ -8,6 +8,7 @@ import {
   OP01_BP_EVERYTHING,
   OP01_B_DOFLAMINGO,
   OP01_BP_KAIDO,
+  OP01_P_KAIDO,
   OP01_G_ODEN,
   OP01_RG_EVERYTHING,
   OP01_RG_LAW,
@@ -119,6 +120,23 @@ export function op01BpScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameStat
 export function op01KaidoScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
   return buildScenario({ ...spec, decks: { p1: OP01_BP_KAIDO_DECK, p2: OP01_BP_KAIDO_DECK } });
 }
+
+/**
+ * Mono-purple, Kaido-led. The only deck that holds batch 10's eight DON!!-adding
+ * cards at a density a random game meets, and the only place `OP01-061`'s own
+ * ability can be live — a Leader's trigger only exists in a game that Leader is
+ * leading.
+ */
+export function op01PurpleScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  const deck = toEngineDecklist(OP01_P_KAIDO);
+  return buildScenario({ ...spec, decks: { p1: deck, p2: deck } });
+}
+
+/** Mono-purple against blue/purple, for the batch-10 manifestation games. */
+export const OP01_PURPLE_DECKS = {
+  p1: toEngineDecklist(OP01_P_KAIDO),
+  p2: toEngineDecklist(OP01_BP_CROCODILE),
+};
 
 /**
  * Hand-built OP-01 positions. Both sides use the everything deck, because a

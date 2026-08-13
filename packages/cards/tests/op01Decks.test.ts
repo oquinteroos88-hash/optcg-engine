@@ -110,6 +110,15 @@ describe('the OP-01 test decks are legal', () => {
       // Batch 7 — the two cards that watch what somebody else did.
       'OP01-004',
       'OP01-062',
+      // Batch 10 - add DON!! from the DON!! deck.
+      'OP01-061',
+      'OP01-093',
+      'OP01-101',
+      'OP01-106',
+      'OP01-113',
+      'OP01-115',
+      'OP01-118',
+      'OP01-119',
       // Batch 9 - look at the deck, keep one, bury the rest in order.
       'OP01-030',
       'OP01-041',

@@ -89,3 +89,28 @@
   font-size: 11px;
   color: var(--color-muted);
 }
+
+/* Ordering mode: a position badge above each candidate. The number is the only
+   thing separating "click to pick" from "click to place Nth", so it is a badge
+   rather than a border tint — a colour cannot say "third". */
+.ordered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.position {
+  min-width: 1.6em;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm, 4px);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+  background: var(--color-surface-2, transparent);
+}
+
+.position[data-placed='true'] {
+  color: var(--color-text);
+  font-weight: 600;
+}

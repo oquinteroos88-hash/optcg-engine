@@ -762,6 +762,55 @@ export const ABIL_CARDS: CardDefinition[] = [
       },
     ],
   }),
+
+  /**
+   * "[Activate: Main] Look at 3 cards from the top of your deck; reveal up to 1
+   * {Crew} type card and add it to your hand. Then, place the rest at the
+   * bottom of your deck in any order."
+   *
+   * `ST02-007` Bonney with the count dropped from five to three and the costs
+   * taken off. Three is not arbitrary: it makes the trivial case — one card
+   * left to bury, which the engine must place without asking — reachable by
+   * keeping one out of two, and it keeps a staged position small enough to
+   * read.
+   *
+   * Every ABIL card in this set is a real printed card minus a named gap, and
+   * the gap here is the cost list: Bonney pays `restDon 1` plus `restSelf`,
+   * which are two costs this file already exercises on other cards and which
+   * would only make every position in `orderCards.test.ts` need a DON!! layout.
+   *
+   * `[Once Per Turn]` stands in for what those costs were doing. Bonney's
+   * `restSelf` is her own limiter — a rested Character cannot pay to rest again
+   * — and dropping it made this card a free repeatable action the bot could
+   * spend a whole game on: the sweep stopped finishing games inside its action
+   * cap the moment the card was added without one. Measured, not guessed.
+   */
+  character('ABIL-029', 'Navigator', 2, 2000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-029-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          { op: 'lookAt', as: 'looked', count: 3 },
+          {
+            op: 'select',
+            as: 'kept',
+            from: { zone: 'deckTop', owner: 'you', count: 3, types: ['Crew'] },
+            min: 0,
+            max: 1,
+            prompt: 'Reveal up to 1 {Crew} type card',
+          },
+          { op: 'moveCard', target: { var: 'kept' }, to: { zone: 'hand' } },
+          {
+            op: 'orderToBottom',
+            cards: { minus: { of: { var: 'looked' }, without: { var: 'kept' } } },
+            prompt: 'Place the rest at the bottom of your deck, first card drawn first',
+          },
+        ],
+      },
+    ],
+  }),
 ];
 
 registerCardSet(ABIL_CARDS);

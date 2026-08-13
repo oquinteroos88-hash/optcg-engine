@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getAbilities } from '@optcg/engine';
+import type { Instruction } from '@optcg/engine';
 import { ABIL_CARDS } from '@optcg/engine/testdata/abilities';
 import { englishCards, registerEnglishCards } from '../src/index.js';
 
@@ -103,5 +104,51 @@ describe('the PLAY_COUNTER firing site for counterEvent is unreachable', () => {
         (card.abilities ?? []).some((ability) => ability.trigger === 'counterEvent'),
     );
     expect(faking.map((card) => card.cardId)).toEqual([]);
+  });
+});
+
+/**
+ * `lookAt` and the selector that reads the same window must agree on the count.
+ *
+ * Nothing in the type system says so. The script writes the top N into a
+ * variable and then offers a `deckTop` selector over the same N, and "the rest"
+ * is the difference between them — so a script whose two numbers disagree
+ * silently buries the wrong set: too few and a looked-at card is left on top of
+ * the deck, too many and the select offers a card the look never saw.
+ *
+ * It is safe today because `lookAt` does not suspend, so nothing can run
+ * between the two instructions. This is the part that is checkable, and it is
+ * checked rather than asserted in a comment.
+ */
+describe('a look-at window and the selector over it name the same number of cards', () => {
+  it('holds for every registered card and every ABIL card', () => {
+    const mismatches: string[] = [];
+    const scripts: Array<{ id: string; script: readonly Instruction[] }> = [];
+    for (const card of englishCards) {
+      for (const ability of getAbilities(card.cardId)) {
+        scripts.push({ id: `${card.cardId}/${ability.id}`, script: ability.script });
+      }
+    }
+    for (const card of ABIL_CARDS) {
+      for (const ability of card.abilities ?? []) {
+        scripts.push({ id: `${card.cardId}/${ability.id}`, script: ability.script });
+      }
+    }
+
+    for (const { id, script } of scripts) {
+      const looked = script.find((op) => op.op === 'lookAt');
+      if (looked === undefined || looked.op !== 'lookAt') {
+        continue;
+      }
+      for (const step of script) {
+        if (step.op !== 'select' || step.from.zone !== 'deckTop') {
+          continue;
+        }
+        if ((step.from.count ?? 1) !== looked.count) {
+          mismatches.push(`${id}: lookAt ${looked.count} against deckTop ${step.from.count ?? 1}`);
+        }
+      }
+    }
+    expect(mismatches).toEqual([]);
   });
 });

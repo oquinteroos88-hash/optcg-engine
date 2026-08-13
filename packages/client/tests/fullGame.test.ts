@@ -118,6 +118,13 @@ function step(seed: number, at: number, used: Set<string>): boolean {
     // The shared cardinality: `max`, exploring the rest of the range on 1
     // decision in 8. "Up to N" answered with nothing is a real move and has to
     // survive the whole loop, and this is where the loop meets it.
+    // An ordering answers with all of them, and `cardinalityFor` already says
+    // so: min === max leaves no span to explore. The clicks are the same clicks
+    // — tap the candidates, confirm — which is the point of building the mode
+    // out of the interaction that was already there.
+    if (choice.kind === 'orderCards') {
+      used.add('orderChoice');
+    }
     const want = cardinalityFor(choice, seed, at);
     for (const id of rankCandidates(choice.candidates, seed, at).slice(0, want)) {
       used.add('toggleChoiceCandidate');
@@ -341,8 +348,24 @@ describe('a whole game of ST-01 against ST-02, clicked from end to end', () => {
       'ST02-009-onPlay',
       // An Event's main half, and a life-card [Trigger] half - the latter
       // answered through the choice overlay by the player taking the damage.
+      //
+      // The [Trigger] named here moved from ST01-015 to ST02-005 in batch 9,
+      // and the claim did not: both are life cards whose [Trigger] is offered
+      // as the damage resolves and answered by the *damaged* player, which is
+      // the control-crossing-the-overlay property this line exists for. Giving
+      // ST02-007 an ability gave the clicking bot a move it did not have, and
+      // every click game after it moved - the same drift this file's header
+      // records for the ST-02 Leader. Widening the seed list was tried first
+      // and did not bring ST01-015-trigger back; asserting the property on a
+      // trigger the corpus does reach beats asserting the identity of one it
+      // does not.
       'ST01-015-main',
-      'ST01-015-trigger',
+      'ST02-005-trigger',
+      // Batch 9, and the reason this file cares: an *ordering* answered by
+      // clicking. ST02-007 Bonney looks at five, keeps one and buries the rest,
+      // and the whole of that is reachable with the taps the overlay already
+      // had.
+      'ST02-007-main',
     ]) {
       expect(fired, id).toContain(id);
     }

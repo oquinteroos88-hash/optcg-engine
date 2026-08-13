@@ -24,14 +24,26 @@ export function ChoiceOverlay(): ReactElement | null {
     return null;
   }
 
+  const ordering = view.kind === 'orderCards';
+
+  // An ordering is a permutation, so its cardinality line is not about *how
+  // many* — it is about which end of the list comes back first. The engine puts
+  // the first card of the answer nearest the top of the deck, and a player who
+  // has to work that out from a count is a player guessing.
   const cardinality =
     view.kind === 'yesNo'
       ? null
-      : view.min === view.max
-        ? `Elegí exactamente ${view.min}`
-        : view.min === 0
-          ? `Elegí hasta ${view.max} (podés no elegir ninguna)`
-          : `Elegí entre ${view.min} y ${view.max}`;
+      : ordering
+        ? 'Tocá las cartas en el orden en que las vas a robar: la primera queda arriba de todo'
+        : view.min === view.max
+          ? `Elegí exactamente ${view.min}`
+          : view.min === 0
+            ? `Elegí hasta ${view.max} (podés no elegir ninguna)`
+            : `Elegí entre ${view.min} y ${view.max}`;
+
+  const progress = ordering
+    ? `${view.selected.length} de ${view.candidates.length} ordenadas`
+    : `seleccionadas ${view.selected.length}`;
 
   return (
     <div className={styles.overlay}>
@@ -75,15 +87,35 @@ export function ChoiceOverlay(): ReactElement | null {
         ) : (
           <>
             <span className={styles.cardinality}>
-              {cardinality} — seleccionadas {view.selected.length}
+              {cardinality} — {progress}
             </span>
             <div className={styles.candidates}>
               {/* CardTile is itself a button and already fires a zone event,
                   which the reducer routes to a toggle while a choice is open —
-                  so no wrapper button here, and no nested interactive element. */}
-              {view.candidates.map((id) => (
-                <CardTile key={id} id={id} zone="field" mine />
-              ))}
+                  so no wrapper button here, and no nested interactive element.
+                  The ordering mode adds a position badge and nothing else: the
+                  interaction is "click them in order", which needs no drag
+                  library and no second way to click a card. Hovering still
+                  previews, which matters more here than anywhere else — the
+                  player is choosing what to bury and has to be able to read it. */}
+              {view.candidates.map((id) => {
+                if (!ordering) {
+                  return <CardTile key={id} id={id} zone="field" mine />;
+                }
+                const at = view.selected.indexOf(id);
+                return (
+                  <span
+                    key={id}
+                    className={styles.ordered}
+                    aria-label={at === -1 ? 'sin ordenar' : `posición ${at + 1}`}
+                  >
+                    <span className={styles.position} data-placed={at !== -1}>
+                      {at === -1 ? '–' : at + 1}
+                    </span>
+                    <CardTile id={id} zone="field" mine />
+                  </span>
+                );
+              })}
             </div>
             <div className={styles.actions}>
               <button

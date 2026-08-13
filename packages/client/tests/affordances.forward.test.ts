@@ -30,8 +30,13 @@ function minimalAnswer(state: GameState): ChoiceAnswer {
     case 'selectOption':
       return { kind: 'option', index: 0 };
     case 'selectCards':
-    case 'orderCards':
       return { kind: 'cards', selected: pending.candidates.slice(0, pending.min) };
+    // An ordering has no smaller answer than all of them: it is a permutation,
+    // and `min === max === candidates.length`. The order is the candidate order
+    // because any permutation is legal and this test is about acceptance, not
+    // about which one a player would pick.
+    case 'orderCards':
+      return { kind: 'order', order: [...pending.candidates] };
   }
 }
 

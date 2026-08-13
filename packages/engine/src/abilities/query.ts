@@ -244,6 +244,21 @@ export function evalCondition(
     }
     case 'varTrue':
       return ctx.vars[condition.name] === true;
+    case 'selfOrientation': {
+      // On-field only. `detachFromField` normalizes a leaving card to active,
+      // so a source in the trash would otherwise report an orientation it does
+      // not have — and every printed card in this family is a permanent effect
+      // read off the board, where "not on the field" and "not applying" are the
+      // same answer.
+      // Asked through `fieldIds` rather than `selectors.isOnField`, which says
+      // the same thing: `selectors.ts` already imports this module, so reaching
+      // back for it would close a cycle for one membership test.
+      const card = state.cards[ctx.source];
+      if (card === undefined || !fieldIds(state, card.controller).includes(ctx.source)) {
+        return false;
+      }
+      return card.orientation === condition.orientation;
+    }
     case 'koCause': {
       // Nothing seeded it means this is not an `onKO` frame at all, so there is
       // no cause and the answer is no — never a throw. A condition that fails

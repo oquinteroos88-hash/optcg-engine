@@ -435,6 +435,37 @@ export type Condition =
    * `varTrue` gives for a variable nothing wrote.
    */
   | { kind: 'koCause'; by: PlayerRef | 'battle' }
+  /**
+   * The source's own orientation — "**if this Character is rested**".
+   *
+   * The narrowest thing that answers the question, and narrow on purpose. The
+   * obvious wider shape was a `CardPredicate` aimed at the source, reusing the
+   * whole selector vocabulary at once, and it is the wrong shape twice over. A
+   * predicate can filter on `powerMin` and `keyword`, and **all seven printed
+   * cards in this family are permanent effects** — so a self-predicate asking
+   * about power would be evaluated inside static evaluation, against the
+   * without-statics lens, which is the recursion anchor `getPowerWithoutStatics`
+   * exists to be. The condition would silently answer a different question than
+   * the same predicate asks anywhere else. `orientation` needs no lens at all:
+   * it is read straight off `CardInstance`.
+   *
+   * The vocabulary it reuses is `Selector.orientation`'s, which is the same
+   * `Orientation` and has meant the same thing since Phase 0. What it does not
+   * reuse is the *selector*, because there is no "only me" selector to reuse —
+   * `Selector.excludeSelf` is the exact inverse, and `Audience`'s `{self: true}`
+   * belongs to a static's `affects` and cannot be counted.
+   *
+   * Both orientations are printed, which is why this takes an `Orientation`
+   * rather than being spelled `isRested`: five cards ask "if this Character is
+   * rested" (`ST02-014`, `OP01-051`, `OP04-119`, `OP14-026`, `OP14-027`) and two
+   * ask "if this Character is active" (`OP08-029`, `OP12-024`). A boolean would
+   * have had to be negated by a `not` the DSL does not have.
+   *
+   * Off the field there is nothing to ask, and the answer is `false` rather than
+   * a throw — a card whose orientation is normalized on exit (`detachFromField`
+   * sets it active) would otherwise answer "active" from the trash.
+   */
+  | { kind: 'selfOrientation'; orientation: Orientation }
   | { kind: 'and'; of: Condition[] }
   | { kind: 'or'; of: Condition[] };
 

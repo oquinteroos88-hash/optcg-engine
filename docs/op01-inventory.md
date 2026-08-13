@@ -143,9 +143,10 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 67 of 121, up from 19: pile A is done, and gaps 2, 1 and 9
-added thirteen more.** The
-`Playable today` column moved as the batches landed:
+**Playable today — 82 of 121, up from 19.** Counted from
+`packages/cards/src/abilities.ts` rather than estimated: 64 cards with a script,
+2 keyword-only and 16 vanilla. The `Playable today` column moved as the batches
+landed:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
   number this document opened with.
@@ -163,8 +164,13 @@ added thirteen more.** The
   (`[On K.O.]`) and `-039` (`[On Block]`): the residue batch 3 cut for size.
 - **Pile A is complete — 38 of 38 playable**, 35 written and 3 that need no
   `Ability` at all.
-- **66 of 121 still need something the DSL cannot say**, and those are what the
-  gap table below is about.
+- **39 of 121 still need something the DSL cannot say**, and those are what the
+  gap table below is about. It read 66 when this list was written; batches 5
+  through 10 and PRs #29 through #35 are the difference.
+- **The starter decks finished first, at 33 of 34.** OP-01 is the larger and
+  slower half of the same campaign, and what is left here has the same shape the
+  starters' tail had — one-card capabilities, and the standing advice not to
+  follow the ranking past its top three.
 
 `OP01-121` Yamato is counted as playable because its printed
 `[Double Attack]`/`[Banish]` already work and its one line of text has no
@@ -536,10 +542,10 @@ an upper bound.
 | 15 | **A cost paid with other cards you choose** — rest 2 Characters, return a Character | 3 | **0** | — |
 | 16 | **A predicate about a card held in a variable** | 2 | **0** | — |
 | 17 | **Search the whole deck, and shuffle it** | 2 | **0** | 8 |
-| 18 | **A duration longer than end of turn** | 1 | **0** | 43 |
+| 18 | ~~**A duration longer than end of turn**~~ — **closed (PR #35)**, `endOfOpponentNextTurn` | 1 | ~~**0**~~ **1 — done** | 43 |
 | 19 | ~~**Filter by printed keyword** — "[Blocker] Characters"~~ — **bought** (batch 8) as one field on `CardPredicate`; it was never `OP01-120`'s second wall, only `ST01-016`'s | 1 | **0** | 6 |
 | 20 | **Filter by attribute** — "＜Strike＞ attribute Characters" | 1 | **0** | — |
-| 21 | **A condition about the source's own orientation** | 1 | **0** | 7 |
+| 21 | ~~**A condition about the source's own orientation**~~ — **closed (PR #35)**, `selfOrientation` | 1 | **0** | 7 |
 
 Read the two middle columns against each other, because they disagree loudly.
 
@@ -709,6 +715,28 @@ duration `Duration` cannot name. `OP01-085`'s is the sharpest of the four, and
 batch 8 measured why: an `endOfTurn` rule aimed at an opponent's Character
 expires before that Character can attack, so "until the end of your opponent's
 next turn" is not flavour on that card, it is the whole effect.
+
+**`OP01-085` is in, as of PR #35, and batch 8's measurement is what bought it.**
+`Duration` gained `endOfOpponentNextTurn`, and the finding above is the reason
+it had to: written with the old duration the card would have been legal, silent
+and useless, which is a worse outcome than leaving it unwritten. Two things are
+worth carrying forward from the build:
+
+- **The member entered once and served both readers.** `Modifier` and
+  `LegalityRule` have shared `Duration` since batch 8 built the second, so the
+  same addition reaches a power grant, a keyword grant and a prohibition. 43
+  cards in the full set print the phrase and they are spread across all three —
+  `OP01-085` forbids, `EB02-010` grants power, `OP09-068` grants a keyword.
+- **It is the first duration that needed to know *whose* effect it is.**
+  CR 6-6-1-2 expires continuous effects in two clauses, the turn player's and
+  the non-turn player's, and an effect measured against the opponent's turn is
+  always in the second when it dies. So both records now carry a `controller`
+  and the turn they were written on — the first fields either has ever needed
+  that are not about the card they point at.
+
+**Two still out**, then: `OP01-024` on an attribute filter and `OP01-099` on a
+name reference, with `OP01-051` needing negation and put-into-play beside the
+source-orientation condition PR #35 also built.
 
 ### 2b. Gap 3 was two shapes wearing one name *(found by building it — batch 9)*
 
@@ -1226,7 +1254,7 @@ have been added to it as batches land:
 | OP01-082 | Monet | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-083 | Mr.1(Daz.Bonez) | char | **C** | a scaling grant — "+1000 for every 2 Events in your trash". The Leader-type condition is expressible |
 | OP01-084 | Mr.2.Bon.Kurei(Bentham) | char | **A** ✅ | the only one of the four filtering on a category as well as a type, and the only one behind a `[DON!! xN]` gate. **✅ written — batch 9** |
-| OP01-085 | Mr.3(Galdino) | char | **C** | a prohibition (cannot attack) **and** a duration longer than end of turn |
+| OP01-085 | Mr.3(Galdino) | char | ~~**C**~~ ✅ | **written — PR #35.** Two walls: batch 8 took the prohibition, PR #35 took the duration |
 | OP01-086 | Overheat | event | **A** ✅ | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
 | OP01-087 | Officer Agents | event | **C** ✅ | `counterEvent` and `trigger` on one shared list; select 0–1 {hand, you, character, types Baroque Works, costMax 3} → `play`. Freed by batch 6 |
 | OP01-088 | Desert Spada | event | **C** | `orderCards` on the `[Counter]` half **and** a player-chosen discard on the `[Trigger]` half |

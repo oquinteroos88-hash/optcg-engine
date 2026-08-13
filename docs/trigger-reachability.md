@@ -523,6 +523,9 @@ ranked table, and four of its items have since been built:
 | Fire on "when a [Trigger] activates" | 2 | open — *added by PR #34* |
 | Suspendable costs | 197 | **done — the `discardHand` cost asks** |
 | Resting the source as a cost | 90 | **done — PR #15** (`restSelf`) |
+| ~~A duration longer than end of turn~~ | 43 | **closed — PR #35** (`endOfOpponentNextTurn`). One member, both readers: `Modifier` and `LegalityRule` share `Duration` |
+| ~~A condition about the source's own orientation~~ | 7 | **closed — PR #35** (`selfOrientation`) |
+| Fire on "this card is in a battle", and ask what it is battling | 1 | open — **two** capabilities, and `ST02-010` is the only card in 2665 asking. Ruled and declared by PR #35 rather than built |
 | Negation in `Condition` — `[Opponent's Turn]` | 77 | open — *added by this sweep* |
 | A fifth `Keyword` for `[Unblockable]` | 8 | open — *added by this sweep* |
 | Give **active** DON!! as a cost | 5 | open — *added by PR #11* |

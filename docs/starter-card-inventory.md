@@ -7,6 +7,24 @@ can the Phase 2A DSL already say?**
 The project bet was "if the DSL holds these ~40, it holds 400". This measures
 that before the effort is spent.
 
+## Status: 33 of 34, and the thirty-fourth is a ruling
+
+**The starter campaign is closed.** PR #35 wrote the last two capability rows
+either inventory carried — a duration that outlives the turn it was written in,
+and a condition about the source's own orientation (gap 9 below). With those,
+**33 of the 34 cards have a script, a printed keyword the engine applies, or no
+text at all.**
+
+The thirty-fourth is `ST02-010` Basil Hawkins, and it is **declared, not
+deferred**: the ruling it was waiting on has been made, and the answer is that
+the card needs two capabilities that do not exist, for one card in 2665. See
+[the Hawkins ruling](#the-hawkins-ruling-made) below.
+
+`packages/cards/tests/startersComplete.test.ts` is the guard rather than this
+paragraph. It accounts for all 34 as **23 scripted, 2 keyword-only, 8 textless
+and exactly 1 declared**, and goes red if any of those four numbers moves — a
+card added to a decklist, an ability deleted, or Hawkins quietly written.
+
 ## Status, as of PR #15
 
 The inventory was written against a DSL that could express 15 of the 34 cards.
@@ -99,14 +117,14 @@ which holds 15 scripted cards, not estimated:
 | Card | Pile | What still blocks it |
 | --- | --- | --- |
 | `ST02-005` Killer | B | `[On Play]` fits; the `[Trigger]` needs put-into-play (gap 4) |
-| `ST02-014` X.Drake | B | a condition about the source's own orientation (gap 9) |
+| `ST02-014` X.Drake | ~~B~~ ✅ | **written — PR #35.** `selfOrientation` closed gap 9. The card is a *permanent* effect (CR 8-1-3-3-1), so the condition is re-read continuously and the timing trap the row implied never existed |
 | `ST02-017` Straw Sword | B | `[Main]` fits; the `[Trigger]` needs put-into-play (gap 4) |
 | `ST01-002` Usopp | C | `[Blocker]` prohibition + put-into-play |
 | `ST01-012` Monkey.D.Luffy | C | `[Blocker]` prohibition |
 | `ST01-016` Diable Jambe | C | `[Blocker]` prohibition + filter by printed keyword |
 | `ST02-001` Eustass"Captain"Kid (Leader) | C | a cost that requires a decision |
 | `ST02-007` Jewelry Bonney | ~~C~~ ✅ | **written — PR #32.** The last card either inventory carried as honestly missing: three walls, `restSelf` in PR #15 and the other two here |
-| `ST02-010` Basil Hawkins | D | needs a ruling before it needs a trigger |
+| `ST02-010` Basil Hawkins | D | **ruled — PR #35**, and still unwritten: two capabilities for one card in 2665 |
 
 Two of the three remaining pile-B cards are **half-written cards, not unwritten
 ones**: `ST02-005` and `ST02-017` each have a half the DSL expresses today and a
@@ -231,9 +249,9 @@ been recomputed.
 | 6 | **Rest the source as the price of an ability** | 2 — ST01-017, ST02-007 | 90 | **closed — PR #15** |
 | 7 | ~~**Order cards you are putting back** ("the rest to the bottom in any order")~~ | 1 — ST02-007 | 254 | **closed — PR #32**, together with naming "the rest" |
 | 8 | **Let the player choose which card a cost discards** | 1 — ST02-001 | 197 | open |
-| 9 | **A condition about the source's own orientation** ("if this Character is rested") | 1 — ST02-014 | 7 | open — and **not** what PR #34 built: `whenBecomingRested` fires on the *transition*, this asks about the *state* |
+| 9 | ~~**A condition about the source's own orientation** ("if this Character is rested")~~ | 1 — ST02-014 | 7 | **closed — PR #35** (`selfOrientation`). Distinct from PR #34's `whenBecomingRested`, which fires on the *transition*; this asks about the *state*, and all seven printed cards ask it from a permanent effect |
 | 10 | ~~**Filter a selection by printed keyword** ("[Blocker] Characters")~~ | 1 — ST01-016 | 6 | **closed — PR #31**, as one field on the shared card predicate; asked of `hasKeyword`, so a *granted* [Blocker] counts |
-| 11 | **Fire on "this card is in a battle", and ask what it is battling** | 1 — ST02-010 | 1 | open |
+| 11 | **Fire on "this card is in a battle", and ask what it is battling** | 1 — ST02-010 | 1 | open — **two** capabilities, not one, and the ruling that says so is PR #35's. Declared rather than built |
 
 **Nothing in this table moved for PR #34, and the reason is the table's own
 lesson.** That PR built five prose trigger families totalling 36 printed cards,
@@ -599,6 +617,72 @@ Three things are unsettled, and I would rather say so than pick:
 It is also the only card in all 2665 whose text matches "if this Character
 battles". Whatever is built for it will be built for it alone, which is the
 strongest possible argument for settling the ruling first and building last.
+
+### The Hawkins ruling, made
+
+**PR #35 settled it, and the card still stays unwritten.** That order matters:
+the ruling was made *first*, and it is what shows the build is not worth doing.
+
+The official per-card Q&A could not be read. It is rendered client-side and the
+HTML the page serves contains none of it — the same wall PR #31 hit, recorded
+again here rather than papered over. So the answer comes from the Comprehensive
+Rules v1.2.0, generally, which is what the brief allowed for.
+
+**Question 2 — does blocking count? No, and by rule rather than by inference.**
+The old note called `[Your Turn]` a clause that "suggests no". It does not
+suggest; it decides:
+
+- **CR 8-3-2-4:** "Conditions may be specified using [Your Turn]. This condition
+  is met **during your turn**." **CR 10-2-11-1** repeats it as a keyword: "a
+  condition that is satisfied during your turn."
+- **CR 7-1-2-1:** "**The player being attacked** can activate the [Blocker]
+  effect of their card only once during that battle."
+
+Blocking is the non-turn player's act. When Hawkins blocks it is the opponent's
+turn, so `[Your Turn]` is *unmet*, not merely unlikely. The two readings do not
+disagree — one of them is wrong.
+
+That leaves "Hawkins attacks, and the battle is against a Character", because on
+your own turn your cards enter a battle only as the attacker: CR 7-1-1-1 rests
+*your* card to declare and CR 7-1-1-2 picks the target from the **opponent's**
+board.
+
+**Questions 1 and 3 — both still open, and that is the answer.** Hawkins needs
+*two* things the engine does not have, not one:
+
+1. **The moment.** The card carries no activation-timing marker. CR 8-1-3-1-1
+   lists them — `[On Play]`, `[When Attacking]`, `[On Block]`, `[On K.O.]`,
+   `[End of Your Turn]`, `[End of Your Opponent's Turn]` — and Hawkins has none.
+   CR 8-3-1-8 admits a *prose* timing ("Effect text may include text such as
+   'when…'. This is referred to as the activation timing of that effect"), which
+   is the door PR #34's five families came through; Hawkins says "**If**", and
+   CR 8-3-3 governs that as a condition. The moment it names is the battle
+   itself, and the engine's nearest timings are CR 7-1-1-3's `[When Attacking]`
+   at declaration and the blocker's `[On Block]`. Neither is "this card is in a
+   battle".
+2. **The question.** "your opponent's **Character**" has to inspect the battle's
+   current target. `Condition` reaches selectors, attached DON!!, the turn, life
+   totals, variables, a K.O.'s cause and — since this PR — the source's own
+   orientation. **None of them can see the battle.** `Ref` can (`{battle:
+   'attacker' | 'target'}`), but `Ref` names cards for an instruction; a
+   condition has no such member.
+
+**And the cheap approximation is wrong, not merely rough.** The obvious shortcut
+is to read the card as `[When Attacking]` with a condition on the target. CR
+7-1-2-2 makes a `[Blocker]` the new target of the attack, so a Hawkins that
+declared against the Leader can end up battling a Character — a declaration-time
+reading misses that case entirely, and it would set Hawkins active *before* the
+battle it names had happened. A card built wrong is worse than a card honestly
+absent, which is this document's oldest rule.
+
+**So the row stays declared.** Two new capabilities for one card in 2665 fails
+the standard this inventory set for itself, and this is that standard's
+canonical case: the starter decks finish at **33 of 34** with the last row
+honest, which is the outcome the brief named and preferred.
+
+The row it leaves in the ranked table is gap 11, unchanged in size and sharpened
+in content: it is not one capability but two, and neither has a second card
+asking for it.
 
 ## Recommended order of work
 

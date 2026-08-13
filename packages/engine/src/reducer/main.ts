@@ -5,9 +5,14 @@ import { getCardDef } from '../registry.js';
 import { getActiveCostDon, isOwnLeaderOrCharacter } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
-import { emit, leaveField, mustGetCard, payDonCost } from './helpers.js';
-
-const BOARD_LIMIT = 5;
+import {
+  BOARD_LIMIT,
+  emit,
+  enterCharacterArea,
+  leaveField,
+  mustGetCard,
+  payDonCost,
+} from './helpers.js';
 
 interface PlayCardAction {
   player: PlayerId;
@@ -66,21 +71,12 @@ export function applyPlayCard(
 
   switch (def.category) {
     case 'character': {
-      mark('play.character');
-      if (action.trashCharacter !== undefined) {
-        mark('field.sixthCharacter');
-        leaveField(draft, action.trashCharacter, 'trashedForRoom', events);
-      }
-      ps.characters.push(action.instanceId);
-      card.orientation = 'active';
-      card.playedOnTurn = draft.turn;
-      emit(draft, events, {
-        type: 'cardPlayed',
-        player: action.player,
-        instanceId: action.instanceId,
-        cardId: card.cardId,
+      // The placement itself is shared with the `play` instruction — see
+      // `enterCharacterArea`. What stays here is what belongs to the *action*
+      // and to nothing else: the cost (CR 6-5-3-1) and the hand as the origin.
+      enterCharacterArea(draft, action.player, action.instanceId, events, {
+        ...(action.trashCharacter === undefined ? {} : { trashCharacter: action.trashCharacter }),
       });
-      fireTriggers(draft, 'onPlay', [action.instanceId]);
       return;
     }
     case 'stage': {

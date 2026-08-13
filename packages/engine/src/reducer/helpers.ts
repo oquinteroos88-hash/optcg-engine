@@ -1,7 +1,10 @@
 import { fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
-import type { CardInstance, GameState, InstanceId, PlayerId } from '../types.js';
+import type { CardInstance, GameState, InstanceId, Orientation, PlayerId } from '../types.js';
+
+/** CR 3-7-6: "Up to 5 Character cards can be placed in the Character area." */
+export const BOARD_LIMIT = 5;
 
 // Handlers run on an immer draft; the shapes are identical to GameState.
 export function emit(draft: GameState, events: GameEvent[], event: GameEvent): void {
@@ -130,6 +133,63 @@ export function leaveField(
     // a 6th character is a discard, which is a different rule.
     emit(draft, events, { type: 'characterTrashedForRoom', player: controller, instanceId: id });
   }
+}
+
+/**
+ * Puts a Character card into its controller's Character area.
+ *
+ * **The one routine that does this.** `PLAY_CARD` calls it and so does the
+ * `play` instruction, because two code paths that put cards on the field are
+ * how one of them gets fixed and the other does not. Everything both of them
+ * owe the rules lives here:
+ *
+ * - **The card is placed active** unless the caller says otherwise. CR 3-7-5:
+ *   "When placing cards in the Character area, they should be set as active
+ *   unless otherwise specified." `OP01-060` is the "otherwise".
+ * - **`playedOnTurn` is stamped**, which is what makes CR 3-7-4 true — "played
+ *   cards cannot attack on the turn in which they are played unless otherwise
+ *   specified". A card an effect puts down is played, so it is summoning-sick
+ *   exactly like one paid for by hand, and `[Rush]` is the "otherwise".
+ * - **The 6th-Character sacrifice is applied first.** CR 3-7-6-1 has the player
+ *   "trash 1 of the Character cards **already in** their Character area, and
+ *   then play the new Character card" — so the card entering can never be the
+ *   card sacrificed, and the order is trash-then-place rather than the reverse.
+ *   CR 3-7-6-1-1 makes that trash "processing a rule", so it is not a K.O. and
+ *   wakes no `[On K.O.]` — which `leaveField`'s `trashedForRoom` cause is.
+ * - **The `[On Play]` fires.** Official Q&A: "Can I play a Character card with
+ *   an [On Play] effect without activating this [On Play] effect?" — "No, you
+ *   must activate the [On Play] effect whenever possible." It is queued rather
+ *   than run, so an effect that put this card down finishes its own script
+ *   first.
+ *
+ * The caller is responsible for having taken the card out of the zone it came
+ * from, and for the cost: paying is the `PLAY_CARD` action's business (CR
+ * 6-5-3-1), and no instruction pays.
+ */
+export function enterCharacterArea(
+  draft: GameState,
+  player: PlayerId,
+  id: InstanceId,
+  events: GameEvent[],
+  opts: { orientation?: Orientation; trashCharacter?: InstanceId } = {},
+): void {
+  const card = mustGetCard(draft, id);
+  const ps = draft.players[player];
+  mark('play.character');
+  if (opts.trashCharacter !== undefined) {
+    mark('field.sixthCharacter');
+    leaveField(draft, opts.trashCharacter, 'trashedForRoom', events);
+  }
+  ps.characters.push(id);
+  card.orientation = opts.orientation ?? 'active';
+  card.playedOnTurn = draft.turn;
+  emit(draft, events, {
+    type: 'cardPlayed',
+    player,
+    instanceId: id,
+    cardId: card.cardId,
+  });
+  fireTriggers(draft, 'onPlay', [id]);
 }
 
 /**

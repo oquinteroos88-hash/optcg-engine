@@ -965,6 +965,24 @@ one — so a "you may do X, otherwise Y" card could be written and would never
 branch. `optional: true` covers "may I activate this at all"; `varTrue` covers a
 branch *inside* a script. Without it, `confirm` is decorative.
 
+**Putting a card on the field is a routine, not a zone.** `ZoneRef` still has
+no `field` member and `moveCard` still cannot reach the Character area, and
+that is deliberate: a card arriving on the field owes four things a move does
+not. It is stamped `playedOnTurn`, so CR 3-7-4's "played cards cannot attack on
+the turn in which they are played" applies to it; it arrives active unless the
+instruction says rested (CR 3-7-5); a full board asks its controller which
+Character makes room, and that trash is not a K.O. (CR 3-7-6-1 and 3-7-6-1-1,
+plus the Q&A: "the trashed Character is not K.O.'d, but directly moved to your
+trash"); and its `[On Play]` fires (Q&A: "you must activate the [On Play] effect
+whenever possible"). All four live in `enterCharacterArea`, which `PLAY_CARD` and
+the `play` instruction both call — two code paths onto the field is how one of
+them gets fixed and the other does not.
+
+The sacrifice question is the third use of the `PendingChoice.sink` pattern,
+after the script variable and the chosen cost, and the first whose record has to
+*carry* something: which card is entering, since re-resolving the instruction's
+`Ref` after the answer could name a different one.
+
 **`ZoneRef`, `Duration`, `PlayerRef`, `Color` were not defined in the brief.**
 `ZoneRef` is `{ zone: 'hand' | 'deck' | 'trash' | 'life' }` with no owner field,
 because cards always move to the zones of their **owner** — that is the physical
@@ -1026,7 +1044,10 @@ the drawn instance id. Per-player hidden-information views are out of scope.
   line; the `discardHand` **cost** now asks, and only the `discard`
   **instruction** still does not.
 - **`PLAY_CARD.trashCharacter` as a `PendingChoice`** — the machinery now exists
-  but converting it is a migration of recorded action logs, not a feature.
+  and the `play` instruction uses it, so the *effect* path asks and the *action*
+  path still takes the answer in the action. Converting the action remains a
+  migration of recorded action logs rather than a feature, and both paths share
+  one routine, so they cannot disagree about what the sacrifice means.
 - Deck-construction legality (4-copy limits, color matching) beyond basic
   decklist shape validation.
 - Hidden-information views, networking, persistence, and AI beyond the random

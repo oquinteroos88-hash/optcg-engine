@@ -346,7 +346,7 @@ ranked table, and four of its items have since been built:
 | Self-targeting continuous abilities | 268 | **done — PR #12** (`affects: {self: true}`) |
 | Rested-DON!! giving | 105 | **done — PR #11** |
 | DON!! orientation changes | 71 | **done — PR #13** (`orientDon`) |
-| Putting cards into play | 375 | open |
+| Putting cards into play | 375 | **done — the `play` instruction** |
 | `[Blocker]` prohibitions | 146 | open — structural |
 | `orderCards`, and naming "the cards not taken" | 254 | open |
 | Suspendable costs | 197 | **done — the `discardHand` cost asks** |

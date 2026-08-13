@@ -75,6 +75,10 @@ export function applyPlayCard(
       // `enterCharacterArea`. What stays here is what belongs to the *action*
       // and to nothing else: the cost (CR 6-5-3-1) and the hand as the origin.
       enterCharacterArea(draft, action.player, action.instanceId, events, {
+        // CR 6-5-3-1's sense of "play": the paid Main Phase action. The only
+        // route that is a play under *both* readings, so it notifies the
+        // opponent's watchers whatever `effectPlayIsPlayingACharacter` says.
+        route: 'action',
         ...(action.trashCharacter === undefined ? {} : { trashCharacter: action.trashCharacter }),
       });
       return;
@@ -84,7 +88,7 @@ export function applyPlayCard(
       const oldStage = ps.stage;
       if (oldStage !== null) {
         mark('field.stageReplaced');
-        leaveField(draft, oldStage, 'stageReplaced', events);
+        leaveField(draft, oldStage, { kind: 'stageReplaced' }, events);
         emit(draft, events, {
           type: 'stageReplaced',
           player: action.player,

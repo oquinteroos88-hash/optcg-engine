@@ -129,6 +129,8 @@ export function createGame(opts: {
       firstPlayerCannotAttackTurnOne: true,
       doubleAttackCanWinFromOneLife: false,
       playFromEffectPaysCost: false,
+      effectPlayIsPlayingACharacter: true,
+      placedRestedBecomesRested: false,
     },
   };
   return freeze(state, true);

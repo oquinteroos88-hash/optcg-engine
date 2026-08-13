@@ -38,13 +38,21 @@ export type Color = string;
 /**
  * When an ability wakes up.
  *
- * Most members name something the *source* did or had done to it. Three name
+ * Most members name something the *source* did or had done to it. The rest name
  * something that happened **elsewhere on the board**, and they exist because the
  * card text does: "when your opponent activates an Event", "when your
- * opponent's Character is K.O.'d". The side lives in the trigger name rather
- * than in a condition, following `whenOpponentAttacks` — the firing site decides
- * who is notified, so an ability that watches the wrong side is unspellable
- * rather than merely wrong.
+ * opponent's Character is K.O.'d", "when your opponent activates [Blocker]".
+ * The side lives in the trigger name rather than in a condition, following
+ * `whenOpponentAttacks` — the firing site decides who is notified, so an ability
+ * that watches the wrong side is unspellable rather than merely wrong.
+ *
+ * **Four of these are observers of a fact, not of an action**, and they were all
+ * found by the same prose sweep (`docs/trigger-reachability.md`): no bracket tag
+ * marks them, so no `[Tag]` search this project ran could see them. The rule
+ * they share is the one PR #30 wrote down — *the trigger fires where the fact
+ * happens*, never at each caller that can cause it. `whenBecomingRested` is the
+ * sharpest case: five code paths rest a card and the trigger sits in none of
+ * them, it sits in the orientation transition they all go through.
  */
 export type Trigger =
   | 'onPlay'
@@ -73,6 +81,85 @@ export type Trigger =
    * Character is not K.O.'d, but directly moved to your trash".
    */
   | 'whenOpponentCharacterKOd'
+  /**
+   * The DON!!'s own controller's field, when a DON!! card on it goes back to
+   * their DON!! deck — "when a DON!! card on your field is returned to your
+   * DON!! deck".
+   *
+   * **The event has existed since PR #11 and nothing listened.** `payCost`'s
+   * `returnDon` is the one and only place in the engine where a DON!! card's
+   * location becomes `donDeck`, so this trigger has exactly one firing site and
+   * needed no routine extracted to reach it. PR #33 wrote the other half of the
+   * guarantee from the far side: `addDon` moves DON!! the *other* way and emits
+   * `donAdded`, never this event, so no observer can wake on a card that added
+   * DON!! rather than returning them.
+   *
+   * `you` in the printed text is the DON!!'s controller, which is always the
+   * controller of the ability that paid — a DON!! belongs to one player and
+   * returns to that player's deck. Sixteen cards in the full set read this way;
+   * fourteen say "on your field", one says "on **the** field" (`OP02-071`) and
+   * means the same thing, because it still names *your* DON!! deck and no DON!!
+   * of the opponent's can reach it. Two narrow it further with "by your effect"
+   * (`EB03-033`, `OP04-058`) — a `condition`'s job, not a second trigger's, and
+   * no card in scope prints it.
+   */
+  | 'whenDonReturnedToDeck'
+  /**
+   * The source itself, when it goes from active to rested — "when this
+   * Character becomes rested".
+   *
+   * A **transition**, which is the whole of the design: "becomes" is a change of
+   * state, and a card that is already rested has none to make. That is why this
+   * lives in `setOrientation` and in nothing else. Five things rest a card — an
+   * attack (CR 7-1-1-1), a block (CR 10-1-4-1), a `restSelf` cost, a `rest`
+   * instruction, and a card placed rested by an effect — and the trigger is not
+   * printed with a cause on it, so it answers to all of them that are transitions
+   * and the firing site is the transition rather than each caller.
+   *
+   * The Refresh Phase is the one thing that looks like a counterexample and is
+   * the clearest confirmation: CR 6-2-4 sets rested cards **active**, which is
+   * the inverse movement, so it can no more fire this than `addDon` can fire
+   * `whenDonReturnedToDeck`.
+   *
+   * The fifth path — placement — is the one genuine ambiguity and is behind
+   * `rules.placedRestedBecomesRested`; see `types.ts`.
+   */
+  | 'whenBecomingRested'
+  /**
+   * The **attacker's** field, when the defender activates `[Blocker]`.
+   *
+   * The mirror of `whenOpponentActivatesEvent`, and the second half of a
+   * mechanism PR #31 built the first half of. That PR defined what the
+   * prohibition *forbids* — `LegalityQuestion['activateBlocker']`, which CR
+   * 10-1-4-1 makes "activate it by resting this card during the Block Step" and
+   * CR 7-1-2-1 lets the defender do "only once during that battle". This defines
+   * what the trigger *observes*, and the two have to be the same act or a card
+   * could watch a block that a card forbidding blocks had already stopped.
+   *
+   * So it fires on the **declaration** — `applyDeclareBlock`, beside `onBlock`,
+   * after `blockDeclared` — and not on the target redirection that CR 7-1-2-2
+   * performs next. The redirection is a consequence of the activation; the
+   * activation is the act the card names.
+   */
+  | 'whenOpponentActivatesBlocker'
+  /**
+   * The **non-playing** player's field, when a Character enters the other
+   * player's Character area — "when your opponent plays a Character".
+   *
+   * Fires from `enterCharacterArea`, which is the one routine that puts a
+   * Character on the field, so the paid `PLAY_CARD` route and the `play`
+   * instruction's route both reach it. That is deliberate and it is CR 3-7-3:
+   * the bare placing of a card in the Character area is *playing* it. PR #29
+   * separated the two senses of the word for **cost** (`6-5-3-1` pays, `3-7-3`
+   * does not) and that separation is about payment alone; a card put down by an
+   * effect has still been played. The reading is behind
+   * `rules.effectPlayIsPlayingACharacter` because the Comprehensive Rules never
+   * reconcile the two senses outright — see `types.ts`.
+   *
+   * The 6th-Character trash is not a play in either direction: it is a card
+   * *leaving*, and CR 3-7-6-1-1 makes it "processing a rule".
+   */
+  | 'whenOpponentPlaysCharacter'
   | 'activateMain'
   | 'trigger'
   | 'counterEvent'
@@ -298,6 +385,33 @@ export type Condition =
    * *inside* a script.
    */
   | { kind: 'varTrue'; name: string }
+  /**
+   * **Who caused the K.O. that woke this ability** — "when this Character is
+   * K.O.'d by your opponent's effect".
+   *
+   * The one family of the five that is *not* a new trigger, and saying so is the
+   * finding. Six cards in the full set print it and every one of them is an
+   * ordinary `[On K.O.]` with a question attached: `onKO` already fires on every
+   * route to a K.O., and the only thing it could not say was **what did it**.
+   * A second trigger would have been a second firing site for a fact that has
+   * one, which is the mistake `whenBecomingRested` exists to avoid.
+   *
+   * Three answers, because a K.O. has exactly three causes and CR 10-2-1-3 names
+   * the split outright: a card can be K.O.'d "by an effect **or** due to the
+   * result of a battle". So `battle` is the Damage Step (CR 7-1-4-1-2) and is
+   * *not* an effect — the printed "by your opponent's effect" excludes it, and
+   * a card K.O.'d in combat does not fire. `you` and `opponent` are relative to
+   * the ability's controller and name the player who **controls the effect**,
+   * which is CR 8-1-1's reading of whose effect an effect is: the player who
+   * activated it, not the player who owns the card it points at.
+   *
+   * Read out of `vars[KO_CAUSE_VAR]`, seeded by `leaveField` at the moment of the
+   * K.O. and carried on the stack item from there, so it survives a suspension
+   * and a JSON round trip like any other variable. Asked outside an `onKO`
+   * frame there is no cause to read and the condition is false — the same answer
+   * `varTrue` gives for a variable nothing wrote.
+   */
+  | { kind: 'koCause'; by: PlayerRef | 'battle' }
   | { kind: 'and'; of: Condition[] }
   | { kind: 'or'; of: Condition[] };
 
@@ -534,6 +648,25 @@ export interface Ability {
  * field, which the DSL does not have.
  */
 export const LOOP_VAR = 'it';
+
+/**
+ * The reserved variable an `onKO` trigger is seeded with: who caused the K.O.
+ *
+ * A `PlayerId` when an effect did it — the player who **controls** that effect —
+ * and the literal `'battle'` when the Damage Step did. Only `koCause` reads it,
+ * and only `leaveField` writes it, which is why it is a seeded variable rather
+ * than a new field on `StackItem`: `vars` already survives suspension and
+ * serialization, and a second channel for one datum would need both taught to
+ * carry it.
+ *
+ * `LOOP_VAR`'s sibling and the second reserved name in the DSL. A script that
+ * writes either is overwriting something the engine put there; both are spelled
+ * out here so that a card author can see the whole reserved list in one place.
+ */
+export const KO_CAUSE_VAR = 'koCause';
+
+/** The `KO_CAUSE_VAR` value for a K.O. that was not caused by any effect. */
+export const KO_BY_BATTLE = 'battle';
 
 /**
  * Printed keyword spellings. `CardDefinition.keywords` stores the printed form

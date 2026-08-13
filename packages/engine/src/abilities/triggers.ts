@@ -4,7 +4,7 @@ import { EFFECTIVE } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId, StackItem } from '../types.js';
 import { PLAYER_IDS } from '../types.js';
 import { canPayCosts } from './costs.js';
-import type { Ability, AbilityContext, Trigger } from './dsl.js';
+import type { Ability, AbilityContext, Trigger, VarValue } from './dsl.js';
 import { evalCondition, fieldIds } from './query.js';
 
 /**
@@ -34,6 +34,40 @@ export function ownedFieldSources(state: GameState, player: PlayerId): InstanceI
 }
 
 /**
+ * One fact, two triggers, **one door.**
+ *
+ * Four families in this engine are printed from both sides of the same happening
+ * — an Event activated, a Character K.O.'d, a `[Blocker]` activated, a Character
+ * played — and each names the two sides with two different trigger words. This
+ * is the only place that decides what order those two words go in, so there is
+ * one answer to check rather than four to keep in step.
+ *
+ * The answer is the one PR #30 wrote and this only names: **the side the fact
+ * happened to goes first, and the watchers on the other field go underneath.**
+ * `enqueue` inserts below whatever is running, so the first call here resolves
+ * first. CR 8-6-3 is why the watchers wait at all — an effect whose timing is
+ * fulfilled by another card's activation "can be activated after the resolution
+ * of the effect of the previously activated card" — and CR 8-6-1's turn-player
+ * ordering is what `orderedFieldSources` gives *within* each side's list.
+ *
+ * **Where 8-6-1 and this convention can disagree, and why nothing is invented to
+ * settle it.** When the acting side is the non-turn player, 8-6-1 read strictly
+ * would put the turn player's watchers first. PR #30 chose actor-first, four
+ * families now depend on it, and the choice is deterministic and documented —
+ * so this centralises it instead of quietly running a second rule beside it.
+ * Changing it is one edit here, and it would be a rules change with a
+ * measurable effect on every replay, not a refactor.
+ */
+export function fireSidedTriggers(
+  draft: GameState,
+  actor: { trigger: Trigger; sources: readonly InstanceId[] },
+  watchers: { trigger: Trigger; sources: readonly InstanceId[] },
+): number {
+  fireTriggers(draft, actor.trigger, actor.sources);
+  return fireTriggers(draft, watchers.trigger, watchers.sources);
+}
+
+/**
  * Tells both fields that an Event card was activated.
  *
  * Called from the two places an Event can be used from hand — the `[Main]`
@@ -41,20 +75,45 @@ export function ownedFieldSources(state: GameState, player: PlayerId): InstanceI
  * `applyPlayCounterEvent` — because CR 8-5-2 defines card activation as "using
  * an Event card from your hand" and says nothing about which phase.
  *
- * **Called after the Event's own effect has been queued, never before.**
- * CR 8-6-3: an effect whose activation timing is fulfilled by activating a card
- * "can be activated after the resolution of the effect of the previously
- * activated card". `enqueue` puts new items *underneath* what is already on the
- * stack, so firing the Event first and the watchers second is what produces
- * that order — and firing them the other way round would invert it.
+ * **Called after the Event's own effect has been queued, never before**, which
+ * is `fireSidedTriggers`' rule and the reason that function exists.
  */
 export function fireEventActivated(draft: GameState, activator: PlayerId): void {
-  fireTriggers(draft, 'whenActivatingEvent', ownedFieldSources(draft, activator));
-  fireTriggers(
+  fireSidedTriggers(
     draft,
-    'whenOpponentActivatesEvent',
-    ownedFieldSources(draft, activator === 'p1' ? 'p2' : 'p1'),
+    { trigger: 'whenActivatingEvent', sources: ownedFieldSources(draft, activator) },
+    {
+      trigger: 'whenOpponentActivatesEvent',
+      sources: ownedFieldSources(draft, activator === 'p1' ? 'p2' : 'p1'),
+    },
   );
+}
+
+/**
+ * Tells the attacker's field that the defender activated `[Blocker]`.
+ *
+ * The blocker's own `[On Block]` goes first and the four cards that watch for
+ * the activation go underneath, which is the same door every other sided fact
+ * comes through. The *act* observed is the declaration, not CR 7-1-2-2's
+ * retargeting that follows it — see the trigger's own note in the DSL, and
+ * `canActivateBlocker`, which forbids the very same act.
+ */
+export function fireBlockerActivated(
+  draft: GameState,
+  blocker: InstanceId,
+  defender: PlayerId,
+): void {
+  const woke = fireSidedTriggers(
+    draft,
+    { trigger: 'onBlock', sources: [blocker] },
+    {
+      trigger: 'whenOpponentActivatesBlocker',
+      sources: ownedFieldSources(draft, defender === 'p1' ? 'p2' : 'p1'),
+    },
+  );
+  if (woke > 0) {
+    mark('trigger.opponentActivatesBlocker');
+  }
 }
 
 export function makeStackItem(
@@ -119,11 +178,19 @@ function canFire(
 /**
  * Collects every ability on `sources` that answers to `trigger` and may fire,
  * in resolution order.
+ *
+ * `seed` is what the *fact* knows and the ability cannot look up — today only
+ * the cause of a K.O. It goes into the condition's context as well as onto the
+ * stack item, because a `koCause` condition has to be answerable at `canFire`
+ * time: an `[On K.O.]` that only wakes for the opponent's effect must not fire
+ * at all when a battle killed it, and an ability filtered out after firing is a
+ * different thing from one that never fired.
  */
 export function collectTriggers(
   state: GameState,
   trigger: Trigger,
   sources: readonly InstanceId[],
+  seed: Readonly<Record<string, VarValue>> = {},
 ): StackItem[] {
   const items: StackItem[] = [];
   for (const sourceId of sources) {
@@ -135,26 +202,40 @@ export function collectTriggers(
       if (ability.trigger !== trigger) {
         continue;
       }
-      const ctx: AbilityContext = { source: sourceId, controller: card.controller, vars: {} };
+      const ctx: AbilityContext = {
+        source: sourceId,
+        controller: card.controller,
+        vars: { ...seed },
+      };
       if (!canFire(state, ctx, ability, sourceId)) {
         continue;
       }
       // A life card's [Trigger] is always the player's option, whether or not
       // the ability itself is written as "you may".
-      items.push(makeStackItem(sourceId, card.controller, ability, trigger === 'trigger'));
+      const item = makeStackItem(sourceId, card.controller, ability, trigger === 'trigger');
+      item.vars = { ...seed };
+      items.push(item);
     }
   }
   return items;
 }
 
+/**
+ * Returns how many abilities actually woke, which is not the same question as
+ * how many times the fact happened. The four prose families each have a mark for
+ * the fact and a mark for the observer, and a run that reaches the first with
+ * the second at zero is a deck with nobody watching — not a wiring bug. Without
+ * a return value the two are indistinguishable.
+ */
 export function fireTriggers(
   draft: GameState,
   trigger: Trigger,
   sources: readonly InstanceId[],
-): void {
-  const items = collectTriggers(draft, trigger, sources);
+  seed: Readonly<Record<string, VarValue>> = {},
+): number {
+  const items = collectTriggers(draft, trigger, sources, seed);
   if (items.length === 0) {
-    return;
+    return 0;
   }
   if (draft.stack.length > 0) {
     // Fired from inside a running script: the new effect waits its turn rather
@@ -162,4 +243,5 @@ export function fireTriggers(
     mark('trigger.chained');
   }
   enqueue(draft, items);
+  return items.length;
 }

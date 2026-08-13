@@ -88,6 +88,48 @@ export interface GameState {
      * mechanism, only the outcome.
      */
     doubleAttackCanWinFromOneLife: boolean;
+    /**
+     * Whether a Character an *effect* puts on the field counts as its controller
+     * having **played a Character**, for the two cards that watch the opponent
+     * do it.
+     *
+     * True, and the flag exists because CR uses "play" in two senses that it
+     * never reconciles — the same crack `playFromEffectPaysCost` sits in, seen
+     * from the trigger's side instead of the cost's. CR 3-7-3 calls the bare
+     * placing of a card in the Character area "playing" it, with no payment in
+     * sight, and that is the sense a card effect uses; CR 6-5-3-1 defines the
+     * Main Phase *action* as paying and then placing. PR #29 separated the two
+     * **for cost**, and nothing in that separation says a card an effect put
+     * down was not played.
+     *
+     * The printed text agrees as far as it can. `OP04-024` says only "when your
+     * opponent plays a Character" and names no route. `OP12-081` names two
+     * timings — a Character with a base cost of 8 or more, **or** one played
+     * "using a Character's effect" — which is a card treating the effect route
+     * as a play it has to *narrow*, not as one it has to add.
+     *
+     * False makes the trigger fire only for the paid Main Phase action.
+     */
+    effectPlayIsPlayingACharacter: boolean;
+    /**
+     * Whether a Character *placed* rested — `OP01-060`'s "play it rested", or a
+     * `play` instruction that says so — fires "when this Character becomes
+     * rested" on the way in.
+     *
+     * False. "Becomes" is a transition and a card arriving rested made none: it
+     * was not on the field a moment earlier, so there is no active state it left.
+     * CR 3-7-5 words this act as **placing** — "when placing cards in the
+     * Character area, they should be set as active unless otherwise specified" —
+     * against CR 7-1-1-1's *resting* of a card that is already there.
+     *
+     * A flag rather than a decision, because the argument the other way is real:
+     * the card is rested and it was not before, and none of the eight cards in
+     * the family prints a cause that would exclude this. No printed card can
+     * currently reach the case — nothing in OP-01 or either starter watches for
+     * "becomes rested" at all — so the choice costs nothing today and is written
+     * down before it can cost something.
+     */
+    placedRestedBecomesRested: boolean;
   };
 }
 

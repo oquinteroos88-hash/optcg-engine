@@ -10,6 +10,7 @@ import {
   mustGetCard,
   payDonCost,
   removeFromNonFieldZone,
+  setOrientation,
 } from '../reducer/helpers.js';
 import { finishTurn } from '../reducer/turn.js';
 import { getAbilities } from '../registry.js';
@@ -40,7 +41,7 @@ import type {
 } from './dsl.js';
 import { LOOP_VAR } from './dsl.js';
 import { evalCondition, resolveRef, resolveSelector } from './query.js';
-import { fireTriggers } from './triggers.js';
+import { fireTriggers, ownedFieldSources } from './triggers.js';
 
 /**
  * The interpreter.
@@ -197,12 +198,32 @@ function payCost(
         player: item.controller,
         count: cost.count,
       });
+      // **The only place in the engine where a DON!! card reaches the DON!!
+      // deck**, which is why sixteen cards can watch for it from one line. The
+      // event has been emitted since PR #11 and had no listener until now; PR
+      // #33 wrote the guarantee from the far side, that `addDon` moves DON!!
+      // the other way and never emits this.
+      //
+      // Fired from inside the payment, before the paying ability resolves. That
+      // is CR 8-6-3 rather than an accident of placement: the observer's timing
+      // is fulfilled the moment the DON!! moves, and `enqueue` puts it *under*
+      // the ability that is paying, so the payer finishes first.
+      //
+      // The observers are on the DON!!'s own controller's field, and there is no
+      // second side to tell: a DON!! belongs to one player and returns to that
+      // player's deck, so "a DON!! card on your field is returned to your DON!!
+      // deck" can only ever be read by that player's cards.
+      if (
+        fireTriggers(draft, 'whenDonReturnedToDeck', ownedFieldSources(draft, item.controller)) > 0
+      ) {
+        mark('trigger.donReturnedToDeck');
+      }
       return true;
     }
     case 'trashSelf':
       mark('cost.trashSelf');
       if (isOnField(draft, item.source)) {
-        leaveField(draft, item.source, 'cost', events);
+        leaveField(draft, item.source, { kind: 'cost' }, events);
       }
       return true;
     case 'restSelf': {
@@ -216,12 +237,10 @@ function payCost(
         throw new Error('Engine bug: rest-self cost paid by a source that cannot rest');
       }
       mark('cost.restSelf');
-      source.orientation = 'rested';
-      emit(draft, events, {
-        type: 'orientationChanged',
-        instanceId: item.source,
-        orientation: 'rested',
-      });
+      // Through the shared transition, so a source that rests to pay for its own
+      // ability is a source that *became rested* — the family's fourth route in,
+      // and the one a card is most likely to be written to catch.
+      setOrientation(draft, item.source, 'rested', events);
       return true;
     }
     case 'discardHand': {
@@ -647,7 +666,12 @@ function execute(
           continue;
         }
         mark('op.ko');
-        leaveField(draft, id, 'ko', events);
+        // The controller of *this ability* is whose effect did it. CR 8-1-1
+        // reads an effect as belonging to the player who activated it, not to
+        // the owner of the card it points at, so a Character K.O.'d by the
+        // opponent's script sees `by` equal to that opponent — which is exactly
+        // the datum the six "K.O.'d by your opponent's effect" cards ask for.
+        leaveField(draft, id, { kind: 'ko', by: item.controller }, events);
       }
       return;
     }
@@ -664,8 +688,10 @@ function execute(
           continue;
         }
         mark(instruction.op === 'rest' ? 'op.rest' : 'op.setActive');
-        card.orientation = orientation;
-        emit(draft, events, { type: 'orientationChanged', instanceId: id, orientation });
+        // The unchanged-orientation guard above is kept rather than left to
+        // `setOrientation`'s own: this one decides whether the *mark* is
+        // recorded, and a no-op that counted as a rest would misreport coverage.
+        setOrientation(draft, id, orientation, events);
       }
       return;
     }
@@ -876,6 +902,9 @@ function playCardFromZone(
   }
   mark('op.play');
   enterCharacterArea(draft, player, id, events, {
+    // CR 3-7-3's sense of "play": placing, with no cost paid. The one thing
+    // downstream that reads it is `rules.effectPlayIsPlayingACharacter`.
+    route: 'effect',
     ...(rested ? { orientation: 'rested' as const } : {}),
     ...(trashCharacter === undefined ? {} : { trashCharacter }),
   });

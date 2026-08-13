@@ -595,14 +595,45 @@ export type Instruction =
    * asked. The engine deciding that is deliberate: a UI auto-answering a
    * one-option question is a UI holding a rule.
    *
-   * No `top` sibling, and the absence is the finding rather than an omission.
-   * The printed top-**or**-bottom cards (`OP01-073`, `OP01-077`, `OP01-088`)
-   * ask the player to *split* the looked-at cards between two ends and order
-   * each side — a partition plus an order, which a permutation cannot express.
-   * That is a different choice shape and a different gap; see
-   * `docs/op01-inventory.md`.
+   * No `top` sibling, and the absence was the finding rather than an omission.
+   * The printed top-**or**-bottom cards ask the player to *split* the looked-at
+   * cards between two ends and order each side — a partition plus an order,
+   * which a permutation cannot express. That is `orderToDeckEnds` below.
    */
   | { op: 'orderToBottom'; cards: Ref; prompt: string }
+  /**
+   * Splits `cards` between the **top and the bottom** of their owner's deck,
+   * each side in an order the controller chooses — "place them at the top or
+   * bottom of the deck in any order".
+   *
+   * `orderToBottom`'s sibling and the second of the two mechanisms PR #32 found
+   * under one printed phrase. 35 cards in the full set place at the two ends;
+   * 27 print an explicit "in any order" and the other 8 have a window of exactly
+   * one card, where there is nothing to order and the clause is simply left off.
+   * **One op serves both**, because a window of one is a partition whose sides
+   * happen to be trivially ordered — and the side itself is still a real choice.
+   *
+   * **Both sides of the answer read as draw order.** `top[0]` is the card its
+   * owner draws first of all; then the rest of the top group; then whatever the
+   * deck already held; then `bottom[0]` down to the deepest card in the game.
+   * That is one sentence for two destinations on purpose: the alternative — each
+   * side read from the end nearest its own edge — is the ambiguity two
+   * implementers resolve in opposite directions, and it is the reason
+   * `placeAtDeckEnds` states the mapping in one loop rather than two.
+   *
+   * The bottom half is unchanged from `orderToBottom`, deliberately: CR 3-2-3
+   * has cards moved "one by one", and one by one onto the bottom leaves the last
+   * placed deepest. The top half is the same rule applied to the other end, and
+   * "in any order" is what makes the *player* the one who picks the sequence
+   * they are placed in — so the answer names the arrangement and the engine
+   * realises it, rather than the answer naming a placement procedure.
+   *
+   * **With one card the question is still asked**, which is where this parts
+   * company with `orderToBottom`'s shortcut: one card has one permutation but
+   * two ends. With none, nothing is asked and nothing is placed. The engine
+   * decides that, not the UI.
+   */
+  | { op: 'orderToDeckEnds'; cards: Ref; prompt: string }
   /**
    * Puts one card into its controller's Character area — "play up to 1 red
    * Character card with a cost of 2 or less from your hand", or the whole text

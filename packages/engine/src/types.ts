@@ -400,7 +400,8 @@ export interface PendingChoice {
     | { kind: 'optIn' }
     | { kind: 'cost' }
     | { kind: 'play'; entering: InstanceId; rested: boolean }
-    | { kind: 'orderToBottom' };
+    | { kind: 'orderToBottom' }
+    | { kind: 'orderToDeckEnds' };
 }
 
 /**

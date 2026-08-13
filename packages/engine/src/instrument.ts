@@ -108,6 +108,11 @@ export const MARK_NAMES = [
   'op.lookAt',
   'op.lookAtNothing',
   'op.orderToBottom',
+  'op.orderToDeckEnds',
+  // The partition asked with nothing to place. Its sibling below is the
+  // *ordering* shortcut, which also covers a window of one; this one does not,
+  // because one card still has two ends to choose between.
+  'choice.partitionTrivial',
   'op.play',
   'op.playNoTarget',
   'op.playNotACharacter',

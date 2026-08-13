@@ -6,25 +6,37 @@ export { legalActions } from './legalActions.js';
 // every consumer's dependency tree. It lives behind the ./testing subpath.
 export { assertInvariants, checkInvariants, checkTurnLeak } from './invariants.js';
 export { REASONS } from './reducer/errors.js';
+// The three legality questions. Exported for the same reason `getPower` is: a
+// consumer that wants to know whether a move is allowed must be able to ask the
+// engine rather than reimplement the rule.
+export { canActivateBlocker, canAttack, canBeKOdInBattle } from './legality.js';
 export type { ReasonCode } from './reducer/errors.js';
 export {
+  EFFECTIVE,
   getActiveCostDon,
   getOpponent,
   getPower,
   getPowerWithoutStatics,
   hasKeyword,
+  hasKeywordWithoutStatics,
   isOnField,
   isOwnLeaderOrCharacter,
+  WITHOUT_STATICS,
 } from './selectors.js';
 export type {
   Ability,
   AbilityContext,
+  CardPredicate,
   Color,
   Condition,
   Cost,
   Duration,
   Instruction,
   Keyword,
+  LegalityClause,
+  LegalityEffect,
+  LegalityQuestion,
+  LegalitySubjectSpec,
   PlayerRef,
   Ref,
   Selector,
@@ -52,6 +64,7 @@ export type {
   Frame,
   GameState,
   InstanceId,
+  LegalityRule,
   LoopState,
   Modifier,
   Orientation,

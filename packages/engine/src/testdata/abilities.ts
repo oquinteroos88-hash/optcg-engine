@@ -640,6 +640,128 @@ export const ABIL_CARDS: CardDefinition[] = [
       },
     ],
   }),
+  // --- modifiable legality: the two shapes no printed card can reach yet ----
+
+  /**
+   * "This Character cannot be K.O.'d in battle."
+   *
+   * The third building, and **the one form of the mechanism with no printed
+   * card behind it** — which is why it is here and why it is said out loud.
+   * OP-01 prints the shape twice, `OP01-024` and `OP01-099`, and both want a
+   * second thing the DSL still cannot say: an ＜Strike＞ attribute filter, and
+   * "{Kurozumi Clan} Characters **other than** your [Kurozumi Semimaru]". Take
+   * either qualifier away and what is left is exactly this card.
+   *
+   * That is the `counterEvent` lesson applied on purpose. `ABIL-016` was
+   * invented in a shape no printed card had, and the invention hid a missing
+   * engine move for a year; the fix was not to stop writing synthetic cards but
+   * to write them as **a real card minus a named gap**, and to name the gap.
+   * When the attribute filter lands, `OP01-024` is this card with one more
+   * clause and this comment gets shorter.
+   *
+   * Power 2000 so it loses battles it is put into: an immunity that never gets
+   * hit tests nothing.
+   */
+  character('ABIL-026', 'Unbreakable', 2, 2000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-026-static',
+        trigger: 'static',
+        script: [],
+        affects: { self: true },
+        grants: { legality: { effect: 'forbid', clause: { question: 'koInBattle' } } },
+      },
+    ],
+  }),
+
+  /**
+   * "[Activate: Main] Select up to 1 of your opponent's Characters. The selected
+   * Character cannot attack during this turn."
+   *
+   * The **forbid** direction of the attack question, which the six cards this
+   * batch shipped never point at: `OP01-021` and `OP01-112` widen the target
+   * set, and the two OP-01 cards that narrow attack legality are blocked on
+   * other gaps — `OP01-051` on negation, source orientation and put-into-play;
+   * `OP01-085` on a duration that outlives the turn (43 cards in the full set
+   * want one). This is `OP01-085` with the one duration the engine can name.
+   *
+   * It exists so the direction is *reached* rather than merely reachable. An
+   * `allow`/`forbid` pair where only one side is ever exercised is a pair where
+   * the other side is a claim nobody checked.
+   *
+   * Two deliberate departures from the printed card, both named rather than
+   * quietly absorbed:
+   *
+   * - **`owner: 'any'`.** `OP01-085` says "your opponent's Characters". This
+   *   card can pin either side, and it has to: an `[Activate: Main]` runs on
+   *   its controller's turn and an `endOfTurn` rule dies at the end of that
+   *   turn, so a rule written against an opponent's Character would expire
+   *   before that Character could ever have attacked. Which is not a defect in
+   *   the mechanism — it is exactly *why* `OP01-085` prints "until the end of
+   *   your opponent's next turn", and exactly the gap that keeps it out of this
+   *   batch.
+   * - **`endOfTurn`.** The longest lifetime the engine can name. Gap 18.
+   */
+  character('ABIL-027', 'Pinned Down', 2, 2000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-027-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          {
+            op: 'select',
+            as: 'pinned',
+            from: { zone: 'field', owner: 'any', category: ['character'] },
+            min: 0,
+            max: 1,
+            prompt: 'Select up to 1 Character to pin down',
+          },
+          {
+            op: 'setLegality',
+            effect: 'forbid',
+            subject: { cards: { var: 'pinned' } },
+            clause: { question: 'attack' },
+            duration: 'endOfTurn',
+          },
+        ],
+      },
+    ],
+  }),
+
+  /**
+   * "[DON!! x1] This Character can also attack your opponent's active
+   * Characters."
+   *
+   * `OP01-021` Franky, transcribed — the one card in this file that is a
+   * printed card with **nothing** taken away, and it is here for a reason the
+   * other two are not: the `allow` direction has to be reachable by the
+   * simulation sweep, not only by a staged position.
+   *
+   * The mark report is what caught it. Six of the seven marks this batch added
+   * were hit by the bots inside a few hundred games and `legality.allowed` was
+   * not, because every synthetic card in the set narrows legality and none
+   * widens it. A direction the sweep can never walk is a direction whose only
+   * evidence is a test someone wrote for it, which is exactly what the marks
+   * exist to expose.
+   */
+  character('ABIL-028', 'Flanker', 3, 4000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-028-static',
+        trigger: 'static',
+        condition: { kind: 'donAttached', min: 1 },
+        script: [],
+        affects: { self: true },
+        grants: {
+          legality: {
+            effect: 'allow',
+            clause: { question: 'attack', target: { orientation: 'active' } },
+          },
+        },
+      },
+    ],
+  }),
 ];
 
 registerCardSet(ABIL_CARDS);

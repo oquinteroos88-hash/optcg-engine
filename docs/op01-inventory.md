@@ -3,9 +3,10 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
-> **Status — pile A is COMPLETE, and gaps 1 and 2 are bought.** All thirty-five
-> writable pile-A cards are written and eleven pile-C cards have followed them,
-> taking OP-01 from 19 playable to **65 of 121**. Batch 1 was the
+> **Status — pile A is COMPLETE, gaps 1, 2 and 9 are bought, and backlog A is
+> empty again.** All thirty-five writable pile-A cards are written and thirteen
+> pile-C cards have followed them, taking OP-01 from 19 playable to **67 of
+> 121**. Batch 1 was the
 > nine mechanical Characters and cost an engine change on the way
 > ([what it found](#what-batch-1-found--a-missing-rule-not-a-missing-word));
 > batch 2 the seven red/green Events, which cost nothing but found a coverage
@@ -26,7 +27,16 @@ each card reports **what it needs**, never what the API for it would look like.
 > Eight more pile-C cards, taking OP-01 to **65 of 121**, and the last three
 > starter cards this project had been carrying as honestly-missing
 > ([what it found](#what-batch-6-found--the-count-was-right-and-the-hard-part-was-not-the-zone)).
-> Pile A is still 38 of 38; none of the eleven new ones was ever in it.
+> Pile A is still 38 of 38; none of the thirteen new ones was ever in it.
+>
+> **PR #30 built the two missing rules this document put back into backlog A**,
+> which frees `OP01-004` and `OP01-062` and empties that backlog for the second
+> time. The qualifier stands, and it is not a formality: **empty means nothing
+> is known to be missing, not that nothing is missing.** Both of these were
+> printed in prose and invisible to every bracket search this project had run;
+> asking the same question of all 2665 cards turned up six more prose trigger
+> families, the largest of them larger than either of these
+> ([the third finding](trigger-reachability.md#a-third-finding--the-largest-prose-trigger-families-are-in-no-document)).
 >
 > The classification below is **not re-cut**: it is what was read before any of
 > it was built, and the ✅ marks in the card-by-card table are the only thing
@@ -128,8 +138,8 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 65 of 121, up from 19: pile A is done, and gaps 2 and 1
-added eleven more.** The
+**Playable today — 67 of 121, up from 19: pile A is done, and gaps 2, 1 and 9
+added thirteen more.** The
 `Playable today` column moved as the batches landed:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
@@ -511,7 +521,7 @@ an upper bound.
 | 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
 | 7 | **Prohibitions** — "cannot" | 5 | **0** | 146 |
 | 8 | **Attack-legality modifiers** — widen or narrow who may be attacked | 3 | **2** | 49 |
-| 9 | **A trigger for something another card did** — an Event was played, a Character was K.O.'d | 3 | **2** | 11 |
+| 9 | ~~**A trigger for something another card did**~~ — **built** (PR #30); the count was right, 2 freed | 3 | **2, done** | 11 |
 | 10 | **Scaling grants** — "+1000 for every card in your hand" | 2 | **2** | 23 |
 | 11 | **A cost paid with a Life card** | 2 | **2** | — |
 | 12 | **Cost modification** — "give blue Events in your hand −1 cost" | 1 | **1** | 127 |
@@ -595,7 +605,7 @@ pile D and needs a ruling first.
 | 5 — reference a card by name | 3 |
 | 6 — a condition on DON!! you have | 3 |
 | 8 — attack legality | 2 |
-| 9 — a trigger for another card's event | 2 |
+| ~~9 — a trigger for another card's event~~ | **2, built** |
 | 10 — scaling grants | 2 |
 | 11 — a cost paid with a Life card | 2 |
 | 7, 12, 13, 14, 21 — one each | 1 |
@@ -804,7 +814,7 @@ Three OP-01 cards, 2 freed, 49 in the full set on the "can also attack" and
 makes an existing backlog item *cheaper to think about*, and that is worth more
 than its card count.
 
-## Two new missing rules — backlog A is no longer empty
+## Two new missing rules — backlog A is no longer empty *(both built, PR #30)*
 
 `docs/trigger-reachability.md` closed with backlog A empty of actionable work,
 and with a careful qualifier: *"Empty means nothing is known to be missing — not
@@ -865,6 +875,34 @@ failure, one level quieter.
 
 Both are small to build — one `fireTriggers` call at an existing site, plus a
 union member each. Neither needs a design conversation.
+
+*Checked, and the estimate was right about the size and wrong about the count.*
+Each is one `fireTriggers` call at a site that already existed, and neither
+needed a design conversation. It took **three** union members rather than two:
+the two cards this frees watch **opposite sides** of the same event —
+`OP01-004` "when your **opponent** activates an Event", `OP01-062` "when **you**
+activate an Event" — and the side belongs in the trigger name, following
+`whenOpponentAttacks`, so that the firing site decides who is notified and an
+ability cannot be sent the wrong event.
+
+The rules verification turned up two things the estimate could not have:
+
+- **CR 8-5-2 defines card activation as "using an Event card from your hand"**,
+  which settles both the `[Main]` and `[Counter]` routes as firing sites, and
+  settles an Event's `[Trigger]` fired from the Life area as *not* one. The
+  official Q&A says the second part outright.
+- **CR 8-6-3 puts the watcher after the Event**, not before: an effect whose
+  timing is fulfilled by activating a card is activated "after the resolution of
+  the effect of the previously activated card". The engine's existing
+  under-the-stack queueing gives exactly that, provided the Event fires first
+  and the watchers second — and the reverse order would have been silently
+  wrong.
+
+`whenOpponentCharacterKOd` was built and **frees no card in the measured sets**:
+Kaido still wants the DON!! deck, and the only two other cards carrying the
+marker are outside OP-01 and the starters. It is exercised by the ABIL set, and
+the sequencing this section predicted still holds — buy the DON!! deck for its
+five cards, and Kaido falls out afterwards.
 
 ## A third finding: the engine has no hidden information
 

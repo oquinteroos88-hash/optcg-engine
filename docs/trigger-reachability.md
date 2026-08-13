@@ -1,5 +1,13 @@
 # Trigger reachability sweep
 
+**There are thirteen triggers now, and twelve are reachable by a real card.**
+The sweep below was run against eleven, which is what the union held at the
+time; PR #30 added `whenActivatingEvent`, `whenOpponentActivatesEvent` and
+`whenOpponentCharacterKOd` and removed `whenOpponentAttacks`'s status as the only
+trigger that watches somebody else. Two of the three are reachable by printed
+cards today; `whenOpponentCharacterKOd` is not, and the reason is written up in
+[the third finding](#a-third-finding--the-largest-prose-trigger-families-are-in-no-document).
+
 **All eleven triggers are now reachable by a real card.** The sweep found one
 hole — `counterEvent` — and it has since been closed: the engine can activate a
 [Counter] Event from hand (`PLAY_COUNTER_EVENT`, CR 7-1-3-2-2), so `ST01-014`
@@ -13,8 +21,17 @@ sweep turned up on the way.
 **Current as of the phase 2C client work.** Three things have changed since the sweep and are
 worth having up front:
 
-- **Backlog A holds no actionable item.** Both of its entries are settled — one
-  built (PR #10), one priced and declined. See
+- **Backlog A is empty again**, for the second time. OP-01 put two items back —
+  nothing fired when an Event was activated, and nothing on the field could
+  watch a K.O. — and PR #30 built both. The qualifier that closed it the first
+  time is the same one that closes it now, and it is not a formality: **empty
+  means nothing is known to be missing, not that nothing is missing.** Both of
+  these were invisible to every bracket search this project has run, because
+  both are printed in prose. See
+  [the third finding](#a-third-finding--the-largest-prose-trigger-families-are-in-no-document)
+  for what the same question turns up when it is asked of the whole set.
+- **Backlog A's original entries are settled** — one built (PR #10), one priced
+  and declined. See
   [Backlog A is empty of actionable work](#backlog-a-is-empty-of-actionable-work--say-it-plainly),
   because the sections above it are written in the voice of a live queue and
   read as though work were outstanding.
@@ -76,6 +93,29 @@ is small.
 Three claims were verified by running the engine rather than by reading it: the
 two damage instances of a Double Attack, Banish suppression, and all three
 origins of `onKO`.
+
+## The two that were added afterwards
+
+Both came out of `docs/op01-inventory.md`, both by the sweep's own second
+question — *can a real card reach it* — and neither was a DSL gap. The
+vocabulary was not short a word; **the engine did not have the event**.
+
+| Trigger | Fired from | Reached by |
+| --- | --- | --- |
+| `whenActivatingEvent` | `applyPlayCard` (Event branch) and `applyPlayCounterEvent` | `OP01-062` Crocodile, 183 games in 300 |
+| `whenOpponentActivatesEvent` | the same two sites, other field | `OP01-004` Usopp — written, and **not** reached by random play; see below |
+| `whenOpponentCharacterKOd` | `leaveField`, `cause === 'ko'` only | no printed card in the measured sets |
+
+The side lives in the trigger name rather than in a condition, which is
+`whenOpponentAttacks`'s pattern: the firing site decides who is notified, so an
+ability that watches the wrong side is unspellable rather than merely wrong.
+
+**`whenOpponentCharacterKOd` has no printed card in scope, and that is recorded
+rather than hidden.** Three cards in 2665 carry the marker: `OP01-061` Kaido
+needs the DON!! deck as well, and `EB04-044` and `OP03-076` are outside the sets
+this project has scripted. It is exercised by the ABIL set, which is what the
+ABIL set is for — but the `counterEvent` lesson applies and is worth restating:
+a path with no real card on it is a path nobody has tested.
 
 ## The eleven
 
@@ -336,6 +376,53 @@ section](starter-card-inventory.md#gaps-the-34-cards-could-not-show) were found
 by reading past the 34-card sample. A missing rule is invisible until someone
 asks the right question of the right cards. Empty means nothing is known to be
 missing — not that nothing is.
+
+## A third finding — the largest prose trigger families are in no document
+
+The two rules PR #30 built were found by reading OP-01 by hand. Both are printed
+in **prose**: "when your opponent activates an Event", "when your opponent's
+Character is K.O.'d". No search for `[Tags]` finds either, which is exactly how
+they survived the sweep below.
+
+So the same question was asked of all 2665 cards, by clustering every prose
+`when …` clause rather than by guessing at phrasings. The result is that the two
+this project knew about are **not the big ones**:
+
+| Prose trigger | Cards | In any document? |
+| --- | --- | --- |
+| "when a DON!! card on your field is returned to your DON!! deck" | **16** | no |
+| "when this Character becomes rested" | 8 | no |
+| "when this Character is K.O.'d **by your opponent's effect**" | 7 | no |
+| "when this card deals damage" | 5 | no |
+| "when your opponent activates **[Blocker]**" (alone or with an Event) | **4** | no |
+| "when a card is trashed from your hand by an effect" | 4 | no |
+| "when your opponent activates an Event" | 5 | yes — built by PR #30 |
+| "when you activate an Event" | 3 | yes — built by PR #30 |
+| "when your opponent plays a Character" | 2 | no |
+| "when a [Trigger] activates" | 2 | no |
+| "when your opponent's Character is K.O.'d" | 3 | yes — built by PR #30 |
+
+**The third pattern the search was looking for is there twice.** "When your
+opponent activates [Blocker]" (4 cards) and "when your opponent plays a
+Character" (2) are the same shape as the two just built — a trigger for
+something the *rival* did — and no document has ever named them.
+
+**And the largest one is a different shape entirely.** Sixteen cards fire when a
+DON!! card leaves your field for your DON!! deck, which is what every `returnDon`
+cost in the game does. The engine has that event — `payCost` emits
+`donReturnedToDeck` — and tells nobody.
+
+**"When this Character is K.O.'d by your opponent's effect"** (7 cards) is the
+subtlest of them: it is not a new trigger at all, it is the existing `onKO`
+needing to know **who caused the K.O.** `leaveField` knows the cause internally
+(`'ko'` against three others) and does not know whose effect it was.
+
+None of these is printed on OP-01 or on either starter deck, which is precisely
+why no inventory this project has written could have found them: every one of
+them measured a *sample*. That is the same lesson PR #11 recorded when the
+"add DON!! from your DON!! deck" family — 140 cards — turned out to be
+structurally invisible to a 34-card sample. **A prose marker is invisible to a
+tag search, and a family printed on later sets is invisible to any sample.**
 
 **Backlog B — missing expressiveness.** The trigger is reachable and the move
 exists, but the DSL cannot say what the card does. This is the inventory's

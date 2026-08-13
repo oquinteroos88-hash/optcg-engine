@@ -98,6 +98,12 @@ export const MARK_NAMES = [
   'op.discard',
   'op.giveDon',
   'op.orientDon',
+  'op.addDon',
+  // The two shortfalls, counted apart: a DON!! deck with something left but not
+  // enough, and one with nothing at all. Both are CR 1-3-2 rather than a
+  // failure, and a run that reaches neither has not tested the bound.
+  'op.addDonShort',
+  'op.addDonNone',
   'op.reveal',
   'op.lookAt',
   'op.lookAtNothing',

@@ -1,4 +1,4 @@
-import { fireTriggers } from '../abilities/triggers.js';
+import { fireEventActivated, fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
@@ -118,6 +118,9 @@ export function applyPlayCard(
       // on the field no-op — the same rule as any other target that moved on.
       ps.trash.unshift(action.instanceId);
       fireTriggers(draft, 'mainEvent', [action.instanceId]);
+      // Second, so the watchers resolve after the Event's own effect
+      // (CR 8-6-3). See `fireEventActivated`.
+      fireEventActivated(draft, action.player);
       return;
     }
     case 'leader':

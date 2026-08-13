@@ -965,6 +965,21 @@ one — so a "you may do X, otherwise Y" card could be written and would never
 branch. `optional: true` covers "may I activate this at all"; `varTrue` covers a
 branch *inside* a script. Without it, `confirm` is decorative.
 
+**Three triggers watch somebody else's board.** `whenActivatingEvent` and
+`whenOpponentActivatesEvent` fire from the two places CR 8-5-2 calls card
+activation — "using an Event card from your hand", which is both the `[Main]`
+and the `[Counter]` route — and `whenOpponentCharacterKOd` fires from the one
+`cause === 'ko'` branch of `leaveField`, so a Character trashed to make room for
+a sixth (CR 3-7-6-1-1) never reaches it. The side is in the trigger name rather
+than in a condition, following `whenOpponentAttacks`: the firing site decides
+who is notified, so an ability that watches the wrong side is unspellable.
+
+Both Event sites fire the Event's own trigger **first** and the watchers second,
+because `enqueue` puts new items underneath what is already on the stack and
+CR 8-6-3 wants the watcher "after the resolution of the effect of the previously
+activated card". The order of the two calls is the whole implementation of that
+rule, and reversing them would be silently wrong.
+
 **Putting a card on the field is a routine, not a zone.** `ZoneRef` still has
 no `field` member and `moveCard` still cannot reach the Character area, and
 that is deliberate: a card arriving on the field owes four things a move does

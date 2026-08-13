@@ -10,10 +10,10 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **64 cards** — the 18 starter cards whose printed
- * abilities the DSL can express, **all 35** of OP-01 pile A, and the 11 OP-01
- * cards that a chosen payment (3) and putting cards into play (8) freed out of
- * pile C. It
+ * Scope of this file today: **66 cards** — the 18 starter cards whose printed
+ * abilities the DSL can express, **all 35** of OP-01 pile A, and the 13 OP-01
+ * cards that a chosen payment (3), putting cards into play (8) and two missing
+ * rules (2) freed out of pile C. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -2136,6 +2136,84 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
           ],
         },
       ],
+    },
+  ],
+/* ------------------------------------------------------------------------
+   * batch 7 — the two cards that watch what somebody else did
+   *
+   * Backlog A, not backlog B. Neither was a DSL gap: the vocabulary was not
+   * short a word, the **engine did not have the event**. `applyPlayCard` told
+   * the Event about itself and nothing else, so a card reading "when your
+   * opponent activates an Event" could be written perfectly and never run.
+   *
+   * That is the distinction `docs/trigger-reachability.md` draws and the reason
+   * these outrank their size: a backlog-B gap limits which cards can be written
+   * and every written card still plays correctly; a backlog-A gap means the
+   * cards sit in the deck and **the games do not resemble the game**. An OP-01
+   * Crocodile deck built before this ran a Leader whose printed ability never
+   * fired, and the simulation reported results from a game nobody was playing.
+   *
+   * Both markers are **prose**. No bracket search finds them, which is exactly
+   * how they survived the eleven-trigger reachability sweep.
+   * --------------------------------------------------------------------- */
+
+  // OP01-004 Usopp
+  // "[DON!! x1] [Your Turn] [Once Per Turn] Draw 1 card when your opponent
+  //  activates an Event."
+  //
+  // `whenOpponentActivatesEvent` fires on the field of whoever did *not* use the
+  // card, so the side is settled before the ability is consulted — the same
+  // shape `whenOpponentAttacks` has, and the reason "your opponent" needs no
+  // condition here.
+  //
+  // `[Your Turn]` on a card that watches the opponent is not the contradiction
+  // it looks like: a `[Counter]` Event is activated by the defender during the
+  // *attacker's* turn (CR 7-1-3-2-2), so an Usopp on the attacking side is
+  // exactly who this fires for. CR 8-5-2's card activation covers both routes.
+  'OP01-004': [
+    {
+      id: 'OP01-004-onEnemyEvent',
+      trigger: 'whenOpponentActivatesEvent',
+      oncePerTurn: true,
+      condition: {
+        kind: 'and',
+        of: [{ kind: 'donAttached', min: 1 }, { kind: 'isYourTurn' }],
+      },
+      script: [{ op: 'draw', player: 'you', count: 1 }],
+    },
+  ],
+
+  // OP01-062 Crocodile (Leader)
+  // "[DON!! x1] When you activate an Event, you may draw 1 card if you have 4 or
+  //  less cards in your hand and haven't drawn a card using this Leader's effect
+  //  during this turn."
+  //
+  // Three clauses, three existing pieces. "Haven't drawn a card using this
+  // Leader's effect during this turn" is `oncePerTurn` — the card spells out
+  // what the keyword means rather than printing the keyword. "4 or less cards in
+  // your hand" is `countCards` on the hand with `max: 4`, and it is checked
+  // **before** the draw, so a hand of exactly 4 becomes 5.
+  //
+  // "You may" on an auto effect takes `optional: true` (CR 8-1-2): nothing else
+  // asks the controller, and without it the once-per-turn use would be spent by
+  // an ability they never agreed to.
+  //
+  // It is the Leader of `OP01_BP_CROCODILE`, which has dealt every blue/purple
+  // manifestation game since batch 3 — with its printed ability doing nothing.
+  'OP01-062': [
+    {
+      id: 'OP01-062-onOwnEvent',
+      trigger: 'whenActivatingEvent',
+      optional: true,
+      oncePerTurn: true,
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          { kind: 'countCards', selector: { zone: 'hand', owner: 'you' }, max: 4 },
+        ],
+      },
+      script: [{ op: 'draw', player: 'you', count: 1 }],
     },
   ],
 });

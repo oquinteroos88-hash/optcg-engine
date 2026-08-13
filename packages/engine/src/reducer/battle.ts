@@ -1,4 +1,4 @@
-import { fireTriggers, ownedFieldSources } from '../abilities/triggers.js';
+import { fireEventActivated, fireTriggers, ownedFieldSources } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getCardDef, isCounterEvent } from '../registry.js';
@@ -269,6 +269,14 @@ export function applyPlayCounterEvent(
     cardId: card.cardId,
   });
   fireTriggers(draft, 'counterEvent', [action.instanceId]);
+  // A [Counter] Event is an Event card used from hand, which is all CR 8-5-2
+  // asks of card activation — the phase it is used in is not part of the
+  // definition. Fired second, so the watchers resolve after the Event's own
+  // effect (CR 8-6-3), exactly as on the [Main] route.
+  //
+  // Deliberately *not* on the PLAY_COUNTER path above: discarding a card for
+  // its printed Counter value is not activating an Event card.
+  fireEventActivated(draft, action.player);
 }
 
 export function applyPass(draft: GameState, _action: { player: PlayerId }, events: GameEvent[]): void {

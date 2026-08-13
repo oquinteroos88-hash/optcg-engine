@@ -35,12 +35,44 @@ export type PlayerRef = 'you' | 'opponent';
  */
 export type Color = string;
 
+/**
+ * When an ability wakes up.
+ *
+ * Most members name something the *source* did or had done to it. Three name
+ * something that happened **elsewhere on the board**, and they exist because the
+ * card text does: "when your opponent activates an Event", "when your
+ * opponent's Character is K.O.'d". The side lives in the trigger name rather
+ * than in a condition, following `whenOpponentAttacks` — the firing site decides
+ * who is notified, so an ability that watches the wrong side is unspellable
+ * rather than merely wrong.
+ */
 export type Trigger =
   | 'onPlay'
   | 'whenAttacking'
   | 'onBlock'
   | 'onKO'
   | 'whenOpponentAttacks'
+  /**
+   * The activator's own field, when they use an Event card from hand.
+   *
+   * CR 8-5-2 defines *card activation* as "using an Event card from your hand",
+   * which is what "when you activate an Event" names — so both the `[Main]` and
+   * the `[Counter]` route fire it, and an Event's `[Trigger]` fired out of the
+   * Life area does not. The official Q&A says the last part outright: activating
+   * an Event card's `[Trigger]` instead of adding it to hand does not activate
+   * effects that read "when you activate an Event".
+   */
+  | 'whenActivatingEvent'
+  /** The other player's field, on the same event. */
+  | 'whenOpponentActivatesEvent'
+  /**
+   * The other player's field, when one of your Characters is K.O.'d.
+   *
+   * A K.O. only — CR 3-7-6-1-1 makes the 6th-Character trash "processing a
+   * rule, and no effect can be applied", and the Q&A repeats it: "the trashed
+   * Character is not K.O.'d, but directly moved to your trash".
+   */
+  | 'whenOpponentCharacterKOd'
   | 'activateMain'
   | 'trigger'
   | 'counterEvent'

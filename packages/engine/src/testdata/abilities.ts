@@ -223,6 +223,29 @@ export const ABIL_CARDS: CardDefinition[] = [
           },
         ],
       },
+      // The three triggers that watch somebody else's board. Hung on this card
+      // rather than on new ones: a new ABIL id changes the deck list and
+      // reshuffles every seeded scenario in the package.
+      //
+      // Each draws, which is the cheapest observable effect there is — what
+      // these abilities are for is proving the *firing site* reaches them, and a
+      // body with its own targeting would only add ways for the case to fail
+      // for an unrelated reason.
+      {
+        id: 'ABIL-013-onOwnEvent',
+        trigger: 'whenActivatingEvent',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      {
+        id: 'ABIL-013-onEnemyEvent',
+        trigger: 'whenOpponentActivatesEvent',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      {
+        id: 'ABIL-013-onEnemyKO',
+        trigger: 'whenOpponentCharacterKOd',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
     ],
   }),
 

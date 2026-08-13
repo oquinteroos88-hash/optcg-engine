@@ -91,8 +91,10 @@ export const OP01_RG_LUFFY: Decklist = {
     { cardId: 'OP01-029', qty: 3 }, // Radical Beam!! — [Counter] boost + life gate, [Trigger] +1000
     { cardId: 'OP01-009', qty: 3 }, // Carrot — [Trigger] Play this card
     { cardId: 'OP01-014', qty: 2 }, // Jinbe — [Blocker], [On Block] play a red 2-drop
-    { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
-    { cardId: 'OP01-036', qty: 1 }, // Otsuru — vanilla, cost 1, 3000
+    // Usopp watches the *opponent* activate an Event, so what makes him fire is
+    // the other deck's [Counter] Events, not this one's.
+    { cardId: 'OP01-004', qty: 3 }, // Usopp — draw when your opponent plays an Event
+    { cardId: 'OP01-010', qty: 1 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-020', qty: 2 }, // Hyogoro — [Activate: Main] rest itself, +2000
     { cardId: 'OP01-007', qty: 2 }, // Caribou — [On K.O.] K.O. up to 1 with 4000 or less
   ],
@@ -168,13 +170,14 @@ export const OP01_RG_EVERYTHING: Decklist = {
     { cardId: 'OP01-054', qty: 2 },
     { cardId: 'OP01-056', qty: 1 },
     { cardId: 'OP01-057', qty: 2 },
-    { cardId: 'OP01-058', qty: 2 },
+    { cardId: 'OP01-058', qty: 1 },
     { cardId: 'OP01-009', qty: 1 }, // Carrot — [Trigger] Play this card
-    { cardId: 'OP01-014', qty: 1 }, // Jinbe — [Blocker], [On Block] play a red 2-drop
+    { cardId: 'OP01-014', qty: 2 }, // Jinbe — [Blocker], [On Block] play a red 2-drop
+    { cardId: 'OP01-004', qty: 1 }, // Usopp — draw when your opponent plays an Event
     // And the inert bodies the positions are built out of. Every one of these
     // is named by a table case somewhere: dropping one silently breaks a test
     // several files away with "no OP01-0xx left in the deck".
-    { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
+    { cardId: 'OP01-010', qty: 2 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
     { cardId: 'OP01-053', qty: 1 }, // Wire — vanilla, cost 2, 4000
     { cardId: 'OP01-025', qty: 1 }, // Roronoa Zoro — [Rush] only, cost 3, 5000

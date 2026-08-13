@@ -168,6 +168,22 @@ function checkFieldLimits(state: GameState, violations: string[]): void {
     if (ps.characters.length > 5) {
       violations.push(`fieldLimits: ${player} has ${ps.characters.length} characters (max 5)`);
     }
+    // **A derived check, not an independent rule**, and worth saying now that a
+    // card effect can put DON!! into this area too.
+    //
+    // No rule in the Comprehensive Rules caps the cost area at ten. CR 5-1-2
+    // gives each player "a 10-card DON!! deck" and those ten cards are the whole
+    // supply — DON!! deck, cost area and attached are the only places one can
+    // be — so an eleventh in the cost area would need an eleventh card to exist.
+    // `checkDonConservation` above asserts exactly that from the other end,
+    // which makes this clause unreachable rather than merely unviolated.
+    //
+    // Kept rather than deleted, and the reason is the one this repo has used
+    // twice before: an unreachable check with a guard and a stated reason beats
+    // a deleted one, because "no such state exists" is otherwise an absence
+    // nobody can see. What it must **not** become is the place a future
+    // `addDon` gets clamped — the bound is the deck running out, and it belongs
+    // in the op.
     const costCount = ps.don.filter((don) => don.location.kind === 'cost').length;
     if (costCount > 10) {
       violations.push(`fieldLimits: ${player} has ${costCount} DON in the cost area (max 10)`);

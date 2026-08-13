@@ -23,11 +23,15 @@ import { OP01_BP_DECKS, OP01_DOFFY_DECKS } from './support.js';
  * turning sideways.
  */
 
-const SEEDS = [249, 23, 63, 131, 24, 197, 92] as const;
+const SEEDS = [249, 23, 134, 197, 1, 22, 92] as const;
 const ACTIONS = 400;
 
 /** Every blue/purple ability a random game of these decks reaches. */
 const BATCH_3_BP_ABILITIES = [
+  // Batch 10 - the Leader of this deck's own ability, which needed two batches:
+  // PR #30 built the trigger that watches the other player's board, and batch 10
+  // built what it does.
+  'OP01-061-onEnemyKO',
   'OP01-070-onPlay',
   'OP01-078-whenAttacking',
   'OP01-078-onBlock',

@@ -431,6 +431,52 @@ export const OP01_BP_KAIDO: Decklist = {
 };
 
 /**
+ * Leader `OP01-061` Kaido, mono-purple, and the deck batch 10 exists for.
+ *
+ * The fourth single-colour fixture, and built for the same reason as the other
+ * three: a family whose cards are spread one or two to a mixed deck is a family
+ * a random game reaches once in three hundred. Eight OP-01 cards add DON!! from
+ * the DON!! deck and all eight are purple, so this is the only deck that can
+ * hold them at a density where the bots meet them.
+ *
+ * The Leader is the ninth. `OP01-061`'s own ability is in this batch — "when
+ * your opponent's Character is K.O.'d, add up to 1 DON!! card … and set it as
+ * active" — and it needed two batches to arrive: PR #30 built the trigger that
+ * watches the other player's board, and this one built what it does.
+ *
+ * `OP01-118` and `OP01-119` are here at four copies each and they are the point
+ * of the count: both are `[Counter]` Events, which is the hardest thing in this
+ * repo for a random game to reach, and `OP01-119` is the only card in the set
+ * that adds DON!! in **both** orientations — rested on its `[Counter]`, active
+ * on its `[Trigger]`.
+ */
+export const OP01_P_KAIDO: Decklist = {
+  id: 'OP01-P-KAIDO',
+  name: 'OP-01 mono-purple (test fixture, Kaido)',
+  packId: '569101',
+  leader: 'OP01-061',
+  cards: [
+    // Batch 10, the whole family bar the Leader.
+    { cardId: 'OP01-093', qty: 4 }, // Ulti - rest a DON!!, add a rested one
+    { cardId: 'OP01-101', qty: 4 }, // Sasaki - trash a card, add a rested one
+    { cardId: 'OP01-106', qty: 4 }, // Basil Hawkins - [On Play] add, [Trigger] play self
+    { cardId: 'OP01-113', qty: 4 }, // Holedem - [On K.O.] add a rested one
+    { cardId: 'OP01-115', qty: 4 }, // Elephant's Marchoo - K.O., then add an active one
+    { cardId: 'OP01-118', qty: 4 }, // Ulti-Mortar - [Counter]; [Trigger] adds active
+    { cardId: 'OP01-119', qty: 4 }, // Thunder Bagua - adds rested and active, one per half
+    // Bodies for the [On K.O.] and [When Attacking] halves to happen on, and
+    // cheap enough that the board fills early. Every one is vanilla or
+    // keyword-only, which `op01Decks.test.ts` asserts rather than trusts.
+    { cardId: 'OP01-104', qty: 4 }, // Speed - vanilla, cost 2
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo - vanilla, cost 4
+    { cardId: 'OP01-092', qty: 2 }, // Kaido - vanilla {Land of Wano} 7-drop
+    { cardId: 'OP01-107', qty: 4 }, // Babanuki - vanilla, cost 5
+    { cardId: 'OP01-110', qty: 4 }, // Fukurokuju - vanilla, cost 6
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi - [Blocker] only, cost 2
+  ],
+};
+
+/**
  * Every scripted blue/purple card in one legal deck, for the table tests — the
  * blue/purple twin of `OP01_RG_EVERYTHING`, and for the same reason.
  *
@@ -503,6 +549,7 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_BP_CROCODILE,
   OP01_B_DOFLAMINGO,
   OP01_BP_KAIDO,
+  OP01_P_KAIDO,
   OP01_BP_EVERYTHING,
 ]);
 

@@ -348,6 +348,18 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
         player: event.player,
         text: `pone ${event.instanceIds.length} cartas al fondo del mazo en el orden que eligió`,
       };
+    case 'donAdded':
+      // Deliberately worded apart from `donGained`, which is the DON!! Phase's
+      // own step: this one names a card effect's doing, and it names the
+      // orientation because an active DON!! is spendable this turn and a rested
+      // one is not.
+      return {
+        player: event.player,
+        text:
+          event.orientation === 'active'
+            ? `agrega ${event.count} DON!! activo del mazo de DON!!`
+            : `agrega ${event.count} DON!! agotado del mazo de DON!!`,
+      };
     case 'donReturnedToDeck':
       return { player: event.player, text: `devuelve ${event.count} DON!! al mazo de DON!!` };
     case 'lifeBanished':
@@ -400,6 +412,7 @@ const EFFECT_EVENTS = new Set<GameEvent['type']>([
   'donAttached',
   'donGained',
   'donReturned',
+  'donAdded',
   'donOrientationChanged',
   'donReturnedToDeck',
   'orientationChanged',

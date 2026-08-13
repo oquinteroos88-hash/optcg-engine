@@ -120,6 +120,24 @@ function lookKeepBury(
   ];
 }
 
+/**
+ * `OP01-115`'s [Main], shared with its [Trigger] the way JET_PISTOL is: the
+ * card's [Trigger] reads "Activate this card's [Main] effect" and points at the
+ * effect rather than restating it.
+ */
+const MARCHOO: Instruction[] = [
+  {
+    op: 'select',
+    as: 'victim',
+    from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 2 },
+    min: 0,
+    max: 1,
+    prompt: "K.O. up to 1 of your opponent's Characters with a cost of 2 or less",
+  },
+  { op: 'ko', target: { var: 'victim' } },
+  { op: 'addDon', count: 1, orientation: 'active' },
+];
+
 /** ST02-007, OP01-041, OP01-030 and OP01-084, one sentence apart. */
 const SABAODY: Instruction[] = lookKeepBury(
   5,
@@ -2317,6 +2335,199 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
         ],
       },
       script: [{ op: 'draw', player: 'you', count: 1 }],
+    },
+  ],
+
+  // -------------------------------------------------------------------------
+  // Batch 10 — add DON!! from the DON!! deck. Eight cards, all purple.
+  //
+  // The row check found eight touched and eight freed, against an inventory
+  // that recorded five: `OP01-061` was waiting on a trigger PR #30 built,
+  // `OP01-101` on a chosen-discard **cost** batch 5 built, and `OP01-106` on
+  // put-into-play batch 6 built. The row aged three PRs and nobody re-read it.
+  //
+  // Every one of the eight is `addDon` with a count of 1 and an orientation the
+  // printed text names. That is the whole family: see the op's comment for the
+  // 141-card, fifteen-phrasing probe behind that claim.
+  // -------------------------------------------------------------------------
+
+  // OP01-061 Kaido (Leader)
+  // "[DON!! x1] [Your Turn] [Once Per Turn] When your opponent's Character is
+  //  K.O.'d, add up to 1 DON!! card from your DON!! deck and set it as active."
+  //
+  // **The card that needed two batches and got them in the right order.** The
+  // inventory listed it under "a trigger that does not exist" — a Leader
+  // watching the *other* player's board — which PR #30 built as
+  // `whenOpponentCharacterKOd`. This batch is the other half.
+  //
+  // `[Your Turn]` is `isYourTurn`, and it matters here rather than being
+  // decoration: the trigger fires on either player's turn, so without it Kaido
+  // would bank DON!! off the opponent's own trades.
+  'OP01-061': [
+    {
+      id: 'OP01-061-onEnemyKO',
+      trigger: 'whenOpponentCharacterKOd',
+      oncePerTurn: true,
+      condition: {
+        kind: 'and',
+        of: [{ kind: 'donAttached', min: 1 }, { kind: 'isYourTurn' }],
+      },
+      script: [{ op: 'addDon', count: 1, orientation: 'active' }],
+    },
+  ],
+
+  // OP01-093 Ulti
+  // "[On Play] ① (You may rest the specified number of DON!! cards in your cost
+  //  area.): Add up to 1 DON!! card from your DON!! deck and rest it."
+  //
+  // Rest one to add one rested: no net DON!! this turn, and one more from the
+  // Refresh Phase onward. The cost is `restDon 1` — the ① symbol — and CR
+  // 8-3-1-5 has the player select which DON!! pays, which is a selection over
+  // fungible cards and therefore a count, exactly as `payDonCost` does it.
+  'OP01-093': [
+    {
+      id: 'OP01-093-onPlay',
+      trigger: 'onPlay',
+      cost: [{ kind: 'restDon', count: 1 }],
+      script: [{ op: 'addDon', count: 1, orientation: 'rested' }],
+    },
+  ],
+
+  // OP01-101 Sasaki
+  // "[DON!! x1] [When Attacking] You may trash 1 card from your hand: Add up to
+  //  1 DON!! card from your DON!! deck and rest it."
+  //
+  // The inventory blocked this on "a chosen discard". That gap had two halves
+  // and batch 5 bought the one this card needs: `discardHand` is a **cost** the
+  // player picks a card for. The open half is the *instruction* — "your opponent
+  // trashes 1 card from their hand" — which this card does not ask for.
+  'OP01-101': [
+    {
+      id: 'OP01-101-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      cost: [{ kind: 'discardHand', count: 1 }],
+      script: [{ op: 'addDon', count: 1, orientation: 'rested' }],
+    },
+  ],
+
+  // OP01-106 Basil Hawkins
+  // "[On Play] Add up to 1 DON!! card from your DON!! deck and rest it."
+  // "[Trigger] Play this card."
+  //
+  // Blocked on put-into-play until batch 6, which is why the inventory kept it
+  // off the freed column. Not to be confused with `ST02-010` Basil Hawkins,
+  // which needs a ruling rather than a capability and is still out.
+  'OP01-106': [
+    {
+      id: 'OP01-106-onPlay',
+      trigger: 'onPlay',
+      script: [{ op: 'addDon', count: 1, orientation: 'rested' }],
+    },
+    {
+      id: 'OP01-106-trigger',
+      trigger: 'trigger',
+      script: [{ op: 'play', target: { self: true } }],
+    },
+  ],
+
+  // OP01-113 Holedem
+  // "[On K.O.] Add up to 1 DON!! card from your DON!! deck and rest it."
+  //
+  // The plainest card in the batch: one trigger, one instruction, no gate.
+  'OP01-113': [
+    {
+      id: 'OP01-113-onKO',
+      trigger: 'onKO',
+      script: [{ op: 'addDon', count: 1, orientation: 'rested' }],
+    },
+  ],
+
+  // OP01-115 Elephant's Marchoo
+  // "[Main] K.O. up to 1 of your opponent's Characters with a cost of 2 or
+  //  less, then add up to 1 DON!! card from your DON!! deck and set it as
+  //  active."
+  // "[Trigger] Activate this card's [Main] effect."
+  //
+  // "Then" is sequence and not condition (CR 4-10-2: a failed "then" clause does
+  // not stop what follows), so the DON!! arrives whether or not the K.O. found
+  // a target — which is what the "up to 1" on the front half already implied.
+  'OP01-115': [
+    { id: 'OP01-115-main', trigger: 'mainEvent', script: MARCHOO },
+    { id: 'OP01-115-trigger', trigger: 'trigger', script: MARCHOO },
+  ],
+
+  // OP01-118 Ulti-Mortar
+  // "[Counter] DON!! −2: Up to 1 of your Leader or Character cards gains +2000
+  //  power during this battle. Then, draw 1 card."
+  // "[Trigger] Add up to 1 DON!! card from your DON!! deck and set it as
+  //  active."
+  //
+  // The two halves are unrelated effects rather than one pointed at twice, so
+  // they are written twice. `DON!! −2` is `returnDon`, which is the *inverse*
+  // movement of this batch's op — the card spends two to draw and gains one
+  // back only on the other route.
+  'OP01-118': [
+    {
+      id: 'OP01-118-counter',
+      trigger: 'counterEvent',
+      cost: [{ kind: 'returnDon', count: 2 }],
+      script: [
+        {
+          op: 'select',
+          as: 'ally',
+          from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+          min: 0,
+          max: 1,
+          prompt: 'Up to 1 of your Leader or Character cards gains +2000 power',
+        },
+        { op: 'addPower', target: { var: 'ally' }, value: 2000, duration: 'endOfBattle' },
+        { op: 'draw', player: 'you', count: 1 },
+      ],
+    },
+    {
+      id: 'OP01-118-trigger',
+      trigger: 'trigger',
+      script: [{ op: 'addDon', count: 1, orientation: 'active' }],
+    },
+  ],
+
+  // OP01-119 Thunder Bagua
+  // "[Counter] Up to 1 of your Leader or Character cards gains +4000 power
+  //  during this battle. Then, if you have 2 or less Life cards, add up to 1
+  //  DON!! card from your DON!! deck and rest it."
+  // "[Trigger] Add up to 1 DON!! card from your DON!! deck and set it as
+  //  active."
+  //
+  // The only card in the batch that adds DON!! in **both** orientations, one per
+  // half, which is what makes it the one worth reading twice: the `[Counter]`
+  // rests what it adds and is gated on being behind on Life, the `[Trigger]`
+  // sets it active and is gated on nothing.
+  'OP01-119': [
+    {
+      id: 'OP01-119-counter',
+      trigger: 'counterEvent',
+      script: [
+        {
+          op: 'select',
+          as: 'ally',
+          from: { zone: 'field', owner: 'you', category: ['leader', 'character'] },
+          min: 0,
+          max: 1,
+          prompt: 'Up to 1 of your Leader or Character cards gains +4000 power',
+        },
+        { op: 'addPower', target: { var: 'ally' }, value: 4000, duration: 'endOfBattle' },
+        {
+          op: 'if',
+          cond: { kind: 'lifeAtMost', player: 'you', value: 2 },
+          then: [{ op: 'addDon', count: 1, orientation: 'rested' }],
+        },
+      ],
+    },
+    {
+      id: 'OP01-119-trigger',
+      trigger: 'trigger',
+      script: [{ op: 'addDon', count: 1, orientation: 'active' }],
     },
   ],
 

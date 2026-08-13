@@ -17,11 +17,13 @@ export const MAX_STEPS = 150;
  * corpus also backs `handFan.test.ts`, whose "these are real hands from real
  * games" guard wants more than ten thousand hand cards to be worth asserting.
  *
- * Re-searched twice: once when the driver stopped choosing by index, once when
- * it started declining to attach DON!!. Both were policy changes. Adding a card
- * does not move them.
+ * Re-searched three times: once when the driver stopped choosing by index, once
+ * when it started declining to attach DON!!, and once when a discard cost began
+ * asking which card pays. All three were changes to how a decision is made —
+ * adding a card still does not move them, but giving the ST-02 Leader an ability
+ * gave the bot a move it did not have.
  */
-export const STARTER_SEEDS = [121, 33, 2, 19, 3, 5, 7, 11] as const;
+export const STARTER_SEEDS = [121, 292, 16, 320, 3, 5, 7, 11, 13, 17] as const;
 export const STARTER_MAX_STEPS = 400;
 
 function mustApply(state: GameState, action: Parameters<typeof applyAction>[1]): GameState {

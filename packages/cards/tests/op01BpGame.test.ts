@@ -23,7 +23,7 @@ import { OP01_BP_DECKS } from './support.js';
  * turning sideways.
  */
 
-const SEEDS = [54, 5, 44, 29, 45, 88, 2] as const;
+const SEEDS = [84, 101, 92, 110, 88, 4] as const;
 const ACTIONS = 400;
 
 /** Every blue/purple ability a random game of these decks reaches. */
@@ -42,6 +42,8 @@ const BATCH_3_BP_ABILITIES = [
   'OP01-108-onKO',
   'OP01-111-onBlock',
   'OP01-117-main',
+  // Batch 5 — the chosen discard, on the one blue card that pays one.
+  'OP01-064-whenAttacking',
 ] as const;
 
 /**

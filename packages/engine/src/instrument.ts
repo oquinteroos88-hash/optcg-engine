@@ -82,6 +82,7 @@ export const MARK_NAMES = [
   'cost.trashSelf',
   'cost.restSelf',
   'cost.discardHand',
+  'cost.discardChoice',
 
   // Instructions.
   'op.ko',

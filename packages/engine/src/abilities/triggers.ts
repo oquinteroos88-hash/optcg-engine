@@ -47,6 +47,7 @@ export function makeStackItem(
     // lives on the item rather than in a side queue so that an optional
     // ability keeps its place in the resolution order.
     status: ability.optional === true || forceOptional ? 'optIn' : 'ready',
+    costsPaid: 0,
     cursor: [{ path: [], index: 0, loop: null }],
     vars: {},
   };

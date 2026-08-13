@@ -10,8 +10,9 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **50 cards** — the 15 starter cards whose printed
- * abilities the DSL can express, plus **all 35** of OP-01 pile A. It
+ * Scope of this file today: **54 cards** — the 16 starter cards whose printed
+ * abilities the DSL can express, **all 35** of OP-01 pile A, and the 3 OP-01
+ * cards that a player-chosen payment freed out of pile C. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -1648,6 +1649,171 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
         ],
       },
       script: [{ op: 'draw', player: 'you', count: 1 }],
+    },
+  ],
+/* ------------------------------------------------------------------------
+   * batch 5 — the cards a *chosen* payment frees
+   *
+   * "Trash 1 card from your hand:" is a price whose card the player picks, and
+   * until this batch the engine picked for them. The rules put that choice
+   * inside the payment step — CR 8-4-1-3 is "determine the activation costs and
+   * pay all activation costs", while 8-4-1-2 only specifies which effect is
+   * being activated — so `Cost.discardHand` now opens a `PendingChoice` and the
+   * payment resumes from it.
+   *
+   * Two of the four filter that choice by type, which is why the cost carries a
+   * `CardFilter` and not just a count: "trash 1 {Land of Wano} type card" is a
+   * different price from "trash 1 card", and `canPayCosts` counts matching cards
+   * so an ability nothing in hand can pay is never offered.
+   *
+   * Where "You may" sits is the same reading the DON!! −N cards took above:
+   * on an **activated** effect the player has already opted in by sending the
+   * action, so no `optional`; on an **auto** effect that fires by itself, the
+   * "you may" is the only decline the player gets and it becomes `optional: true`
+   * (CR 8-1-2, CR 8-3-1-4).
+   * --------------------------------------------------------------------- */
+
+  // ST02-001 Eustass"Captain"Kid (Leader)
+  // "[Activate: Main] [Once Per Turn] ③ (You may rest the specified number of
+  //  DON!! cards in your cost area.) You may trash 1 card from your hand:
+  //  Set this Leader as active."
+  //
+  // Two costs on one ability, and the first card in this repo to have them. The
+  // order is the card's, not the player's: CR 8-3-1-1 carries out the actions of
+  // one activation cost "in order starting from the text closest to the top", so
+  // three DON!! rest and only then is the discard chosen. A player who could pay
+  // one half and not the other never gets asked at all — CR 8-3-1-3 makes a
+  // partly payable cost unpayable, which `canPayCosts` reports and
+  // `legalActions` therefore honours.
+  //
+  // Neither "You may" takes `optional`. Both are activation costs of an
+  // [Activate: Main] effect, and the decline CR 8-3-1-4 describes is the player
+  // simply not sending ACTIVATE_ABILITY.
+  //
+  // Setting the Leader active is what makes it worth paying for: a Leader rests
+  // to declare an attack (CR 7-1-1-1) and comes back only in its controller's
+  // Refresh Phase (CR 6-2), so this buys a second Leader attack in one turn.
+  // Nothing in the script cares whether the Leader is currently rested — `rest`
+  // and `setActive` both no-op on a card already in the target orientation.
+  'ST02-001': [
+    {
+      id: 'ST02-001-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      cost: [
+        { kind: 'restDon', count: 3 },
+        { kind: 'discardHand', count: 1 },
+      ],
+      script: [{ op: 'setActive', target: { self: true } }],
+    },
+  ],
+
+  // OP01-031 Kouzuki Oden (Leader)
+  // "[Activate: Main] [Once Per Turn] You can trash 1 {Land of Wano} type card
+  //  from your hand: Set up to 2 of your DON!! cards as active."
+  //
+  // The first *filtered* payment written here. "You can trash" is the same
+  // optional-cost wording as "You may" (CR 8-3-1-4) and needs no `optional` for
+  // the same reason ST02-001 does not.
+  //
+  // "Set up to 2 of your DON!! cards as active" is `orientDon`, which counts a
+  // budget of DON!! *changed* rather than looked at: an already-active DON!! is
+  // not something to set active, and attached DON!! are neither active nor
+  // rested (CR 4-4-2) so they are not candidates at all. Two rested DON!! in the
+  // cost area become two active ones; one becomes one; none is not a failure
+  // (CR 8-4-4-1).
+  //
+  // The card is mono-green, so its deck cannot borrow another colour's {Land of
+  // Wano} cards — the fixture that manifests it is mono-green for the same
+  // reason `OP01_R_ZORO` is mono-red.
+  'OP01-031': [
+    {
+      id: 'OP01-031-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      cost: [{ kind: 'discardHand', count: 1, filter: { types: ['Land of Wano'] } }],
+      script: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 2 }],
+    },
+  ],
+
+  // OP01-059 BE-BENG!!
+  // "[Main] You may trash 1 {Land of Wano} type card from your hand: Set up to 1
+  //  of your {Land of Wano} type Character cards with a cost of 3 or less as
+  //  active."
+  //
+  // {Land of Wano} twice over, and the two are not the same filter: the first
+  // names cards in hand and is the *price*, the second names Characters on the
+  // field and is the *effect*. They are written in different places for that
+  // reason — a `CardFilter` on the cost, a `Selector` in the script.
+  //
+  // The Event is trashed before its effect fires, so it can never pay for
+  // itself even though it is a {Land of Wano} card. That is the physical rule
+  // the reducer already implements and not something this card had to arrange.
+  'OP01-059': [
+    {
+      id: 'OP01-059-main',
+      trigger: 'mainEvent',
+      cost: [{ kind: 'discardHand', count: 1, filter: { types: ['Land of Wano'] } }],
+      script: [
+        {
+          op: 'select',
+          as: 'waking',
+          from: {
+            zone: 'field',
+            owner: 'you',
+            category: ['character'],
+            types: ['Land of Wano'],
+            costMax: 3,
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Set up to 1 of your {Land of Wano} type Character cards with a cost of 3 or less as active',
+        },
+        { op: 'setActive', target: { var: 'waking' } },
+      ],
+    },
+  ],
+
+  // OP01-064 Alvida
+  // "[DON!! x1] [When Attacking] You may trash 1 card from your hand: Return up
+  //  to 1 of your opponent's Characters with a cost of 3 or less to the owner's
+  //  hand."
+  //
+  // The only one of the four that is an **auto** effect, and therefore the only
+  // one that takes `optional: true`. `[When Attacking]` fires by itself; without
+  // the flag the "you may" would have nowhere to live and the cost would be
+  // charged to a player who never agreed to it (CR 8-1-2).
+  //
+  // The order that follows is worth naming: the opt-in is asked first, the
+  // discard is chosen second, and the Character to bounce third. Three
+  // questions, one attack — and `canPayCosts` runs before any of them, so a
+  // player with an empty hand is never asked the first.
+  //
+  // Returning a Character can remove a battle participant. This one cannot end
+  // its own battle: it fires from the attacker's side and reaches only the
+  // opponent's Characters, and the defender of a `[When Attacking]` trigger is
+  // whatever the attack was declared against — which may be exactly the
+  // Character it bounces. CR 7-1-1-4 covers that, and `endBattleIfParticipantLeft`
+  // is the code that does.
+  'OP01-064': [
+    {
+      id: 'OP01-064-whenAttacking',
+      trigger: 'whenAttacking',
+      optional: true,
+      condition: { kind: 'donAttached', min: 1 },
+      cost: [{ kind: 'discardHand', count: 1 }],
+      script: [
+        {
+          op: 'select',
+          as: 'bounced',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 3 },
+          min: 0,
+          max: 1,
+          prompt: "Return up to 1 of your opponent's Characters with a cost of 3 or less to hand",
+        },
+        { op: 'moveCard', target: { var: 'bounced' }, to: { zone: 'hand' } },
+      ],
     },
   ],
 });

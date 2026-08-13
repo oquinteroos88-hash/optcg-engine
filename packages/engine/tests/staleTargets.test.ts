@@ -152,6 +152,9 @@ describe('a cost that stops being payable before the ability resolves', () => {
         source,
         controller: 'p1',
         status: 'ready',
+        // Nothing paid yet, which is the whole point: the re-check that drops
+        // this ability runs on the first cost entry and only there.
+        costsPaid: 0,
         cursor: [{ path: [], index: 0, loop: null }],
         vars: {},
       };

@@ -172,6 +172,40 @@ Costs are paid before the script starts — CR 8-4-1 pays (8-4-1-3), then
 activates (8-4-1-4), then resolves (8-4-1-5) — so a script that reads its own
 source sees the paid state.
 
+**A cost can stop and ask.** `discardHand` is a price whose card the *player*
+picks, and CR 8-4-1-3 is where that pick belongs: the step reads "determine the
+activation costs and pay all activation costs", while 8-4-1-2 only specifies
+*which effect* is being activated. So the payment is walked one entry at a time
+and a `discardHand` entry opens a `PendingChoice` whose `sink` is `{kind:
+'cost'}`. `StackItem.costsPaid` records how far the payment got, and the same
+invariant the script cursor lives by holds over it: **the entry that suspends
+does not advance the cursor — the answer does.** A serialized state is never
+halfway through paying one cost; it is stopped before a cost that has not
+started.
+
+Four consequences worth stating, each read off the rules rather than chosen:
+
+- **Order is the card's, not the player's.** CR 8-3-1-1 carries out the actions
+  of one activation cost "in order starting from the text closest to the top",
+  so `Cost[]` is walked front to back and nobody is asked to reorder it.
+  `ST02-001` prints `③` before its discard and pays in that order.
+- **There is no cancelling.** CR 8-3-1-4 puts the decline *before* payment — the
+  player may choose not to pay, and then the effect is not activated — and CR
+  8-3-1-3-1 covers the only mid-payment case the rules admit, becoming *unable*
+  to pay, by paying as much as possible and not resolving. Regret is not in the
+  rules, so `ANSWER_CHOICE` needs no cancel form and does not have one.
+- **`[Once Per Turn]` is spent when payment starts.** CR 10-2-13-5: a use whose
+  payment breaks down partway may not be taken again that turn, "even if the
+  effect following that activation cost did not resolve as a result".
+- **The condition is not re-checked afterwards.** CR 8-4-1-1 checks, 8-4-1-3
+  pays, 8-4-1-4 activates. An ability whose own payment falsifies the condition
+  it fired on still resolves.
+
+`discardHand` also carries an optional `CardFilter` — "trash 1 {Land of Wano}
+type card from your hand" is a different price from "trash 1 card" — and
+`canPayCosts` counts *matching* cards, so an ability nothing in hand can pay
+never appears in `legalActions`.
+
 ### The interpreter is a program counter
 
 An effect that needs an answer has to stop *without the engine holding a live
@@ -940,14 +974,27 @@ registry; the brief's `Color[]` implied an enum that does not exist. `types` and
 `abilities` were added to `CardDefinition` as optional fields so every Phase 0
 definition still compiles untouched.
 
-**Deterministic discards.** The `discardHand` cost and the `discard` instruction
-take cards from the front of the hand rather than asking. A choice there would
-be a `PendingChoice` before the script starts, and the brief is explicit that
-costs are settled before the script runs. Payability is fully honoured — an
-ability whose discard cannot be paid does not fire — but *which* cards go is
-engine policy for now. `TODO phase 2B: player-chosen discard.` This is the one
-divergence that deletes a real player decision, and it is the same criticism
-Phase 0 levelled at letting the engine pick the 6th-character discard.
+**Deterministic discards — half closed.** This read, in Phase 2A: "The
+`discardHand` cost and the `discard` instruction take cards from the front of
+the hand rather than asking... This is the one divergence that deletes a real
+player decision, and it is the same criticism Phase 0 levelled at letting the
+engine pick the 6th-character discard."
+
+The **cost** half is closed. The reasoning that kept it open — "a choice there
+would be a `PendingChoice` before the script starts, and the brief is explicit
+that costs are settled before the script runs" — was reading the brief's
+ordering as a ban on suspending inside the payment. The rules do not: CR 8-4-1-3
+is "determine the activation costs **and** pay all activation costs", and
+determining is the choosing. Costs are still settled before the script runs; the
+settling is simply not atomic. See **Costs are checked, never paid halfway**
+above.
+
+The **instruction** half is still open. `op: 'discard'` takes from the front of
+the hand, and the cards that need otherwise — `OP01-038`, `OP01-102`,
+`OP01-114` — all read "your opponent trashes 1 card from their hand", where the
+chooser is the player who does *not* control the effect. `PendingChoice` already
+carries a `player`, so the chooser is not the hard part; the instruction taking
+a chosen set is. `TODO: player-chosen discard instruction.`
 
 **Simultaneous trigger order is fixed, not chosen.** Turn player first, then
 board position. `TODO phase 2B: player-chosen order`, as the brief requested.
@@ -974,8 +1021,10 @@ the drawn instance id. Per-player hidden-information views are out of scope.
   ability that resolves to nothing emits no event, and continuous abilities emit
   none at all — are written up for 2C in
   `docs/trigger-reachability.md`, under "Notes for phase 2C".
-- **Player-chosen trigger order** and **player-chosen discards** — both fixed
-  deterministic policies today, both flagged `TODO phase 2B` above.
+- **Player-chosen trigger order** — still a fixed deterministic policy, flagged
+  `TODO phase 2B` above. Player-chosen discards were the other half of that
+  line; the `discardHand` **cost** now asks, and only the `discard`
+  **instruction** still does not.
 - **`PLAY_CARD.trashCharacter` as a `PendingChoice`** — the machinery now exists
   but converting it is a migration of recorded action logs, not a feature.
 - Deck-construction legality (4-copy limits, color matching) beyond basic

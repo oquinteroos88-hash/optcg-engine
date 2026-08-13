@@ -355,6 +355,49 @@ export const ABIL_CARDS: CardDefinition[] = [
         oncePerTurn: true,
         script: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 2 }],
       },
+      // Two ways to put a card on the field, hung on this card rather than on new
+      // ones: a new ABIL id changes the deck list and reshuffles every seeded
+      // scenario in the package.
+      //
+      // The shape every printed card in this set has — select up to 1 from hand,
+      // then play it. [Once Per Turn] because a free body every turn with no
+      // limiter is the kind of thing a 200-game sweep rides until the hand runs
+      // out, and the interesting branch is the full board, not the loop.
+      {
+        id: 'ABIL-018-summon',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          {
+            op: 'select',
+            as: 'recruit',
+            from: { zone: 'hand', owner: 'you', category: ['character'], costMax: 2 },
+            min: 0,
+            max: 1,
+            prompt: 'Play up to 1 Character card with a cost of 2 or less from your hand',
+          },
+          { op: 'play', target: { var: 'recruit' } },
+        ],
+      },
+      // The same, rested. CR 3-7-5 places cards active "unless otherwise
+      // specified", and `OP01-060` is the printed card that specifies otherwise;
+      // this is the engine-side witness for that branch.
+      {
+        id: 'ABIL-018-summonRested',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          {
+            op: 'select',
+            as: 'recruit',
+            from: { zone: 'hand', owner: 'you', category: ['character'], costMax: 2 },
+            min: 0,
+            max: 1,
+            prompt: 'Play up to 1 Character card with a cost of 2 or less, rested',
+          },
+          { op: 'play', target: { var: 'recruit' }, rested: true },
+        ],
+      },
     ],
   }),
 

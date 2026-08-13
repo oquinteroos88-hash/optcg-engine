@@ -211,6 +211,33 @@ export type Instruction =
    */
   | { op: 'orientDon'; player: PlayerRef; orientation: Orientation; count: number }
   | { op: 'reveal'; as: string; from: Selector }
+  /**
+   * Puts one card into its controller's Character area — "play up to 1 red
+   * Character card with a cost of 2 or less from your hand", or the whole text
+   * of "[Trigger] Play this card".
+   *
+   * **It plays, it does not move.** `moveCard` shuffles a card between zones and
+   * `ZoneRef` has no `field` member on purpose: putting a card on the field is
+   * a routine, not a destination. It stamps `playedOnTurn` so CR 3-7-4's
+   * summoning sickness applies, places the card active unless `rested` says
+   * otherwise (CR 3-7-5), resolves the 6th-Character sacrifice by *asking*
+   * (CR 3-7-6-1), and fires the card's `[On Play]` (official Q&A). All of that
+   * is `enterCharacterArea`, shared with the `PLAY_CARD` action.
+   *
+   * **No cost is paid.** CR 6-5-3-1's "you can pay the cost and play a
+   * Character card" is the Main Phase *action*; CR 3-7-3 calls the bare placing
+   * of a card in the Character area "playing" it too, and that is the sense a
+   * card effect uses. Both readings exist in the text, so the choice is behind
+   * `rules.playFromEffectPaysCost` — see the README.
+   *
+   * **One card.** The `Ref` may name several and only the first is placed; a
+   * script that puts down two writes `forEach`, whose frame cursor already
+   * tracks which iteration it is on. Every printed card in this set says "up to
+   * 1", and a single-card instruction is what keeps the suspension honest: the
+   * sacrifice choice carries the entering card in its own sink, so there is no
+   * state in which a card is half onto the field.
+   */
+  | { op: 'play'; target: Ref; rested?: boolean }
   // Control flow. Both nest, which is why the cursor is a frame stack.
   | { op: 'if'; cond: Condition; then: Instruction[]; else?: Instruction[] }
   | { op: 'forEach'; in: Ref; do: Instruction[] };

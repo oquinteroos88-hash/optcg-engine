@@ -124,7 +124,11 @@ export function createGame(opts: {
     resume: [],
     rng,
     log: [started],
-    rules: { firstPlayerCannotAttackTurnOne: true, doubleAttackCanWinFromOneLife: false },
+    rules: {
+      firstPlayerCannotAttackTurnOne: true,
+      doubleAttackCanWinFromOneLife: false,
+      playFromEffectPaysCost: false,
+    },
   };
   return freeze(state, true);
 }

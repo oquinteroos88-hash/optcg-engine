@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyAction, assertInvariants, createGame, hasKeyword } from '@optcg/engine';
 import { decide } from '@optcg/engine/testing';
 import type { GameState } from '@optcg/engine';
-import { OP01_BP_DECKS } from './support.js';
+import { OP01_BP_DECKS, OP01_DOFFY_DECKS } from './support.js';
 
 /**
  * The batch-3 blue and purple abilities, in real games of the **first legal
@@ -23,7 +23,7 @@ import { OP01_BP_DECKS } from './support.js';
  * turning sideways.
  */
 
-const SEEDS = [84, 101, 92, 110, 88, 4] as const;
+const SEEDS = [23, 128, 63, 92, 112, 143] as const;
 const ACTIONS = 400;
 
 /** Every blue/purple ability a random game of these decks reaches. */
@@ -44,6 +44,11 @@ const BATCH_3_BP_ABILITIES = [
   'OP01-117-main',
   // Batch 5 — the chosen discard, on the one blue card that pays one.
   'OP01-064-whenAttacking',
+  // Batch 6 — the blue and purple cards that put cards on the field.
+  'OP01-082-trigger',
+  'OP01-087-counter',
+  'OP01-087-trigger',
+  'OP01-104-trigger',
 ] as const;
 
 /**
@@ -174,6 +179,54 @@ describe('a real game of OP-01 blue/purple', () => {
     expect(fired.has('OP01-089-counter')).toBe(true);
     expect(UNREACHED_BY_RANDOM_PLAY).toEqual([]);
   }, 180_000);
+
+  it('reveals and plays from the deck, in the one game Doflamingo can lead', () => {
+    // The only card in the repo that plays from somewhere other than the hand,
+    // and the only one that plays a card **rested** — CR 3-7-5's "unless
+    // otherwise specified". It needs its own deck for the reason every Leader
+    // ability does, and a *stocked* one for a reason no other Leader has: the
+    // effect only fires on what the top card happens to be, so the fixture
+    // carries eight {The Seven Warlords of the Sea} 4-drops to make the branch
+    // reachable at all.
+    //
+    // OP01-071's two halves come along, because Doflamingo's is the only blue
+    // deck that holds it at four copies: the [Trigger] plays it, and the
+    // [On Play] it wakes then bottom-decks something.
+    const DOFFY_SEEDS = [42, 1, 18, 88, 25];
+    const fired = new Set<string>();
+    let restedArrivals = 0;
+    for (const seed of DOFFY_SEEDS) {
+      let state = createGame({ seed, decks: OP01_DOFFY_DECKS, firstPlayer: 'p1' });
+      for (let step = 0; step < ACTIONS; step += 1) {
+        if (state.status === 'finished') break;
+        const action = decide(state, state.priority, seed, step);
+        if (action === undefined) break;
+        const result = applyAction(state, action);
+        if (!result.ok) {
+          throw new Error(`action ${step} (${action.type}) rejected: ${result.reason}`);
+        }
+        for (const event of result.events) {
+          if (event.type === 'abilityTriggered') fired.add(event.abilityId);
+        }
+        state = result.state;
+        for (const id of state.players.p1.characters) {
+          const card = state.cards[id];
+          if (card?.orientation === 'rested' && card.playedOnTurn === state.turn) {
+            restedArrivals += 1;
+          }
+        }
+        assertInvariants(state);
+      }
+      expect(state.pending, `seed ${seed}`).toBeNull();
+      expect(state.stack, `seed ${seed}`).toEqual([]);
+      expect(state.resume, `seed ${seed}`).toEqual([]);
+    }
+    expect(fired.has('OP01-060-whenAttacking')).toBe(true);
+    expect(fired.has('OP01-071-trigger')).toBe(true);
+    expect(fired.has('OP01-071-onPlay')).toBe(true);
+    // And at least one of those arrivals really came down sideways.
+    expect(restedArrivals).toBeGreaterThan(0);
+  });
 
   it('is reproducible for a given seed', () => {
     expect(run(SEEDS[1]).state.log.length).toBe(run(SEEDS[1]).state.log.length);

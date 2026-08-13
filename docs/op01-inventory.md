@@ -3,9 +3,9 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
-> **Status — pile A is COMPLETE, and gap 2 is bought.** All thirty-five
-> writable pile-A cards are written and three pile-C cards followed them,
-> taking OP-01 from 19 playable to **57 of 121**. Batch 1 was the
+> **Status — pile A is COMPLETE, and gaps 1 and 2 are bought.** All thirty-five
+> writable pile-A cards are written and eleven pile-C cards have followed them,
+> taking OP-01 from 19 playable to **65 of 121**. Batch 1 was the
 > nine mechanical Characters and cost an engine change on the way
 > ([what it found](#what-batch-1-found--a-missing-rule-not-a-missing-word));
 > batch 2 the seven red/green Events, which cost nothing but found a coverage
@@ -19,9 +19,14 @@ each card reports **what it needs**, never what the API for it would look like.
 >
 > **Batch 5 changed what "can express" means**, which is the first time this
 > document has had to say that. It bought gap 2 — a payment whose card the
-> player picks — and three pile-C cards came with it, taking OP-01 to **57 of
-> 121**. Pile A is still 38 of 38; the three new ones were never in it
+> player picks — and three pile-C cards came with it
 > ([what it found](#what-batch-5-found--the-price-was-the-gap-the-filter-was-the-surprise)).
+>
+> **Batch 6 bought gap 1**, the largest on the table: putting a card into play.
+> Eight more pile-C cards, taking OP-01 to **65 of 121**, and the last three
+> starter cards this project had been carrying as honestly-missing
+> ([what it found](#what-batch-6-found--the-count-was-right-and-the-hard-part-was-not-the-zone)).
+> Pile A is still 38 of 38; none of the eleven new ones was ever in it.
 >
 > The classification below is **not re-cut**: it is what was read before any of
 > it was built, and the ✅ marks in the card-by-card table are the only thing
@@ -123,8 +128,8 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 57 of 121, up from 19: pile A is done, and gap 2 added
-three more.** The
+**Playable today — 65 of 121, up from 19: pile A is done, and gaps 2 and 1
+added eleven more.** The
 `Playable today` column moved as the batches landed:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
@@ -423,6 +428,73 @@ open, and `packages/engine/README.md` records it where the old TODO was.
 So: **57 of 121 playable**, and the remaining 64 are what the gap table is now
 about.
 
+## What batch 6 found — the count was right, and the hard part was not the zone
+
+Gap 1 is the largest row in this table and the one the recommendation put
+second overall. It was bought, and the two things worth recording are that the
+**arithmetic held** and that the **hard part was somewhere else than the row
+suggested**.
+
+**The count was right, to the card.** Batch 5 had to correct this document's
+gap-2 summary against its own rows, so the same check was run first this time:
+eighteen OP-01 rows name put-into-play, and exactly eight of them name nothing
+else. All eight are written. Adding `ST02-005` and `ST02-017` from the starter
+set gives **10 freed**, which is precisely what the combined table below
+predicted. No correction was needed.
+
+| Card | Freed? | The second thing it needs |
+| --- | --- | --- |
+| `OP01-009` Carrot | ✅ | — |
+| `OP01-014` Jinbe | ✅ | — |
+| `OP01-037` Kawamatsu | ✅ | — |
+| `OP01-060` Doflamingo (L) | ✅ | — |
+| `OP01-071` Jinbe | ✅ | — |
+| `OP01-082` Monet | ✅ | — |
+| `OP01-087` Officer Agents | ✅ | — |
+| `OP01-104` Speed | ✅ | — |
+| `OP01-002` Trafalgar Law (L) | ❌ | a selector predicated on a card held in a var (gap 16) |
+| `OP01-040` Kin'emon | ❌ | "if your Leader is [Kouzuki Oden]" (gap 5) |
+| `OP01-044` Shachi | ❌ | a name reference (gap 5) |
+| `OP01-047` Trafalgar Law | ❌ | a `Cost` that returns a Character you choose (gap 15) |
+| `OP01-049` Bepo | ❌ | "other than [Bepo]" (gap 5) |
+| `OP01-051` Eustass"Captain"Kid | ❌ | three more gaps |
+| `OP01-069` Caesar Clown | ❌ | the whole deck, a name reference, and `shuffle` |
+| `OP01-074` Bartholomew Kuma | ❌ | a name reference (gap 5) |
+| `OP01-106` Basil Hawkins | ❌ | the DON!! deck (gap 4) |
+| `OP01-116` Artificial Devil Fruit SMILE | ❌ | `orderCards` (gap 3) |
+
+**One starter card the task brief expected did not come.** `ST01-002` Usopp
+prints "[Trigger] Play this card" and a `[When Attacking]` half that is a
+**prohibition** — "your opponent cannot activate a [Blocker] Character that has
+5000 or more power during this battle" — which is gap 7 and untouched. This
+document already said so, in the line "`ST01-002` and `ST01-016` are freed by
+nothing alone"; the two starter cards gap 1 frees are `ST02-005` and
+`ST02-017`, and that is what the table below says too. Writing only Usopp's
+`[Trigger]` would have been a card half implemented, which this project treats
+as worse than one honestly missing.
+
+**The hard part was not the destination.** `ZoneRef` having no `field` member
+was the visible half of the gap and the cheap half. What "play this card"
+actually costs is a *routine*: an `[On Play]` that fires (official Q&A: "you
+must activate the [On Play] effect whenever possible"), a summoning-sickness
+stamp (CR 3-7-4), an orientation (CR 3-7-5), and a 6th-Character sacrifice the
+controller has to be **asked** about (CR 3-7-6-1) — a question inside a step the
+interpreter could not suspend in until batch 5 made cost payment suspendable.
+The instruction shares `enterCharacterArea` with the `PLAY_CARD` action rather
+than reimplementing any of it.
+
+**And the rules use "play" in two senses.** CR 6-5-3-1 and 4-7-1 define the Main
+Phase *action* as paying a cost and then placing a card; CR 3-7-3 calls the bare
+placing of a card in the Character area "playing" it, with no payment anywhere
+near it. Card effects use the second sense, and two printed cards settle it
+without needing the argument: `OP01-014`'s `[On Block]` and `ST02-017`'s
+`[Trigger]` both fire on the *opponent's* turn, when the defender's cost area is
+empty. It is behind a `rules` flag all the same, because the text does not say
+it in one sentence.
+
+So: **65 of 121 playable**, and the remaining 56 are what the gap table is now
+about.
+
 ## Gaps, with both columns
 
 *Touched* = cards that need this capability. *Freed alone* = cards for which
@@ -431,7 +503,7 @@ an upper bound.
 
 | # | What the cards need | Touched | **Freed alone** | Full set (upper bound) |
 | --- | --- | --- | --- | --- |
-| 1 | **Put a card into play** — from hand or deck, sometimes rested | 19 | **8** | 379 |
+| 1 | ~~**Put a card into play**~~ — **bought** (batch 6); hand, deck top, active or rested | 19 | ~~**8**~~ **done** | 379 |
 | 2 | ~~**A payment whose card the player picks**~~ — the **cost** half is **bought** (batch 5, 3 freed); the **instruction** half, "your opponent trashes 1 card from their hand", is open | 12 | **6** → **3** | 292 |
 | 3 | **`orderCards`, and naming "the rest"** — incl. top-*or*-bottom splits | 9 | **5** | 226 |
 | 4 | **Add DON!! from the DON!! deck** | 8 | **5** | 140 |
@@ -503,7 +575,7 @@ isolation, so the nine starter cards still blocked are counted the same way.
 
 | Gap | Frees, of the starters' remaining 9 |
 | --- | --- |
-| 1 — put into play | `ST02-005`, `ST02-017` |
+| 1 — put into play | `ST02-005`, `ST02-017` — **bought, and both written** |
 | 2 — chosen payment | `ST02-001` (the ST-02 Leader) — **bought, and written** |
 | 3 — `orderCards` and "the rest" | `ST02-007` |
 | 7 — prohibitions | `ST01-012` |
@@ -516,7 +588,7 @@ pile D and needs a ruling first.
 
 | Gap | Freed |
 | --- | --- |
-| **1 — put a card into play** | **10** |
+| ~~**1 — put a card into play**~~ | **10, bought** — and it really was 10 |
 | ~~2 — a payment the player picks~~ | ~~7~~ → **4, bought** |
 | 3 — `orderCards` and "the rest" | 6 |
 | 4 — add DON!! from the DON!! deck | 5 |
@@ -857,12 +929,12 @@ have been added to it as batches land:
 | OP01-006 | Otama | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character} → `addPower −2000 endOfTurn` |
 | OP01-007 | Caribou | char | **A** ✅ | `onKO`; select 0–1 {field, opponent, character, powerMax 4000} → `ko` |
 | OP01-008 | Cavendish | char | **B** | a `Cost` paid by moving a Life card to hand. Body is `grantKeyword self rush endOfTurn` |
-| OP01-009 | Carrot | char | **C** | put-into-play, and nothing else. Note: the `[Trigger]` text sits in `effectText`, not `triggerText` |
+| OP01-009 | Carrot | char | **C** ✅ | `trigger`; `play {self}`. The whole card. Freed by batch 6. Note: the `[Trigger]` text sits in `effectText`, not `triggerText` |
 | OP01-010 | Komachiyo | char | vanilla | — |
 | OP01-011 | Gordon | char | **C** | the chosen payment now exists; still blocked by the other half — a `Cost` that moves a hand card to the **bottom of the deck** |
 | OP01-012 | Sai | char | vanilla | — |
 | OP01-013 | Sanji | char | **B** | same Life-card `Cost` as `OP01-008`; body is `addPower self` then `giveDon self 2` |
-| OP01-014 | Jinbe | char | **C** | put-into-play, and nothing else. `[Blocker]` is printed |
+| OP01-014 | Jinbe | char | **C** ✅ | `[Blocker]` printed; `onBlock` `[DON!! x1]`; select 0–1 {hand, you, character, colors red, costMax 2} → `play`. Freed by batch 6 |
 | OP01-015 | Tony Tony.Chopper | char | **C** | the chosen discard now exists; still blocked by "other than [Tony Tony.Chopper]" (gap 5) |
 | OP01-016 | Nami | char | **C** | `orderCards` + "the rest", **and** "other than [Nami]" |
 | OP01-017 | Nico Robin | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
@@ -885,7 +957,7 @@ have been added to it as batches land:
 | OP01-034 | Inuarashi | char | **A** ✅ | `whenAttacking`, cond `donAttached 2` → `orientDon you active 1` |
 | OP01-035 | Okiku | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `donAttached 1`; select 0–1 {opponent, costMax 5} → `rest` |
 | OP01-036 | Otsuru | char | vanilla | — |
-| OP01-037 | Kawamatsu | char | **C** | put-into-play, and nothing else |
+| OP01-037 | Kawamatsu | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-038 | Kanjuro | char | **C** | a discard **the opponent chooses** from your hand. `PendingChoice` already carries a `player`, so the chooser is not the hard part — suspension during the effect is. Its `whenAttacking` half is expressible |
 | OP01-039 | Killer | char | **A** ✅ | `onBlock`, cond `and(donAttached 1, countCards {field, you, character} min 3)` → `draw you 1` |
 | OP01-040 | Kin'emon | char | **C** | put-into-play **and** "if your Leader is [Kouzuki Oden]". Its `whenAttacking` half is expressible |
@@ -908,7 +980,7 @@ have been added to it as batches land:
 | OP01-057 | Paradise Waterfall | event | **A** ✅ | `counterEvent`: `addPower +2000 endOfBattle` then `setActive`. `trigger`: `ko` a rested opponent Character |
 | OP01-058 | Punk Gibson | event | **A** ✅ | as `OP01-057`, with `rest` instead of `setActive` |
 | OP01-059 | BE-BENG!! | event | **C** ✅ | `mainEvent`; cost `discardHand 1 {types: Land of Wano}` → select 0–1 {field, you, character, types Land of Wano, costMax 3} → `setActive`. Freed by batch 5 |
-| OP01-060 | Donquixote Doflamingo (L) | leader | **C** | put-into-play, **from the deck and rested**. The condition on the revealed card is expressible: a re-resolved `deckTop` selector with `count: 1` names the same card |
+| OP01-060 | Donquixote Doflamingo (L) | leader | **C** ✅ | `whenAttacking` `optional` `[DON!! x2]`; cost `restDon 1`; `reveal deckTop 1`, `if countCards {deckTop, types Seven Warlords, costMax 4}` → `confirm` → `play {var} rested`. The re-resolved `deckTop` selector worked exactly as predicted. Freed by batch 6 |
 | OP01-061 | Kaido (L) | leader | **C** | a trigger for "your opponent's Character is K.O.'d" (**missing rule**) **and** the DON!! deck |
 | OP01-062 | Crocodile (L) | leader | **C** | a trigger for "you activate an Event" (**missing rule**), and nothing else — `oncePerTurn` and `countCards` cover the rest |
 | OP01-063 | Arlong | char | **C** | a predicate about a card held in a var ("if the revealed card is an Event") **and** `reveal` taking a `Ref`. See the hidden-information note |
@@ -919,7 +991,7 @@ have been added to it as batches land:
 | OP01-068 | Gecko Moria | char | **A** ✅ | `static`, cond `and(isYourTurn, countCards {hand, you} min 5)`, `affects self`, `grants.keyword doubleAttack` |
 | OP01-069 | Caesar Clown | char | **C** | put-into-play **from the whole deck**, a name reference, and a `shuffle` op |
 | OP01-070 | Dracule Mihawk | char | **A** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 7} → `moveCard {deck}, position 'bottom'` |
-| OP01-071 | Jinbe | char | **C** | put-into-play for the `[Trigger]` half. The `[On Play]` half is expressible |
+| OP01-071 | Jinbe | char | **C** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 3} → `moveCard deck bottom`. `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-072 | Smiley | char | **C** | a scaling grant — "+1000 for every card in your hand". `grants.power` is a constant |
 | OP01-073 | Donquixote Doflamingo | char | **C** | `orderCards`, in its top-**or**-bottom form. `[Blocker]` is printed |
 | OP01-074 | Bartholomew Kuma | char | **C** | put-into-play **and** a name reference |
@@ -930,12 +1002,12 @@ have been added to it as batches land:
 | OP01-079 | Ms. All Sunday | char | **A** ✅ | `onKO`, cond `countCards {field, you, leader, types ['Baroque Works']} min 1`; select 0–1 {trash, you, event} → `moveCard {hand}` |
 | OP01-080 | Miss Doublefinger(Zala) | char | **A** ✅ | `onKO` → `draw you 1` |
 | OP01-081 | Mocha | char | vanilla | — |
-| OP01-082 | Monet | char | **C** | put-into-play, and nothing else |
+| OP01-082 | Monet | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-083 | Mr.1(Daz.Bonez) | char | **C** | a scaling grant — "+1000 for every 2 Events in your trash". The Leader-type condition is expressible |
 | OP01-084 | Mr.2.Bon.Kurei(Bentham) | char | **C** | `orderCards` + "the rest", and nothing else |
 | OP01-085 | Mr.3(Galdino) | char | **C** | a prohibition (cannot attack) **and** a duration longer than end of turn |
 | OP01-086 | Overheat | event | **A** ✅ | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
-| OP01-087 | Officer Agents | event | **C** | put-into-play, and nothing else |
+| OP01-087 | Officer Agents | event | **C** ✅ | `counterEvent` and `trigger` on one shared list; select 0–1 {hand, you, character, types Baroque Works, costMax 3} → `play`. Freed by batch 6 |
 | OP01-088 | Desert Spada | event | **C** | `orderCards` on the `[Counter]` half **and** a player-chosen discard on the `[Trigger]` half |
 | OP01-089 | Crescent Cutlass | event | **A** ✅ | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
 | OP01-090 | Baroque Works | event | **C** | `orderCards` + "the rest" **and** "other than [Baroque Works]" |
@@ -952,7 +1024,7 @@ have been added to it as batches land:
 | OP01-101 | Sasaki | char | **C** | the chosen discard now exists; still blocked by the DON!! deck (gap 4) |
 | OP01-102 | Jack | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |
 | OP01-103 | Scratchmen Apoo | char | vanilla | — |
-| OP01-104 | Speed | char | **C** | put-into-play, and nothing else |
+| OP01-104 | Speed | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-105 | Bao Huang | char | **B** | `reveal` takes a `Selector`; this needs it to take a `Ref` so it can reveal the cards just chosen. See the hidden-information note |
 | OP01-106 | Basil Hawkins | char | **C** | the DON!! deck **and** put-into-play |
 | OP01-107 | Babanuki | char | vanilla | — |
@@ -1056,7 +1128,7 @@ that a path with no real card on it is a path nobody has tested.
 Expect one of the 35 not to survive contact. That is the historical rate and it
 is the point of writing them.
 
-### Second — put a card into play. 10 cards freed, 379 in the full set.
+### ~~Second~~ — put a card into play. **Bought.** 10 cards freed, exactly as counted.
 
 First on every column, in both sets, with a 43% margin over second. Five of the
 eight it frees in OP-01 are the whole text of their card ("[Trigger] Play this
@@ -1066,6 +1138,14 @@ Price it as the starter inventory said: the play routine, the `[On Play]` that
 fires from it, and the full-field trash decision, which drags in the suspension
 limit. OP-01 adds playing **from the deck** and playing **rested**, both of
 which should be in the first design rather than bolted on.
+
+*Checked, and it was right about all four.* The routine, the `[On Play]`, the
+trash decision and the suspension were the whole of the work — and the deck
+source and the rested arrival were in the first design, because `OP01-060`
+Doflamingo needs both and it was in scope from the start. The one thing the
+estimate missed is that the suspension had already been paid for: batch 5 made
+cost payment suspendable, and this reused the same `sink` pattern rather than
+inventing anything.
 
 ### ~~Third~~ — a payment the player picks. **Bought.** 4 freed, not 7.
 

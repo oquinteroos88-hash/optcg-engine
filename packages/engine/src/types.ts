@@ -43,6 +43,24 @@ export interface GameState {
   rules: {
     firstPlayerCannotAttackTurnOne: boolean;
     /**
+     * Whether a card put onto the field by an *effect* — "play up to 1 Character
+     * card with a cost of 2 or less from your hand" — makes its controller pay
+     * that card's printed cost.
+     *
+     * False, and the flag exists because the Comprehensive Rules use "play" in
+     * two senses and never reconcile them. CR 6-5-3-1 and 4-7-1 define the Main
+     * Phase *action* as paying and then placing; CR 3-7-3 calls the bare placing
+     * of a card in the Character area "playing" it, with no payment in sight,
+     * and CR 3-7-6-1 describes the full-board case in those terms too. Card
+     * effects use the second sense, and two printed cards make that the only
+     * workable reading: `OP01-014`'s `[On Block]` and `ST02-017`'s `[Trigger]`
+     * both fire on the opponent's turn, when the defender's cost area is
+     * empty — a card printed to be unplayable is not a card. The cost cap the
+     * effects print ("with a cost of 2 or less") is the balancing mechanism,
+     * and it would be redundant if the DON!! had to be there anyway.
+     */
+    playFromEffectPaysCost: boolean;
+    /**
      * Whether the second damage of a Double Attack can win the game against a
      * player who had exactly 1 life card. Official Q&A says no (see README);
      * the flag exists because the Comprehensive Rules do not spell out the
@@ -199,8 +217,19 @@ export interface PendingChoice {
    * answer to a `discardHand` cost is not a script variable at all — it is the
    * payment itself, applied against `StackItem.costsPaid`, which names the cost
    * being paid without the choice having to repeat it.
+   *
+   * `play` is the fourth, and the first that has to *carry* something. The other
+   * three are derivable from where the interpreter stopped; which card is coming
+   * onto the field is not, because re-resolving the instruction's `Ref` after the
+   * answer could name a different card. So the record is complete on its own: the
+   * card entering, and whether it enters rested. Nothing about the placement is
+   * left to be looked up again.
    */
-  sink: { kind: 'var'; name: string } | { kind: 'optIn' } | { kind: 'cost' };
+  sink:
+    | { kind: 'var'; name: string }
+    | { kind: 'optIn' }
+    | { kind: 'cost' }
+    | { kind: 'play'; entering: InstanceId; rested: boolean };
 }
 
 /**

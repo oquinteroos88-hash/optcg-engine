@@ -1,8 +1,10 @@
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import {
+  BOARD_LIMIT,
   detachFromField,
   emit,
+  enterCharacterArea,
   finishGame,
   leaveField,
   mustGetCard,
@@ -11,6 +13,7 @@ import {
 } from '../reducer/helpers.js';
 import { finishTurn } from '../reducer/turn.js';
 import { getAbilities } from '../registry.js';
+import { getCardDef } from '../registry.js';
 import { getOpponent, getPower, isOnField } from '../selectors.js';
 import type {
   ChoiceAnswer,
@@ -609,6 +612,7 @@ function execute(
     }
     case 'select':
     case 'confirm':
+    case 'play':
     case 'if':
     case 'forEach':
       throw new Error(`Engine bug: ${instruction.op} is control flow, not a mutation`);
@@ -659,13 +663,125 @@ function pushControlFrame(
 // Stack stepping
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Putting a card on the field
+// ---------------------------------------------------------------------------
+
+/**
+ * The card a `play` instruction can actually put down, or null.
+ *
+ * Rule 1 of the interpreter applies in full: a target that cannot be played is
+ * *ignored*, never a reason to abort. Three ways to be unplayable, and all three
+ * are silent — an Event or a Leader, which has no Character area to enter
+ * (CR 3-7-1); a card that is not in one of its owner's off-field zones, which
+ * covers a target that already moved on; and somebody else's card, since every
+ * printed effect in this set says "from **your** hand".
+ */
+function playableTarget(
+  draft: GameState,
+  item: StackItem,
+  ref: Ref,
+): InstanceId | null {
+  for (const id of targets(draft, item, ref)) {
+    const card = draft.cards[id];
+    if (card === undefined || card.owner !== item.controller) {
+      continue;
+    }
+    if (getCardDef(card.cardId).category !== 'character') {
+      mark('op.playNotACharacter');
+      continue;
+    }
+    if (isOnField(draft, id)) {
+      continue;
+    }
+    return id;
+  }
+  return null;
+}
+
+/**
+ * Takes `id` out of the zone it is sitting in and puts it on the field.
+ *
+ * The removal and the placement happen together, in one step, for the reason
+ * the whole suspension design exists: a card that had left its zone but not yet
+ * reached the field would be a state describing a card that is nowhere.
+ */
+function playCardFromZone(
+  draft: GameState,
+  player: PlayerId,
+  id: InstanceId,
+  rested: boolean,
+  trashCharacter: InstanceId | undefined,
+  events: GameEvent[],
+): void {
+  if (!removeFromNonFieldZone(draft, id)) {
+    mark('op.targetGone');
+    return;
+  }
+  mark('op.play');
+  enterCharacterArea(draft, player, id, events, {
+    ...(rested ? { orientation: 'rested' as const } : {}),
+    ...(trashCharacter === undefined ? {} : { trashCharacter }),
+  });
+}
+
+/**
+ * Runs a `play` instruction, returning true when it stopped to ask instead.
+ *
+ * The only question it can raise is the 6th-Character sacrifice, and CR 3-7-6-1
+ * puts it before the placement: the player "should reveal the card they want to
+ * play, trash 1 of the Character cards **already in** their Character area, and
+ * then play the new Character card". So the choice opens with nothing moved
+ * yet — the card is still in hand, the board is still full — and the answer does
+ * the trash and the placement in one step.
+ *
+ * The candidates are the Characters already there, which is also why the card
+ * entering cannot be sacrificed to make room for itself.
+ */
+function playInstruction(
+  draft: GameState,
+  item: StackItem,
+  instruction: Instruction & { op: 'play' },
+  events: GameEvent[],
+): boolean {
+  const id = playableTarget(draft, item, instruction.target);
+  if (id === null) {
+    mark('op.playNoTarget');
+    return false;
+  }
+  const rested = instruction.rested === true;
+  const board = draft.players[item.controller].characters;
+  if (board.length < BOARD_LIMIT) {
+    playCardFromZone(draft, item.controller, id, rested, undefined, events);
+    return false;
+  }
+  const card = mustGetCard(draft, id);
+  mark('op.playNeedsRoom');
+  openChoice(draft, events, {
+    player: item.controller,
+    kind: 'selectCards',
+    prompt: `Trash 1 of your Characters to make room for ${getCardDef(card.cardId).name}`,
+    candidates: [...board],
+    // Exactly one. CR 3-7-6-1 trashes 1 Character, and there is no "up to"
+    // about it: the alternative is not playing the card, and that decision was
+    // already made when the effect resolved.
+    min: 1,
+    max: 1,
+    sink: { kind: 'play', entering: id, rested },
+  });
+  return true;
+}
+
 /** Opens the choice a suspending instruction needs, or resolves it trivially. */
 function suspend(
   draft: GameState,
   item: StackItem,
-  instruction: Instruction & { op: 'select' | 'confirm' },
+  instruction: Instruction & { op: 'select' | 'confirm' | 'play' },
   events: GameEvent[],
 ): boolean {
+  if (instruction.op === 'play') {
+    return playInstruction(draft, item, instruction, events);
+  }
   if (instruction.op === 'confirm') {
     openChoice(draft, events, {
       player: item.controller,
@@ -799,7 +915,11 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
 
   // Suspending ops do not advance the cursor. The answer advances it, which is
   // what makes "resume at pc + 1" true no matter how the state got here.
-  if (instruction.op === 'select' || instruction.op === 'confirm') {
+  if (
+    instruction.op === 'select' ||
+    instruction.op === 'confirm' ||
+    instruction.op === 'play'
+  ) {
     if (suspend(draft, item, instruction, events)) {
       return;
     }
@@ -990,6 +1110,33 @@ export function applyAnswer(
 
   if (item === undefined) {
     throw new Error('Engine bug: script answer with an empty stack');
+  }
+
+  if (pending.sink.kind === 'play') {
+    if (answer.kind !== 'cards') {
+      throw new Error('Engine bug: a play sacrifice answered with a non-cards answer');
+    }
+    const sacrificed = answer.selected[0];
+    if (sacrificed === undefined) {
+      throw new Error('Engine bug: a play sacrifice answered with nothing');
+    }
+    // Trash and placement in one step, from a record that already names the
+    // card entering — nothing is re-resolved, so the answer cannot land on a
+    // different card than the question was about.
+    playCardFromZone(
+      draft,
+      item.controller,
+      pending.sink.entering,
+      pending.sink.rested,
+      sacrificed,
+      events,
+    );
+    const playFrame = item.cursor[item.cursor.length - 1];
+    if (playFrame === undefined) {
+      throw new Error('Engine bug: answered a play choice with no open frame');
+    }
+    playFrame.index += 1;
+    return;
   }
 
   if (pending.sink.kind === 'cost') {

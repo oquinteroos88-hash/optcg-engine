@@ -98,6 +98,15 @@ describe('the OP-01 test decks are legal', () => {
       'OP01-031',
       'OP01-059',
       'OP01-064',
+      // Batch 6 — the cards that put cards on the field.
+      'OP01-009',
+      'OP01-014',
+      'OP01-037',
+      'OP01-060',
+      'OP01-071',
+      'OP01-082',
+      'OP01-087',
+      'OP01-104',
     ]);
     const KEYWORD_ONLY = /^\[(Blocker|Rush|Banish|Double Attack)\]/;
     for (const deck of OP01_TEST_DECKS) {

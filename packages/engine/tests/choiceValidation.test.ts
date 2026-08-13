@@ -180,7 +180,11 @@ describe('answer validation over a corpus of real pendings', () => {
       const stranger = Object.keys(state.cards).find((id) => !pending.candidates.includes(id));
       if (stranger !== undefined && pending.max >= 1) {
         membershipChecked += 1;
-        const selected = [stranger, ...pending.candidates.slice(0, pending.min - 1)];
+        // Math.max, because a min of 0 turns `min - 1` into a negative slice end,
+        // which quietly returns *most of the array* instead of none of it — and
+        // the probe then fails on cardinality without ever testing membership.
+        // Latent until a choice appeared with min 0 and several candidates.
+        const selected = [stranger, ...pending.candidates.slice(0, Math.max(pending.min - 1, 0))];
         rejectWith(
           state,
           { ...base, answer: { kind: 'cards', selected } },

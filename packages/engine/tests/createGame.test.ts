@@ -64,6 +64,7 @@ describe('createGame', () => {
     expect(state.rules).toEqual({
       firstPlayerCannotAttackTurnOne: true,
       doubleAttackCanWinFromOneLife: false,
+      playFromEffectPaysCost: false,
     });
     expect(state.log).toEqual([{ type: 'gameStarted', matchId: 'optcg-42', firstPlayer: 'p2' }]);
     for (const card of Object.values(state.cards)) {

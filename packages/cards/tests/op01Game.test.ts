@@ -36,7 +36,7 @@ import { OP01_DECKS, OP01_ODEN_DECKS, OP01_ZORO_DECKS } from './support.js';
  * nothing, and the starter seeds two packages over have never moved.
  */
 
-const SEEDS = [115, 154, 53, 61, 13, 16, 147, 173] as const;
+const SEEDS = [199, 6, 70, 19, 42, 98, 117, 153, 292, 15] as const;
 const ACTIONS = 400;
 
 /**
@@ -73,6 +73,9 @@ const BATCH_ABILITIES = [
   'OP01-057-trigger',
   'OP01-058-counter',
   'OP01-058-trigger',
+  // Batch 6 — the two red cards that put cards on the field.
+  'OP01-009-trigger',
+  'OP01-014-onBlock',
   // Batch 4 — `OP01-007` and `OP01-039` are here; `OP01-001` and `OP01-032` are
   // not and never can be. A `static` is **read**, never fired, so it emits no
   // `abilityTriggered` and cannot belong to a set of ability ids. Both are
@@ -241,7 +244,7 @@ describe('a real game of OP-01 against OP-01', () => {
     // Keeping them out of that pair is deliberate: putting BE-BENG!! into the Law
     // deck cost three 4000-power bodies, and with them the only route a random
     // red/green game had to the *attacker* side of CR 7-1-1-4.
-    const ODEN_SEEDS = [69, 90, 107, 108];
+    const ODEN_SEEDS = [177, 146, 178, 119];
     const fired = new Set<string>();
     for (const seed of ODEN_SEEDS) {
       let state = createGame({ seed, decks: OP01_ODEN_DECKS, firstPlayer: 'p1' });

@@ -33,6 +33,30 @@ export function ownedFieldSources(state: GameState, player: PlayerId): InstanceI
   return fieldIds(state, player);
 }
 
+/**
+ * Tells both fields that an Event card was activated.
+ *
+ * Called from the two places an Event can be used from hand — the `[Main]`
+ * route in `applyPlayCard` and the `[Counter]` route in
+ * `applyPlayCounterEvent` — because CR 8-5-2 defines card activation as "using
+ * an Event card from your hand" and says nothing about which phase.
+ *
+ * **Called after the Event's own effect has been queued, never before.**
+ * CR 8-6-3: an effect whose activation timing is fulfilled by activating a card
+ * "can be activated after the resolution of the effect of the previously
+ * activated card". `enqueue` puts new items *underneath* what is already on the
+ * stack, so firing the Event first and the watchers second is what produces
+ * that order — and firing them the other way round would invert it.
+ */
+export function fireEventActivated(draft: GameState, activator: PlayerId): void {
+  fireTriggers(draft, 'whenActivatingEvent', ownedFieldSources(draft, activator));
+  fireTriggers(
+    draft,
+    'whenOpponentActivatesEvent',
+    ownedFieldSources(draft, activator === 'p1' ? 'p2' : 'p1'),
+  );
+}
+
 export function makeStackItem(
   source: InstanceId,
   controller: PlayerId,

@@ -1,3 +1,4 @@
+import { fieldIds } from '../abilities/query.js';
 import { fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
@@ -128,6 +129,20 @@ export function leaveField(
     // A KO wakes the card's own [On K.O.] ability. It is queued, not run: the
     // effect that caused the KO finishes its script first.
     fireTriggers(draft, 'onKO', [id]);
+    // And it tells the other player's field, which is a different question:
+    // `onKO` is "**I** was K.O.'d", and a card watching the opponent's board
+    // had no way in until this line existed. Fired here rather than at each
+    // call site, so every route to a K.O. — a battle, a script's `ko`, a cost
+    // — reaches it, and the three causes that are *not* K.O.s never do
+    // (CR 3-7-6-1-1 for the 6th-Character trash).
+    //
+    // The K.O.'d card's own trigger goes first and the watchers underneath it,
+    // which is CR 8-6-1's order read the only way it can be read here: both
+    // effects' timing is fulfilled at once, and the engine's fixed order —
+    // turn player first, then board position — is what `orderedFieldSources`
+    // has always given simultaneous triggers.
+    const watchers = fieldIds(draft, controller === 'p1' ? 'p2' : 'p1');
+    fireTriggers(draft, 'whenOpponentCharacterKOd', watchers);
   } else if (cause === 'trashedForRoom') {
     // Deliberately not a KO, and deliberately no onKO trigger: making room for
     // a 6th character is a discard, which is a different rule.

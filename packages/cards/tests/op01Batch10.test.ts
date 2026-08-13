@@ -310,7 +310,7 @@ describe('a real game of OP-01 mono-purple', () => {
    * mixed deck, and a family a random game meets once in three hundred is a
    * family nobody has measured.
    */
-  const SEEDS = [151, 22, 45, 63, 123, 42, 146] as const;
+  const SEEDS = [219, 201, 60, 123, 42, 51] as const;
   const ACTIONS = 400;
 
   /** Every ability a random game of this deck reaches, as an exact set. */
@@ -347,6 +347,8 @@ describe('a real game of OP-01 mono-purple', () => {
     'OP01-087-counter',
     'OP01-087-trigger',
     'OP01-089-counter',
+    // Added by the starter-completion batch, which put Mr.3 into that deck.
+    'OP01-085-onPlay',
   ] as const;
 
   function run(seed: number): { state: GameState; fired: Set<string>; added: number } {

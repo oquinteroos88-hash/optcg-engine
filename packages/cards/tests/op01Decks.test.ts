@@ -128,6 +128,8 @@ describe('the OP-01 test decks are legal', () => {
       'OP01-021',
       'OP01-112',
       'OP01-120',
+      // The starter-completion batch - the duration that outlives its turn.
+      'OP01-085',
     ]);
     const KEYWORD_ONLY = /^\[(Blocker|Rush|Banish|Double Attack)\]/;
     for (const deck of OP01_TEST_DECKS) {

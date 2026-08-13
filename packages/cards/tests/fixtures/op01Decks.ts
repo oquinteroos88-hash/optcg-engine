@@ -383,9 +383,14 @@ export const OP01_BP_CROCODILE: Decklist = {
     { cardId: 'OP01-082', qty: 4 }, // Monet — [Trigger] Play this card
     { cardId: 'OP01-087', qty: 2 }, // Officer Agents — [Counter]/[Trigger] play a Baroque Works
     { cardId: 'OP01-076', qty: 2 }, // Bellamy — vanilla, cost 2
-    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
-    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-081', qty: 2 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-100', qty: 2 }, // Kurozumi Higurashi — [Blocker] only, cost 2
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    // Four copies, and the Leader is why they are worth it: `OP01-085` gates on
+    // a {Baroque Works} Leader and Crocodile is one, so its prohibition is live
+    // in every game this deck plays. The two vanilla lines above dropped to 2
+    // apiece to pay for them — the deck is 50 either way.
+    { cardId: 'OP01-085', qty: 4 }, // Mr.3(Galdino) — [On Play] cannot attack
   ],
 };
 
@@ -497,6 +502,12 @@ export const OP01_BP_EVERYTHING: Decklist = {
     { cardId: 'OP01-066', qty: 2 }, // Krieg — vanilla, cost 4
     { cardId: 'OP01-065', qty: 2 }, // Vergo — vanilla, cost 5
     { cardId: 'OP01-103', qty: 2 }, // Scratchmen Apoo — vanilla, cost 4
+    // `OP01-085` Mr.3(Galdino) is deliberately **not** here. This is the deck
+    // every hand-built blue/purple position stages from, it is already exactly
+    // 50, and every filler line in it is a body some staged board needs two of —
+    // `op01Batch3.test.ts` names all six in its own `FILLERS`. Mr.3 lives in
+    // `OP01_BP_CROCODILE` instead, which is Crocodile-led and therefore the only
+    // fixture where his {Baroque Works} gate is open at all.
   ],
 };
 

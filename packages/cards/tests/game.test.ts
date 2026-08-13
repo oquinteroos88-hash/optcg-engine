@@ -47,19 +47,40 @@ interface Run {
   manifested: Set<string>;
 }
 
-/** Records any of the three self-targeting statics currently in effect. */
+/**
+ * Records any of the four statics in these decks currently in effect.
+ *
+ * **"A card above its without-statics power is lifting itself" stopped being
+ * true**, and the repair is the interesting part of this function. It held while
+ * every static in ST-01/ST-02 was self-targeting; `ST02-014` X.Drake is the
+ * first that is not — it grants +1000 to every {Supernovas} or {Navy} Leader and
+ * Character its controller has — and `ST02-003` Urouge is {Supernovas}. So a
+ * lifted Urouge can now be X.Drake's doing rather than its own, and the old
+ * check would have credited Urouge for somebody else's buff.
+ *
+ * Each card is therefore attributed by a lift only its own static can produce:
+ *
+ * - `ST02-003` grants **+2000**, X.Drake grants +1000, and nothing else in these
+ *   decks lifts anything. A lift of 2000 or more cannot be X.Drake alone.
+ * - `ST01-013` is p1's and X.Drake is p2's. A static's `affects` selector is
+ *   `owner: 'you'`, so it can never reach across the table; any lift on Zoro is
+ *   still Zoro's.
+ * - `ST02-014` is {Supernovas} itself and buffs itself, and the only other
+ *   static on p2's board (`ST02-003`) is self-only. Any lift on X.Drake is
+ *   X.Drake's.
+ * - `ST01-004` Sanji prints no Rush, so a granted Rush is still the static.
+ */
 function recordManifestedStatics(state: GameState, into: Set<string>): void {
   for (const player of ['p1', 'p2'] as const) {
     const ps = state.players[player];
     for (const id of [ps.leader, ...ps.characters]) {
       const card = state.cards[id];
       if (card === undefined) continue;
-      // ST-01/02 carry no foreign statics, so a card above its without-statics
-      // power can only be lifting itself.
-      if (
-        (card.cardId === 'ST01-013' || card.cardId === 'ST02-003') &&
-        getPower(state, id) > getPowerWithoutStatics(state, id)
-      ) {
+      const lift = getPower(state, id) - getPowerWithoutStatics(state, id);
+      if ((card.cardId === 'ST01-013' || card.cardId === 'ST02-014') && lift > 0) {
+        into.add(card.cardId);
+      }
+      if (card.cardId === 'ST02-003' && lift >= 2000) {
         into.add(card.cardId);
       }
       // Sanji prints no Rush, so a granted Rush is the static.
@@ -163,8 +184,22 @@ describe('a real game, ST-01 against ST-02', () => {
     // These seeds are a search result over a *fixed driver*, not a property of
     // the cards: the driver chooses by a hash of each action's content rather
     // than by its index into `legalActions`, so adding a card does not re-run
-    // this search. Changing the policy does, and this was that change.
-    const SEEDS = [661, 39, 136, 1, 320];
+    // this search. Changing the policy does, and that was one such change.
+    //
+    // **`ST02-014` X.Drake is the other kind, and it is worth naming which.**
+    // Adding an *ability* to a card already in the deck moves nothing — that is
+    // what PR #22 bought. Adding a **static** does, because a static changes
+    // what `getPower` returns, and power decides which attacks win, which
+    // Characters survive, and therefore every decision after the first battle
+    // that reads differently. X.Drake was a vanilla 5000 body in every game
+    // these seeds were found in and is not one now, so the search was re-run
+    // rather than the list patched: seeds [661, 39, 136, 1, 320] became the six
+    // below, found by the same greedy cover over 399 clean games.
+    //
+    // Two rarities from that sweep, so nobody widens the list casually:
+    // `ST01-014-counter` fires in **1** game of 399 (seed 256 is here for it
+    // alone) and `ST02-003`'s static in 10. X.Drake's own static reaches 54.
+    const SEEDS = [256, 1, 66, 8, 78, 320];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {
@@ -205,9 +240,11 @@ describe('a real game, ST-01 against ST-02', () => {
       'ST02-017-main',
       'ST02-017-trigger',
     ]);
-    // The three self-targeting statics have no event to fire; they are affirmed
-    // by having been read off the board while in effect during a real game.
-    expect([...manifested].sort()).toEqual(['ST01-004', 'ST01-013', 'ST02-003']);
+    // The four statics have no event to fire; they are affirmed by having been
+    // read off the board while in effect during a real game. `ST02-014` is the
+    // fourth and the first that is not self-targeting — see the attribution
+    // argument at `recordManifestedStatics`.
+    expect([...manifested].sort()).toEqual(['ST01-004', 'ST01-013', 'ST02-003', 'ST02-014']);
   });
 
   it('rests Thousand Sunny to pay, and the +1000 lands, in an unstaged game', () => {

@@ -435,7 +435,7 @@ ranked table, and four of its items have since been built:
 | DON!! orientation changes | 71 | **done — PR #13** (`orientDon`) |
 | Putting cards into play | 375 | **done — the `play` instruction** |
 | `[Blocker]` prohibitions | 146 | open — structural |
-| `orderCards`, and naming "the cards not taken" | 254 | open |
+| ~~`orderCards`, and naming "the cards not taken"~~ | 254 | **closed — PR #32** (the permutation form; the top-or-bottom *split* is a separate shape and stays open, 27 cards) |
 | Suspendable costs | 197 | **done — the `discardHand` cost asks** |
 | Resting the source as a cost | 90 | **done — PR #15** (`restSelf`) |
 | Negation in `Condition` — `[Opponent's Turn]` | 77 | open — *added by this sweep* |

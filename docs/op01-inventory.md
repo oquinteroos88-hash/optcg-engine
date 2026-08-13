@@ -521,7 +521,7 @@ an upper bound.
 | --- | --- | --- | --- | --- |
 | 1 | ~~**Put a card into play**~~ — **bought** (batch 6); hand, deck top, active or rested | 19 | ~~**8**~~ **done** | 379 |
 | 2 | ~~**A payment whose card the player picks**~~ — the **cost** half is **bought** (batch 5, 3 freed); the **instruction** half, "your opponent trashes 1 card from their hand", is open | 12 | **6** → **3** | 292 |
-| 3 | **`orderCards`, and naming "the rest"** — incl. top-*or*-bottom splits | 9 | **5** | 226 |
+| 3 | ~~**`orderCards`, and naming "the rest"**~~ — **bought** (batch 9) for the *permutation* half; the row bundled two shapes and only one of them is a permutation — see below | 9 | **5** → **4 built, 2 deferred** | 226 |
 | 4 | **Add DON!! from the DON!! deck** | 8 | **5** | 140 |
 | 5 | **Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]" | 14 | **3** | 399 |
 | 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
@@ -709,6 +709,36 @@ duration `Duration` cannot name. `OP01-085`'s is the sharpest of the four, and
 batch 8 measured why: an `endOfTurn` rule aimed at an opponent's Character
 expires before that Character can attack, so "until the end of your opponent's
 next turn" is not flavour on that card, it is the whole effect.
+
+### 2b. Gap 3 was two shapes wearing one name *(found by building it — batch 9)*
+
+The row said nine cards touched and five freed, and both numbers were right. The
+row was still wrong, because "place them back in any order" is printed in two
+forms and only one of them is a permutation:
+
+| Form | Printed | Cards | Answer shape |
+| --- | --- | --- | --- |
+| **Bottom** | "place **the rest** at the bottom of your deck in any order" | `OP01-030`, `OP01-041`, `OP01-084`, `OP01-116`, and `ST02-007` two packages over | a permutation of the cards not taken |
+| **Top or bottom** | "place them at the **top or bottom** of the deck in any order" | `OP01-073`, `OP01-077`, `OP01-088` | a **partition** of the window between two ends, each side ordered |
+
+The second is not the first with a flag on it. A permutation of five cards says
+what order they are in; a top-or-bottom split has to say *where each one goes*
+as well, which is a different answer and a different `PendingChoice` kind. Batch
+9 built the permutation and left the split, which is why the "freed alone: 5"
+became four built and two deferred — `OP01-088` was already blocked twice over,
+by the split on its `[Counter]` half and a player-chosen discard on its
+`[Trigger]`.
+
+Two rows moved the other way and both were stale rather than wrong when written.
+`OP01-116` was listed under two gaps; put-into-play from the deck closed in
+batch 6, so this batch was its second half. And `ST02-007` Bonney needed three
+things, of which `restSelf` arrived in PR #15.
+
+**The counting rule this justifies:** a gap row is a claim about a *mechanism*,
+and a row that names an English phrase instead can bundle two. "Place them back
+in any order" was one phrase and two mechanisms; "prohibitions" was one word and
+three buildings (question 2). Both were caught by writing the cards rather than
+by re-reading the row.
 
 ### 3. Does the "add DON!! from the DON!! deck" family appear, and how often?
 
@@ -1030,7 +1060,7 @@ have been added to it as batches land:
 | OP01-013 | Sanji | char | **B** | same Life-card `Cost` as `OP01-008`; body is `addPower self` then `giveDon self 2` |
 | OP01-014 | Jinbe | char | **C** ✅ | `[Blocker]` printed; `onBlock` `[DON!! x1]`; select 0–1 {hand, you, character, colors red, costMax 2} → `play`. Freed by batch 6 |
 | OP01-015 | Tony Tony.Chopper | char | **C** | the chosen discard now exists; still blocked by "other than [Tony Tony.Chopper]" (gap 5) |
-| OP01-016 | Nami | char | **C** | `orderCards` + "the rest", **and** "other than [Nami]" |
+| OP01-016 | Nami | char | **C** | ~~`orderCards` + "the rest"~~ — built; still blocked by "other than [Nami]" (gap 5) |
 | OP01-017 | Nico Robin | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
 | OP01-018 | Hajrudin | char | vanilla | — |
 | OP01-019 | Bartolomeo | char | **C** | `[Opponent's Turn]` — `Condition` has no negation. Freed by that alone; `[Blocker]` is printed |
@@ -1044,7 +1074,7 @@ have been added to it as batches land:
 | OP01-027 | Round Table | event | **A** ✅ | `mainEvent`; select 0–1 {field, opponent, character} → `addPower −10000 endOfTurn` |
 | OP01-028 | Green Star Rafflesia | event | **A** ✅ | `counterEvent` + `trigger` sharing one instruction list, as `ST01-015` does |
 | OP01-029 | Radical Beam!! | event | **A** ✅ | select as `x` → `addPower x +2000 endOfBattle`; `if lifeAtMost(you, 2)` → `addPower x +2000` again |
-| OP01-030 | In Two Years!! … | event | **C** | `orderCards` + "the rest", and nothing else |
+| OP01-030 | In Two Years!! … | event | **A** ✅ | `lookAt 5`, `select` {Straw Hat Crew} Character, `moveCard` to hand, `orderToBottom` over the difference. The `[Trigger]` points at the `[Main]` and shares its list. **✅ written — batch 9** |
 | OP01-031 | Kouzuki Oden (L) | leader | **C** ✅ | `activateMain` `oncePerTurn`; cost `discardHand 1 {types: Land of Wano}` → `orientDon you active 2`. Freed by batch 5 |
 | OP01-032 | Ashura Doji | char | **A** ✅ | `static`, cond `and(donAttached 1, countCards {field, opponent, character, rested} min 2)`, `affects self` |
 | OP01-033 | Izo | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 4} → `rest` |
@@ -1055,7 +1085,7 @@ have been added to it as batches land:
 | OP01-038 | Kanjuro | char | **C** | a discard **the opponent chooses** from your hand. `PendingChoice` already carries a `player`, so the chooser is not the hard part — suspension during the effect is. Its `whenAttacking` half is expressible |
 | OP01-039 | Killer | char | **A** ✅ | `onBlock`, cond `and(donAttached 1, countCards {field, you, character} min 3)` → `draw you 1` |
 | OP01-040 | Kin'emon | char | **C** | put-into-play **and** "if your Leader is [Kouzuki Oden]". Its `whenAttacking` half is expressible |
-| OP01-041 | Kouzuki Momonosuke | char | **C** | `orderCards` + "the rest". Both costs already exist: `restDon 1` and `restSelf` |
+| OP01-041 | Kouzuki Momonosuke | char | **A** ✅ | Bonney with one type changed, down to the cost list. **✅ written — batch 9** |
 | OP01-042 | Komurasaki | char | **B** | fits but for "if your Leader is [Kouzuki Oden]" — a condition on a card's name |
 | OP01-043 | Shinobu | char | vanilla | — |
 | OP01-044 | Shachi | char | **C** | put-into-play **and** a name reference. "If you don't have [Penguin]" is `countCards … max: 0`, which exists |
@@ -1087,24 +1117,24 @@ have been added to it as batches land:
 | OP01-070 | Dracule Mihawk | char | **A** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 7} → `moveCard {deck}, position 'bottom'` |
 | OP01-071 | Jinbe | char | **C** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 3} → `moveCard deck bottom`. `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-072 | Smiley | char | **C** | a scaling grant — "+1000 for every card in your hand". `grants.power` is a constant |
-| OP01-073 | Donquixote Doflamingo | char | **C** | `orderCards`, in its top-**or**-bottom form. `[Blocker]` is printed |
+| OP01-073 | Donquixote Doflamingo | char | **C** | the top-**or**-bottom form, which is a *partition plus an order* and not a permutation — a different choice shape, still open. `[Blocker]` is printed |
 | OP01-074 | Bartholomew Kuma | char | **C** | put-into-play **and** a name reference |
 | OP01-075 | Pacifista | char | **A** | `[Blocker]` reminder only. Its deckbuilding line belongs to `validateDecklist` — see the deck-construction note |
 | OP01-076 | Bellamy | char | vanilla | — |
-| OP01-077 | Perona | char | **C** | `orderCards`, top-or-bottom form, and nothing else |
+| OP01-077 | Perona | char | **C** | top-or-bottom form, and nothing else. The other half of the shape batch 9 did not build |
 | OP01-078 | Boa Hancock | char | **A** ✅ | two abilities (`whenAttacking`, `onBlock`) sharing one script; cond `and(donAttached 1, countCards {hand, you} max 5)` → `draw` |
 | OP01-079 | Ms. All Sunday | char | **A** ✅ | `onKO`, cond `countCards {field, you, leader, types ['Baroque Works']} min 1`; select 0–1 {trash, you, event} → `moveCard {hand}` |
 | OP01-080 | Miss Doublefinger(Zala) | char | **A** ✅ | `onKO` → `draw you 1` |
 | OP01-081 | Mocha | char | vanilla | — |
 | OP01-082 | Monet | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-083 | Mr.1(Daz.Bonez) | char | **C** | a scaling grant — "+1000 for every 2 Events in your trash". The Leader-type condition is expressible |
-| OP01-084 | Mr.2.Bon.Kurei(Bentham) | char | **C** | `orderCards` + "the rest", and nothing else |
+| OP01-084 | Mr.2.Bon.Kurei(Bentham) | char | **A** ✅ | the only one of the four filtering on a category as well as a type, and the only one behind a `[DON!! xN]` gate. **✅ written — batch 9** |
 | OP01-085 | Mr.3(Galdino) | char | **C** | a prohibition (cannot attack) **and** a duration longer than end of turn |
 | OP01-086 | Overheat | event | **A** ✅ | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
 | OP01-087 | Officer Agents | event | **C** ✅ | `counterEvent` and `trigger` on one shared list; select 0–1 {hand, you, character, types Baroque Works, costMax 3} → `play`. Freed by batch 6 |
 | OP01-088 | Desert Spada | event | **C** | `orderCards` on the `[Counter]` half **and** a player-chosen discard on the `[Trigger]` half |
 | OP01-089 | Crescent Cutlass | event | **A** ✅ | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
-| OP01-090 | Baroque Works | event | **C** | `orderCards` + "the rest" **and** "other than [Baroque Works]" |
+| OP01-090 | Baroque Works | event | **C** | ~~`orderCards` + "the rest"~~ — built; still blocked by "other than [Baroque Works]" (gap 5) |
 | OP01-091 | King (L) | leader | **C** | a condition on how many DON!! you have on the field. Everything else is a `static` with a selector `affects` |
 | OP01-092 | Urashima | char | vanilla | — |
 | OP01-093 | Ulti | char | **C** | the DON!! deck, and nothing else. The `restDon 1` cost already exists |
@@ -1130,7 +1160,7 @@ have been added to it as batches land:
 | OP01-113 | Holedem | char | **C** | the DON!! deck, and nothing else |
 | OP01-114 | X.Drake | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |
 | OP01-115 | Elephant's Marchoo | event | **C** | the DON!! deck, and nothing else. The `ko` half is expressible |
-| OP01-116 | Artificial Devil Fruit SMILE | event | **C** | put-into-play **from the deck** **and** `orderCards` |
+| OP01-116 | Artificial Devil Fruit SMILE | event | **A** ✅ | both gaps closed, one batch each: put-into-play from the deck in batch 6, the ordering in batch 9. It **plays** what it finds instead of taking it to hand. **✅ written — batch 9** |
 | OP01-117 | Sheep's Horn | event | **A** ✅ | `mainEvent`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 6} → `rest` |
 | OP01-118 | Ulti-Mortar | event | **C** | the DON!! deck on the `[Trigger]` half. The `[Counter]` half is expressible |
 | OP01-119 | Thunder Bagua | event | **C** | the DON!! deck on both halves. Everything else, `lifeAtMost` included, is expressible |

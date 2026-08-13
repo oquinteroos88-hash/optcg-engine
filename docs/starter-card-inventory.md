@@ -105,7 +105,7 @@ which holds 15 scripted cards, not estimated:
 | `ST01-012` Monkey.D.Luffy | C | `[Blocker]` prohibition |
 | `ST01-016` Diable Jambe | C | `[Blocker]` prohibition + filter by printed keyword |
 | `ST02-001` Eustass"Captain"Kid (Leader) | C | a cost that requires a decision |
-| `ST02-007` Jewelry Bonney | C | `orderCards` + naming "the rest" (the rest-the-source cost it also needed exists since PR #15) |
+| `ST02-007` Jewelry Bonney | ~~C~~ ✅ | **written — PR #32.** The last card either inventory carried as honestly missing: three walls, `restSelf` in PR #15 and the other two here |
 | `ST02-010` Basil Hawkins | D | needs a ruling before it needs a trigger |
 
 Two of the three remaining pile-B cards are **half-written cards, not unwritten
@@ -229,7 +229,7 @@ been recomputed.
 | 4 | **Put a card into play** from hand or from a life card | 3 — ST01-002, ST02-005, ST02-017 | 375 | open |
 | 5 | ~~**Stop the opponent from using [Blocker]** — a restriction, not a grant~~ | 3 — ST01-002, ST01-012, ST01-016 | 146 | **closed — PR #31**, and it was never "a restriction, not a grant": see the correction below |
 | 6 | **Rest the source as the price of an ability** | 2 — ST01-017, ST02-007 | 90 | **closed — PR #15** |
-| 7 | **Order cards you are putting back** ("the rest to the bottom in any order") | 1 — ST02-007 | 254 | open |
+| 7 | ~~**Order cards you are putting back** ("the rest to the bottom in any order")~~ | 1 — ST02-007 | 254 | **closed — PR #32**, together with naming "the rest" |
 | 8 | **Let the player choose which card a cost discards** | 1 — ST02-001 | 197 | open |
 | 9 | **A condition about the source's own orientation** ("if this Character is rested") | 1 — ST02-014 | 7 | open |
 | 10 | ~~**Filter a selection by printed keyword** ("[Blocker] Characters")~~ | 1 — ST01-016 | 6 | **closed — PR #31**, as one field on the shared card predicate; asked of `hasKeyword`, so a *granted* [Blocker] counts |
@@ -667,6 +667,14 @@ instruction *and* a way to name "the cards not taken", and Hawkins needs a
 ruling before it needs a trigger. 254 cards in the full set want `orderCards`,
 so it will be built eventually — but not for Bonney alone, and not before the
 things above it that unlock three cards apiece.
+
+*(`orderCards` was built in PR #32, last as this list placed it and for the
+reason it gave: it came when four OP-01 cards had queued up behind it. The two
+decisions it names were the two the work turned on. The producing instruction is
+`orderToBottom`; "the cards not taken" is a `Ref` difference over ids `lookAt`
+recorded, and the alternative — re-deriving them from the deck — would have been
+correct today and wrong the first time a script touched the deck in between.
+`ST02-010` Hawkins still waits on a ruling.)*
 
 Two gaps in the ranked table are named by no item here and never were: gap 9
 (`ST02-014`, a condition about the source's own orientation, 7 cards) and gap 10

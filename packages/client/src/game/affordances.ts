@@ -54,10 +54,15 @@ export interface CardAffordance {
 export interface ChoiceView {
   id: string;
   /**
-   * The engine's own union. Only `selectCards` and `yesNo` are ever produced —
-   * `selectOption` and `orderCards` are vestigial in the type and pinned as
-   * unproduced by `tests/choiceShapes.test.ts` — but narrowing here would make
-   * the client silently wrong the day one of them comes back.
+   * The engine's own union, deliberately not narrowed — and the decision paid
+   * for itself.
+   *
+   * This said "only `selectCards` and `yesNo` are ever produced; narrowing here
+   * would make the client silently wrong the day one of them comes back". One
+   * of them came back: `ST02-007` Bonney brought `orderCards` with it, the
+   * overlay grew a branch, and nothing in this file had to change to let it.
+   * `selectOption` is still unproduced and still not narrowed away, for the
+   * same reason. `tests/choiceShapes.test.ts` measures which are live.
    */
   kind: PendingChoice['kind'];
   prompt: string;

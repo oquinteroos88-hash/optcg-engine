@@ -65,8 +65,20 @@ mirrors it in exactly one field of one object so it stays checkable:
   While it is true, every other affordance is false by construction, because
   `legalActions` returned nothing else to index.
 - `tests/choiceShapes.test.ts` measures which choice shapes the engine actually
-  opens (`selectCards` and `yesNo`; never `selectOption` or `orderCards`), so
-  the two branches the UI has are the two branches it needs.
+  opens (`selectCards`, `yesNo` and now `orderCards`; never `selectOption`), so
+  the branches the UI has are the branches it needs. It went red the day
+  `ST02-007` Bonney brought an ordering back, which is exactly what it was
+  written to do.
+
+The ordering mode is the interaction the overlay already had: `selected` has
+always been an ordered list of click order, `selectCards` ignores that order and
+an ordering *is* that order. So the UI adds a position badge per candidate and
+nothing else — no drag library, no second way to click a card. A re-tap unplaces
+a card, which is the only undo the mode needs.
+
+When an ordering has one card or none the **engine** places it without asking. A
+client auto-answering a one-option question is a client holding a rule, and this
+one holds none.
 
 If you read the contract above and think this file is broken: it is not. This is
 the exception, it is one field wide, and it is here.

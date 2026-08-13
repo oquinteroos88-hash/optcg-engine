@@ -1,6 +1,7 @@
 import { fireEventActivated, fireTriggers, ownedFieldSources } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
+import { canActivateBlocker, canAttack, canBeKOdInBattle, expireLegality } from '../legality.js';
 import { getCardDef, isCounterEvent } from '../registry.js';
 import {
   getActiveCostDon,
@@ -73,9 +74,16 @@ export function validateDeclareAttack(state: GameState, action: DeclareAttackAct
   if (target === undefined) {
     return REASONS.invalidTarget;
   }
-  const targetIsLeader = state.players[defender].leader === action.target;
-  if (!targetIsLeader && target.orientation !== 'rested') {
-    return REASONS.targetNotRested;
+  // The rested-target rule (CR 7-1-1-2) and everything a card says about it, in
+  // one question. `targetNotRested` stays the reason code for the ordinary
+  // refusal — the codes are a public contract — and `attackForbidden` is the
+  // separate one for a target the base rule *would* have allowed and a card
+  // took away.
+  if (!canAttack(state, action.attacker, action.target)) {
+    const targetIsLeader = state.players[defender].leader === action.target;
+    return !targetIsLeader && target.orientation !== 'rested'
+      ? REASONS.targetNotRested
+      : REASONS.attackForbidden;
   }
   return null;
 }
@@ -122,6 +130,12 @@ export function validateDeclareBlock(state: GameState, action: DeclareBlockActio
   }
   if (blocker.orientation !== 'active') {
     return REASONS.blockerNotActive;
+  }
+  // Revalidated, as always. `legalActions` withheld the offer; an action that
+  // arrives anyway — a replayed log, a client built against an older state, a
+  // bot that kept a stale list — is refused here with its own reason.
+  if (!canActivateBlocker(state, action.blocker)) {
+    return REASONS.blockForbidden;
   }
   return null;
 }
@@ -310,6 +324,10 @@ export function applyPass(draft: GameState, _action: { player: PlayerId }, event
  */
 function closeBattle(draft: GameState): void {
   draft.modifiers = draft.modifiers.filter((modifier) => modifier.duration !== 'endOfBattle');
+  // 7-1-5-3 and 7-1-5-4 say "effects that last 'during this battle'", not
+  // "power modifiers": a blocker ban written for this battle expires on exactly
+  // the same line, on both exits, for both players.
+  expireLegality(draft, 'endOfBattle');
   draft.battle = null;
   draft.priority = draft.activePlayer;
 }
@@ -411,12 +429,28 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
     mark('battle.attackerLoses');
   }
 
+  // CR 7-1-4-1-2 K.O.s the losing Character; a card may say it cannot be. The
+  // question is asked here, where the K.O. is *decided*, and the answer changes
+  // only that: CR 7-1-4-1-2 continues "Then, proceed to End of the Battle", and
+  // it proceeds there either way. A survived hit is not a battle that never
+  // happened, so it gets its own outcome rather than borrowing `noEffect` —
+  // the same distinction `battleEndedEarly` exists to keep.
   const wins = attackPower >= defensePower;
+  const koPrevented = wins && !targetIsLeader && !canBeKOdInBattle(draft, target);
+  if (koPrevented) {
+    mark('battle.koPrevented');
+  }
   emit(draft, events, {
     type: 'battleResolved',
     attacker,
     target,
-    outcome: wins ? (targetIsLeader ? 'lifeDamage' : 'ko') : 'noEffect',
+    outcome: wins
+      ? targetIsLeader
+        ? 'lifeDamage'
+        : koPrevented
+          ? 'koPrevented'
+          : 'ko'
+      : 'noEffect',
   });
 
   // Cleanup always runs, even on noEffect: every endOfBattle modifier expires,
@@ -429,6 +463,9 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
   }
 
   if (!targetIsLeader) {
+    if (koPrevented) {
+      return;
+    }
     mark('battle.characterKo');
     leaveField(draft, target, 'ko', events);
     return;

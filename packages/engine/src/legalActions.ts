@@ -1,8 +1,9 @@
 import { canPayCosts } from './abilities/costs.js';
 import type { AbilityContext } from './abilities/dsl.js';
 import { evalCondition } from './abilities/query.js';
+import { canActivateBlocker, canAttack } from './legality.js';
 import { getAbilities, getCardDef, isCounterEvent } from './registry.js';
-import { getActiveCostDon, getOpponent, getPower, hasKeyword } from './selectors.js';
+import { EFFECTIVE, getActiveCostDon, getOpponent, hasKeyword } from './selectors.js';
 import type { Action, GameState, PlayerId } from './types.js';
 
 const BOARD_LIMIT = 5;
@@ -107,10 +108,7 @@ function pushActivateActions(state: GameState, player: PlayerId, actions: Action
       const ctx: AbilityContext = { source: instanceId, controller: player, vars: {} };
       // Conditions read the power a card has now, statics included (CR 2-6-3,
       // 8-4-1-1). The without-statics reading belongs to static evaluation only.
-      if (
-        ability.condition !== undefined &&
-        !evalCondition(state, ctx, ability.condition, getPower)
-      ) {
+      if (ability.condition !== undefined && !evalCondition(state, ctx, ability.condition, EFFECTIVE)) {
         continue;
       }
       if (!canPayCosts(state, ctx, ability.cost)) {
@@ -131,10 +129,10 @@ function pushAttackActions(state: GameState, player: PlayerId, actions: Action[]
   }
   const ps = state.players[player];
   const enemy = state.players[getOpponent(player)];
-  const targets = [
-    enemy.leader,
-    ...enemy.characters.filter((id) => state.cards[id]?.orientation === 'rested'),
-  ];
+  // Asked per attacker, not built once: a permission is attacker-scoped
+  // (OP01-021 Franky widens only his own target set, not his controller's), so
+  // there is no single list of "the targets" any more.
+  const candidates = [enemy.leader, ...enemy.characters];
   for (const attacker of [ps.leader, ...ps.characters]) {
     const card = state.cards[attacker];
     if (card === undefined || card.orientation !== 'active') {
@@ -144,18 +142,32 @@ function pushAttackActions(state: GameState, player: PlayerId, actions: Action[]
     if (card.playedOnTurn === state.turn && !hasKeyword(state, attacker, 'rush')) {
       continue;
     }
-    for (const target of targets) {
-      actions.push({ type: 'DECLARE_ATTACK', player, attacker, target });
+    for (const target of candidates) {
+      if (canAttack(state, attacker, target)) {
+        actions.push({ type: 'DECLARE_ATTACK', player, attacker, target });
+      }
     }
   }
 }
 
 // Blocker is asked of `hasKeyword`, never of the printed list: a Blocker
 // granted by a continuous effect or a modifier has to be able to block.
+//
+// A blocker a card has forbidden is simply **not offered**. That is the whole
+// contract this engine makes with a client: `legalActions` is the affordance
+// list, so a prohibition has to be invisible rather than rejected — a UI that
+// shows a block button and then refuses the click is a UI describing a rule it
+// does not have. `validateDeclareBlock` asks the same question again, because
+// an action may arrive from anywhere.
 function pushBlockActions(state: GameState, player: PlayerId, actions: Action[]): void {
   for (const blocker of state.players[player].characters) {
     const card = state.cards[blocker];
-    if (card !== undefined && card.orientation === 'active' && hasKeyword(state, blocker, 'blocker')) {
+    if (
+      card !== undefined &&
+      card.orientation === 'active' &&
+      hasKeyword(state, blocker, 'blocker') &&
+      canActivateBlocker(state, blocker)
+    ) {
       actions.push({ type: 'DECLARE_BLOCK', player, blocker });
     }
   }

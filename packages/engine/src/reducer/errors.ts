@@ -27,6 +27,13 @@ export const REASONS = {
   invalidBlocker: 'invalidBlocker',
   notABlocker: 'notABlocker',
   blockerNotActive: 'blockerNotActive',
+  // A card forbade this block (ST01-012 and its family). Distinct from
+  // notABlocker and blockerNotActive: those describe a card that never could
+  // block, this one a card that could until an effect said otherwise.
+  blockForbidden: 'blockForbidden',
+  // A card forbade this attack, or the target is one only a permission could
+  // have reached and no permission is in force.
+  attackForbidden: 'attackForbidden',
   noCounterValue: 'noCounterValue',
   invalidCounterTarget: 'invalidCounterTarget',
   // PLAY_COUNTER_EVENT: the card is not an Event carrying a [Counter] ability.

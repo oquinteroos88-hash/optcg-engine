@@ -291,7 +291,15 @@ describe('when a Character is K.O.d', () => {
     expect(done.log.some((event) => event.type === 'characterTrashedForRoom')).toBe(true);
     expect(done.log.some((event) => event.type === 'koed')).toBe(false);
     expect(firedIds(done)).not.toContain(ENEMY_KO);
-    expect(handSize(done, 'p1')).toBe(before);
+    // The trash tells nobody — but the *play* that caused it tells everybody,
+    // and the two have to be separated or this case proves nothing. CR 3-7-6-1
+    // is one act with two halves: trash one Character already there, then play
+    // the new one. The trash is "processing a rule" (3-7-6-1-1) and wakes
+    // neither the K.O. watcher nor the trashed card's own `[On K.O.]`; the play
+    // is an ordinary play and wakes `ABIL-013-onEnemyPlay` on p1's field. So
+    // p1's hand grows by the play's one card and by nothing the trash gave.
+    expect(firedIds(done)).toContain('ABIL-013-onEnemyPlay');
+    expect(handSize(done, 'p1')).toBe(before + 1);
     assertSettled(done);
   });
 

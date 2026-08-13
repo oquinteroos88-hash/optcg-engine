@@ -65,6 +65,12 @@ describe('createGame', () => {
       firstPlayerCannotAttackTurnOne: true,
       doubleAttackCanWinFromOneLife: false,
       playFromEffectPaysCost: false,
+      // The two readings the prose trigger families had to choose. Both
+      // defaults are argued in `types.ts`; asserted here as a whole object so
+      // that adding a fifth flag is a decision somebody has to look at rather
+      // than a field that appears silently.
+      effectPlayIsPlayingACharacter: true,
+      placedRestedBecomesRested: false,
     });
     expect(state.log).toEqual([{ type: 'gameStarted', matchId: 'optcg-42', firstPlayer: 'p2' }]);
     for (const card of Object.values(state.cards)) {

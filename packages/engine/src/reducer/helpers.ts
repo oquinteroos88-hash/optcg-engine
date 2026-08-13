@@ -1,5 +1,6 @@
+import { KO_BY_BATTLE, KO_CAUSE_VAR } from '../abilities/dsl.js';
 import { fieldIds } from '../abilities/query.js';
-import { fireTriggers } from '../abilities/triggers.js';
+import { fireSidedTriggers, fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { dropLegalityNaming, expireLegality } from '../legality.js';
@@ -75,6 +76,58 @@ export function payDonCost(
 }
 
 /**
+ * **The one place a card on the field changes orientation.**
+ *
+ * Five things rest a card — an attack (CR 7-1-1-1), a `[Blocker]` activation
+ * (CR 10-1-4-1), a `restSelf` cost, a `rest` instruction, and the Refresh Phase
+ * running the other way (CR 6-2-4) — and until this existed each of them
+ * assigned the field itself. Eight cards in the full set read "when this
+ * Character **becomes rested**", with no cause printed on any of them, so the
+ * trigger answers to every route: putting it at each caller would have been five
+ * copies of one rule and four chances to forget it. The lesson is PR #30's, in
+ * its sharpest form yet — *the trigger fires where the fact happens.*
+ *
+ * **It is a transition, and that is the design.** "Becomes" is a change of
+ * state; a card already rested has none to make, so an unchanged orientation
+ * returns early and fires nothing. That guard was already in the `rest`
+ * instruction for its own reasons and is now the trigger's definition.
+ *
+ * **The Refresh Phase comes through here and can never fire it**, because it
+ * sets cards *active*. It is the inverse movement, in the same way `addDon` is
+ * the inverse of `returnDon`, and it needs no exclusion — only a direction.
+ *
+ * `announce` is false for the two battle callers, and not as an optimisation:
+ * `attackDeclared` and `blockDeclared` **are** the log of those rests. CR
+ * 7-1-1-1 makes resting part of declaring an attack and CR 10-1-4-1 makes it
+ * part of activating `[Blocker]`, so a client rendering both events would tell
+ * the player the same thing twice — the distinction `battleEndedEarly` is kept
+ * apart from `battleResolved` for. The trigger fires either way; only the line
+ * in the log is conditional.
+ */
+export function setOrientation(
+  draft: GameState,
+  id: InstanceId,
+  orientation: Orientation,
+  events: GameEvent[],
+  opts: { announce?: boolean } = {},
+): void {
+  const card = mustGetCard(draft, id);
+  if (card.orientation === orientation) {
+    return;
+  }
+  card.orientation = orientation;
+  if (opts.announce !== false) {
+    emit(draft, events, { type: 'orientationChanged', instanceId: id, orientation });
+  }
+  if (orientation === 'rested') {
+    mark('orientation.becameRested');
+    if (fireTriggers(draft, 'whenBecomingRested', [id]) > 0) {
+      mark('trigger.becameRested');
+    }
+  }
+}
+
+/**
  * Takes a card off the field without deciding where it goes.
  *
  * Split out of `leaveField` so that a `moveCard` effect can send a character to
@@ -121,6 +174,28 @@ export function detachFromField(draft: GameState, id: InstanceId, events: GameEv
 }
 
 /**
+ * Why a card left the field.
+ *
+ * The K.O. member carries **who caused it** and the other three carry nothing,
+ * because only a K.O. has a card asking. Six cards in the full set read "when
+ * this Character is K.O.'d **by your opponent's effect**", and until this field
+ * existed `leaveField` knew the cause (`'ko'` against three others) and not the
+ * causer.
+ *
+ * It is a required field of the member rather than an optional parameter, and
+ * that is the point: a caller cannot K.O. a card without saying what did it.
+ * `'battle'` is the Damage Step (CR 7-1-4-1-2), a `PlayerId` is the controller
+ * of the effect that ordered it, and CR 10-2-1-3 puts those two on opposite
+ * sides of an `or` — "K.O.'d by an effect **or** due to the result of a battle"
+ * — so a battle is nobody's effect and there is no third thing to spell.
+ */
+export type LeaveFieldCause =
+  | { kind: 'ko'; by: PlayerId | typeof KO_BY_BATTLE }
+  | { kind: 'trashedForRoom' }
+  | { kind: 'stageReplaced' }
+  | { kind: 'cost' };
+
+/**
  * Shared exit path for a card leaving the field *to the trash*. Attached DON!!
  * return to the cost area RESTED. Only a real KO emits the koed event and wakes
  * an [On K.O.] ability; the stageReplaced event is emitted by the caller, which
@@ -129,7 +204,7 @@ export function detachFromField(draft: GameState, id: InstanceId, events: GameEv
 export function leaveField(
   draft: GameState,
   id: InstanceId,
-  cause: 'ko' | 'trashedForRoom' | 'stageReplaced' | 'cost',
+  cause: LeaveFieldCause,
   events: GameEvent[],
 ): void {
   const card = mustGetCard(draft, id);
@@ -137,11 +212,18 @@ export function leaveField(
   detachFromField(draft, id, events);
   draft.players[card.owner].trash.unshift(id);
 
-  if (cause === 'ko') {
+  if (cause.kind === 'ko') {
     emit(draft, events, { type: 'koed', player: controller, instanceId: id });
     // A KO wakes the card's own [On K.O.] ability. It is queued, not run: the
     // effect that caused the KO finishes its script first.
-    fireTriggers(draft, 'onKO', [id]);
+    //
+    // The cause rides along in the trigger's seed rather than in a second
+    // trigger. "When this Character is K.O.'d by your opponent's effect" is an
+    // ordinary [On K.O.] with a question attached, and giving it its own
+    // trigger would have meant a second firing site for a fact that has one.
+    // `koCause` is the question; this is the only thing that ever answers it.
+    mark(cause.by === KO_BY_BATTLE ? 'ko.byBattle' : 'ko.byEffect');
+    fireTriggers(draft, 'onKO', [id], { [KO_CAUSE_VAR]: cause.by });
     // And it tells the other player's field, which is a different question:
     // `onKO` is "**I** was K.O.'d", and a card watching the opponent's board
     // had no way in until this line existed. Fired here rather than at each
@@ -153,10 +235,15 @@ export function leaveField(
     // which is CR 8-6-1's order read the only way it can be read here: both
     // effects' timing is fulfilled at once, and the engine's fixed order —
     // turn player first, then board position — is what `orderedFieldSources`
-    // has always given simultaneous triggers.
+    // has always given simultaneous triggers. `fireSidedTriggers` is where that
+    // choice is now written down for all four sided facts at once.
+    //
+    // The watchers get no seed: "when your opponent's Character is K.O.'d" is
+    // printed with no cause on it, and a variable no card can read is a
+    // variable that should not be in the state.
     const watchers = fieldIds(draft, controller === 'p1' ? 'p2' : 'p1');
     fireTriggers(draft, 'whenOpponentCharacterKOd', watchers);
-  } else if (cause === 'trashedForRoom') {
+  } else if (cause.kind === 'trashedForRoom') {
     // Deliberately not a KO, and deliberately no onKO trigger: making room for
     // a 6th character is a discard, which is a different rule.
     emit(draft, events, { type: 'characterTrashedForRoom', player: controller, instanceId: id });
@@ -199,17 +286,31 @@ export function enterCharacterArea(
   player: PlayerId,
   id: InstanceId,
   events: GameEvent[],
-  opts: { orientation?: Orientation; trashCharacter?: InstanceId } = {},
+  opts: {
+    orientation?: Orientation;
+    trashCharacter?: InstanceId;
+    /**
+     * Which of CR's two senses of "play" brought this card here: the Main Phase
+     * *action* that pays (`'action'`, CR 6-5-3-1) or an effect that places
+     * (`'effect'`, CR 3-7-3). Everything above this line treats them
+     * identically — that is the whole reason this routine is shared — and the
+     * one reader is `rules.effectPlayIsPlayingACharacter`, which exists because
+     * the Comprehensive Rules never reconcile the two senses and a card watching
+     * for "your opponent plays a Character" has to be told which reading won.
+     */
+    route: 'action' | 'effect';
+  },
 ): void {
   const card = mustGetCard(draft, id);
   const ps = draft.players[player];
   mark('play.character');
   if (opts.trashCharacter !== undefined) {
     mark('field.sixthCharacter');
-    leaveField(draft, opts.trashCharacter, 'trashedForRoom', events);
+    leaveField(draft, opts.trashCharacter, { kind: 'trashedForRoom' }, events);
   }
   ps.characters.push(id);
-  card.orientation = opts.orientation ?? 'active';
+  const orientation = opts.orientation ?? 'active';
+  card.orientation = orientation;
   card.playedOnTurn = draft.turn;
   emit(draft, events, {
     type: 'cardPlayed',
@@ -217,7 +318,37 @@ export function enterCharacterArea(
     instanceId: id,
     cardId: card.cardId,
   });
-  fireTriggers(draft, 'onPlay', [id]);
+  // Placing a card rested is not the same act as a card *becoming* rested, and
+  // the assignment above deliberately does not go through `setOrientation`.
+  // CR 3-7-5 calls this **placing** — "when placing cards in the Character area,
+  // they should be set as active unless otherwise specified" — and a card that
+  // arrives rested was never active on the field to change from. The reading is
+  // arguable, which is why it is a flag and not a comment; see
+  // `rules.placedRestedBecomesRested`.
+  if (orientation === 'rested' && draft.rules.placedRestedBecomesRested) {
+    mark('play.restedCountsAsBecoming');
+    fireTriggers(draft, 'whenBecomingRested', [id]);
+  }
+  // The played card's own [On Play] first, then the other field's watchers —
+  // the same door every sided fact comes through. "When your opponent plays a
+  // Character" is printed on two cards in the full set and neither says how the
+  // Character got there, which is CR 3-7-3's sense of the word: placing a card
+  // in the Character area *is* playing it. `PLAY_CARD` and the `play`
+  // instruction both arrive here, so both are seen.
+  const watching = fireSidedTriggers(
+    draft,
+    { trigger: 'onPlay', sources: [id] },
+    {
+      trigger: 'whenOpponentPlaysCharacter',
+      sources:
+        opts.route === 'action' || draft.rules.effectPlayIsPlayingACharacter
+          ? fieldIds(draft, player === 'p1' ? 'p2' : 'p1')
+          : [],
+    },
+  );
+  if (watching > 0) {
+    mark('trigger.opponentPlaysCharacter');
+  }
 }
 
 /**

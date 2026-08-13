@@ -1,4 +1,10 @@
-import { fireEventActivated, fireTriggers, ownedFieldSources } from '../abilities/triggers.js';
+import { KO_BY_BATTLE } from '../abilities/dsl.js';
+import {
+  fireBlockerActivated,
+  fireEventActivated,
+  fireTriggers,
+  ownedFieldSources,
+} from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { canActivateBlocker, canAttack, canBeKOdInBattle, expireLegality } from '../legality.js';
@@ -13,7 +19,7 @@ import {
 } from '../selectors.js';
 import type { Battle, GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
-import { emit, leaveField, mustGetCard, payDonCost } from './helpers.js';
+import { emit, leaveField, mustGetCard, payDonCost, setOrientation } from './helpers.js';
 
 interface DeclareAttackAction {
   player: PlayerId;
@@ -97,7 +103,12 @@ export function applyDeclareAttack(
   if (attacker.playedOnTurn === draft.turn) {
     mark('keyword.rushAttack');
   }
-  attacker.orientation = 'rested';
+  // CR 7-1-1-1 rests the attacker *as part of* declaring — "rests their active
+  // Leader card or 1 active Character card and declares the attack" — and
+  // CR 7-1-1-3 activates [When Attacking] after that. So the rest, and anything
+  // that watches for it, comes first; the two queue in that order and resolve in
+  // it. `announce: false` because `attackDeclared` below already says it.
+  setOrientation(draft, action.attacker, 'rested', events, { announce: false });
   draft.battle = {
     step: 'block',
     attacker: action.attacker,
@@ -148,12 +159,16 @@ export function applyDeclareBlock(
   const battle = mustGetBattle(draft);
   mark('battle.blocked');
   mark('keyword.blockerUsed');
-  mustGetCard(draft, action.blocker).orientation = 'rested';
+  // CR 10-1-4-1 makes [Blocker] "a keyword effect allowing you to activate it by
+  // **resting this card** during the Block Step", so the rest is the activation
+  // and not a step beside it. `announce: false` because `blockDeclared` is
+  // already the log of exactly this.
+  setOrientation(draft, action.blocker, 'rested', events, { announce: false });
   battle.target = action.blocker;
   battle.wasBlocked = true;
   battle.step = 'counter';
   emit(draft, events, { type: 'blockDeclared', player: action.player, blocker: action.blocker });
-  fireTriggers(draft, 'onBlock', [action.blocker]);
+  fireBlockerActivated(draft, action.blocker, action.player);
 }
 
 export function validatePlayCounter(state: GameState, action: PlayCounterAction): string | null {
@@ -467,7 +482,11 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
       return;
     }
     mark('battle.characterKo');
-    leaveField(draft, target, 'ko', events);
+    // The Damage Step is nobody's effect. CR 10-2-1-3 puts "K.O.'d by an
+    // effect" and "due to the result of a battle" on the two sides of an `or`,
+    // so the six cards reading "K.O.'d by your opponent's effect" must not wake
+    // here — and `koCause` answering `battle` is what keeps them asleep.
+    leaveField(draft, target, { kind: 'ko', by: KO_BY_BATTLE }, events);
     return;
   }
 

@@ -74,7 +74,9 @@ GameState
 ├── resume: ResumeStep[]        ← rules paused mid-way, LIFO
 ├── rng: { seed, cursor }
 ├── log: GameEvent[]
-└── rules: { firstPlayerCannotAttackTurnOne, doubleAttackCanWinFromOneLife }
+└── rules: { firstPlayerCannotAttackTurnOne, doubleAttackCanWinFromOneLife,
+              playFromEffectPaysCost, effectPlayIsPlayingACharacter,
+              placedRestedBecomesRested }
 ```
 
 Ordering conventions, all load-bearing for replay compatibility:
@@ -1266,6 +1268,48 @@ because `enqueue` puts new items underneath what is already on the stack and
 CR 8-6-3 wants the watcher "after the resolution of the effect of the previously
 activated card". The order of the two calls is the whole implementation of that
 rule, and reversing them would be silently wrong.
+
+**Seven triggers now, and one door.** The prose sweep found four more families
+printed with no bracket tag — `whenDonReturnedToDeck` (16 cards),
+`whenBecomingRested` (8), `whenOpponentActivatesBlocker` (4) and
+`whenOpponentPlaysCharacter` (2) — and every one of them fires at the *site the
+fact happens* rather than at each caller that can cause it. Three of the four
+are sided facts like the two Event triggers, so all four sided facts now go
+through `fireSidedTriggers`, which is the only place the actor-first ordering
+above is written down. Where CR 8-6-1's turn-player ordering and that convention
+could disagree — an acting side that is not the turn player — the convention
+wins and the disagreement is documented at the function, because changing it is
+a rules change with an effect on every replay rather than a refactor.
+
+`whenBecomingRested` is the one that needed a routine rather than a line:
+attacking, blocking, a `restSelf` cost and a `rest` instruction all rest a card,
+so `setOrientation` owns the transition and the four callers stopped assigning
+the field. The Refresh Phase goes through the same routine and can never fire
+the trigger, because it moves cards the other way (CR 6-2-4).
+
+**The fifth prose family is not a trigger.** "When this Character is K.O.'d **by
+your opponent's effect**" (6 cards) is `onKO` with a question attached, so
+`leaveField` takes a `LeaveFieldCause` whose K.O. member *requires* a causer and
+seeds it into the trigger's context as `koCause`. A `PlayerId` is the controller
+of the effect (CR 8-1-1); `'battle'` is the Damage Step, which CR 10-2-1-3 puts
+on the far side of an `or` from "by an effect" and which therefore answers
+neither player. A second trigger would have meant a second firing site for a
+fact that has one.
+
+**`rules.effectPlayIsPlayingACharacter` (default `true`).** CR 3-7-3 calls the
+bare placing of a card in the Character area "playing" it, so a Character an
+effect put down wakes "when your opponent plays a Character". PR #29 separated
+that sense of the word from CR 6-5-3-1's paid Main Phase action **for cost**
+(`playFromEffectPaysCost`), and nothing in that separation says the card was not
+played. `OP12-081` is the printed evidence: it names "plays a Character using a
+Character's effect" as a timing it has to *narrow*, not one it has to add.
+
+**`rules.placedRestedBecomesRested` (default `false`).** A Character placed
+rested did not *become* rested: CR 3-7-5 words that act as **placing**, and the
+card was not on the field a moment earlier to change from. The other reading is
+arguable — the card is rested and was not before — which is why it is a flag. No
+printed card in OP-01 or either starter can reach the case, so the choice costs
+nothing today and is written down before it can.
 
 **Putting a card on the field is a routine, not a zone.** `ZoneRef` still has
 no `field` member and `moveCard` still cannot reach the Character area, and

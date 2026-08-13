@@ -10,6 +10,7 @@ import type {
   Ref,
   Selector,
 } from './dsl.js';
+import { KO_BY_BATTLE, KO_CAUSE_VAR } from './dsl.js';
 
 /**
  * Reading side of the DSL: selectors, refs and conditions. Pure — nothing here
@@ -243,6 +244,23 @@ export function evalCondition(
     }
     case 'varTrue':
       return ctx.vars[condition.name] === true;
+    case 'koCause': {
+      // Nothing seeded it means this is not an `onKO` frame at all, so there is
+      // no cause and the answer is no — never a throw. A condition that fails
+      // silently is the DSL's rule for every other kind here.
+      const cause = ctx.vars[KO_CAUSE_VAR];
+      if (typeof cause !== 'string') {
+        return false;
+      }
+      if (condition.by === KO_BY_BATTLE) {
+        return cause === KO_BY_BATTLE;
+      }
+      // A battle K.O. answers `false` to both player readings rather than
+      // defaulting to one of them: CR 10-2-1-3 puts "by an effect" and "due to
+      // the result of a battle" on opposite sides of an `or`, so a battle is
+      // nobody's effect.
+      return cause === resolvePlayerRef(ctx, condition.by);
+    }
     case 'and':
       return condition.of.every((sub) => evalCondition(state, ctx, sub, lens));
     case 'or':

@@ -231,9 +231,21 @@ been recomputed.
 | 6 | **Rest the source as the price of an ability** | 2 — ST01-017, ST02-007 | 90 | **closed — PR #15** |
 | 7 | ~~**Order cards you are putting back** ("the rest to the bottom in any order")~~ | 1 — ST02-007 | 254 | **closed — PR #32**, together with naming "the rest" |
 | 8 | **Let the player choose which card a cost discards** | 1 — ST02-001 | 197 | open |
-| 9 | **A condition about the source's own orientation** ("if this Character is rested") | 1 — ST02-014 | 7 | open |
+| 9 | **A condition about the source's own orientation** ("if this Character is rested") | 1 — ST02-014 | 7 | open — and **not** what PR #34 built: `whenBecomingRested` fires on the *transition*, this asks about the *state* |
 | 10 | ~~**Filter a selection by printed keyword** ("[Blocker] Characters")~~ | 1 — ST01-016 | 6 | **closed — PR #31**, as one field on the shared card predicate; asked of `hasKeyword`, so a *granted* [Blocker] counts |
 | 11 | **Fire on "this card is in a battle", and ask what it is battling** | 1 — ST02-010 | 1 | open |
+
+**Nothing in this table moved for PR #34, and the reason is the table's own
+lesson.** That PR built five prose trigger families totalling 36 printed cards,
+and **not one of the 34 here prints any of them** — no starter card reads "when
+a DON!! card on your field is returned to your DON!! deck", "when this Character
+becomes rested", "K.O.'d by your opponent's effect", "when your opponent
+activates [Blocker]" or "when your opponent plays a Character". The same is true
+of OP-01. This is the third time a family has been built that a 34-card sample
+could not see, after the 140-card "add DON!! from your DON!! deck" row and the
+two PR #30 triggers, and it is worth stating as a property of the document
+rather than as a note: **the `Cards here` column is a sample, and a family
+printed only on later sets has a zero in it that means nothing.**
 
 Read the two columns together, because they disagree in useful ways.
 

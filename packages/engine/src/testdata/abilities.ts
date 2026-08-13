@@ -181,6 +181,57 @@ export const ABIL_CARDS: CardDefinition[] = [
         trigger: 'onKO',
         script: [{ op: 'draw', player: 'you', count: 1 }],
       },
+      /**
+       * "[On K.O.] **When this Character is K.O.'d by your opponent's effect**,
+       * draw 1 card."
+       *
+       * The same trigger as the ability above it with `koCause` attached, and
+       * that is the whole finding: the family is not a new trigger, it is
+       * `onKO` finally able to say what killed it. Two abilities on one card
+       * because the pair is the test — a battle K.O. must wake the first and
+       * not the second, and only a card carrying both can show it in one game.
+       *
+       * `by: 'opponent'` is relative to this card's controller, so the ability
+       * sleeps when its own controller's script does the K.O. too. Six cards in
+       * the full set print this shape and every one of them is worded from the
+       * victim's side.
+       */
+      {
+        id: 'ABIL-011-onKOByEnemyEffect',
+        trigger: 'onKO',
+        condition: { kind: 'koCause', by: 'opponent' },
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      /**
+       * "[Activate: Main] [Once Per Turn] K.O. this Character."
+       *
+       * The only way in the set to have a Character K.O.'d **by its own
+       * controller's effect**, and without it the `by: 'opponent'` above is a
+       * relative reading with only one of its two sides ever exercised: every
+       * other K.O. an ABIL script can cause points at the opponent's board,
+       * because `ABIL-012`'s selector says `owner: 'opponent'`.
+       *
+       * A card that kills itself is not a shape this game prints, and it is
+       * here as an instrument rather than as a transcription — which is what the
+       * rest of the file already does for `ABIL-012` Purge.
+       *
+       * **The `[DON!! x3]` condition is the instrument's calibration, and it was
+       * measured rather than chosen.** Written without one, the ability was free
+       * and always legal, and random play took it every time: over 300 games
+       * `ABIL-011` was K.O.'d 175 times and **all 175** were its own doing, so
+       * the guarded `[On K.O.]` above went from rare to unreachable. An
+       * instrument that changes the population it measures is worse than no
+       * instrument. Three attached DON!! on one 2-cost body is uncommon enough
+       * that the card mostly dies the way it used to — to `ABIL-012` Purge,
+       * which is the opponent's effect and the case that matters.
+       */
+      {
+        id: 'ABIL-011-selfKo',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        condition: { kind: 'donAttached', min: 3 },
+        script: [{ op: 'ko', target: { self: true } }],
+      },
     ],
   }),
 
@@ -245,6 +296,54 @@ export const ABIL_CARDS: CardDefinition[] = [
         id: 'ABIL-013-onEnemyKO',
         trigger: 'whenOpponentCharacterKOd',
         script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      /**
+       * The four prose families that turned out to be triggers, on the card
+       * that already carries the other three watchers — for the reason stated
+       * above, and because it makes the ordering cases writable: this one
+       * Character can hold two abilities whose timing the same act fulfils.
+       *
+       * `ABIL-013-onRested` is the clearest of the four. This card rests when it
+       * attacks, so `whenAttacking` and `whenBecomingRested` both wake from one
+       * declaration — and CR 7-1-1-1 rests before CR 7-1-1-3 activates, which is
+       * an order a single card can be made to show.
+       */
+      {
+        id: 'ABIL-013-onDonReturned',
+        trigger: 'whenDonReturnedToDeck',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      {
+        id: 'ABIL-013-onRested',
+        trigger: 'whenBecomingRested',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      {
+        id: 'ABIL-013-onEnemyBlocker',
+        trigger: 'whenOpponentActivatesBlocker',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      {
+        id: 'ABIL-013-onEnemyPlay',
+        trigger: 'whenOpponentPlaysCharacter',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      /**
+       * The `restSelf` route into "becomes rested", on the card that watches for
+       * it — the fourth of the five ways a card can be rested and the only one a
+       * staged position cannot reach through some other card.
+       *
+       * The body grants power rather than drawing, so the observer's draw and
+       * the ability's own output are told apart in one game. No `oncePerTurn`:
+       * `restSelf` is its own limiter, because the source only comes back active
+       * in its controller's Refresh Phase (CR 6-2-4) — the argument `ABIL-024`
+       * already makes for the same cost.
+       */
+      {
+        id: 'ABIL-013-restSelf',
+        trigger: 'activateMain',
+        cost: [{ kind: 'restSelf' }],
+        script: [{ op: 'addPower', target: { self: true }, value: 1000, duration: 'endOfTurn' }],
       },
     ],
   }),

@@ -135,6 +135,28 @@ export const MARK_NAMES = [
   'op.setLegalityNoSubject',
   'battle.koPrevented',
 
+  // Prose trigger families. Each names a *fact* rather than a caller, which is
+  // the whole shape of these five: the mark sits at the one site the fact
+  // happens, so a run that never reaches it has never produced the fact at all
+  // — no matter how many code paths could have caused it.
+  //
+  // `orientation.becameRested` is the transition five callers share. Its
+  // presence with `play.restedCountsAsBecoming` at zero is the flagged reading
+  // holding: a card *placed* rested is not a card that became rested.
+  'orientation.becameRested',
+  'play.restedCountsAsBecoming',
+  // The observers themselves, counted apart from the facts. A fact reached with
+  // its observer at zero means the deck has no card watching, not that the
+  // wiring is wrong — and the two are indistinguishable without both names.
+  'trigger.donReturnedToDeck',
+  'trigger.becameRested',
+  'trigger.opponentActivatesBlocker',
+  'trigger.opponentPlaysCharacter',
+  // The K.O. cause, which is the family that is *not* a trigger. Three values,
+  // and CR 10-2-1-3 splits them two-to-one: an effect's, or a battle's.
+  'ko.byEffect',
+  'ko.byBattle',
+
   // Damage.
   'damage.absorbedByEmptyLife',
   'damage.banished',

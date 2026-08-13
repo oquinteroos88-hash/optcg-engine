@@ -139,6 +139,20 @@ export const OP01_PURPLE_DECKS = {
 };
 
 /**
+ * Hand-built blue/purple positions from the **Crocodile** deck rather than the
+ * everything deck.
+ *
+ * One card needs it. `OP01-085` Mr.3 gates on a {Baroque Works} Leader and could
+ * not go into `OP01_BP_EVERYTHING` — that deck is exactly 50 and every filler
+ * line in it is a body some staged position needs a pair of. This deck is
+ * Crocodile-led, so the gate is open, and it is where Mr.3 lives.
+ */
+export function op01CrocodileScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  const deck = toEngineDecklist(OP01_BP_CROCODILE);
+  return buildScenario({ ...spec, decks: { p1: deck, p2: deck } });
+}
+
+/**
  * Hand-built OP-01 positions. Both sides use the everything deck, because a
  * scenario can only stage cards its decklist holds and the two manifestation
  * decks split the Events between them.

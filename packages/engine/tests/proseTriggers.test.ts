@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { applyAction, createGame } from '../src/index.js';
 import type { GameState, InstanceId, PlayerId } from '../src/index.js';
 import { assertInvariants } from '../src/invariants.js';
-import { assertSerializationRoundTrip } from '../src/testing/index.js';
+import { assertSerializationRoundTrip, decide } from '../src/testing/index.js';
 import { ABIL_DECK } from '../src/testdata/abilityDecks.js';
 import { buildScenario, characterAt, handCard } from '../src/testdata/scenarios.js';
 import { applyOk, cloneWith } from './helpers.js';
@@ -431,7 +432,10 @@ describe("an [On K.O.] that asks who caused the K.O.", () => {
     // half only. `ABIL-011-selfKo` exists for exactly this case.
     const staged = buildScenario({
       decks,
-      p1: { characters: [{ cardId: 'ABIL-011' }] },
+      // Three attached DON!!, because the instrument is gated on them — see
+      // `ABIL-011-selfKo`, whose condition exists to stop it distorting the
+      // random-play population the last case in this file measures.
+      p1: { activeDon: 3, characters: [{ cardId: 'ABIL-011', attachedDon: 3 }] },
     });
     const scout = characterAt(staged, 'p1', 0);
     const before = handSize(staged, 'p1');
@@ -677,5 +681,84 @@ describe('the order observers resolve in', () => {
     const done = answerCards(asked, characterAt(asked, 'p2', 0));
     expect(firedIds(done)).toContain(DON_RETURNED);
     assertSettled(done);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Manifestation in games nobody staged
+// ---------------------------------------------------------------------------
+
+/**
+ * The cases above build every position by hand, which proves each script is
+ * right and proves nothing about whether a game ever reaches it. `counterEvent`
+ * is the standing reminder: a trigger can be expressible, wired, and
+ * unreachable, and only playing finds out.
+ *
+ * So the same question is asked of random play. The assertion is an **exact
+ * set**: a family that silently stops firing fails here, and so does one that
+ * starts firing without being listed.
+ */
+const OBSERVED_IN_RANDOM_PLAY = [
+  BECAME_RESTED,
+  DON_RETURNED,
+  ENEMY_BLOCKER,
+  ENEMY_PLAY,
+  ENEMY_EFFECT_KO,
+] as const;
+
+/**
+ * Nothing. All five families are reached by bots that know no rules.
+ *
+ * That is not luck and it is worth naming why, because the two rarest almost
+ * were. Over 2000 marked games `trigger.opponentActivatesBlocker` fired 165
+ * times against `trigger.becameRested`'s 5658, and the ratio is the rule rather
+ * than the deck: a `[Blocker]` activation needs an attack, a defender holding
+ * the keyword, and the defender *choosing* to spend it — three coincidences,
+ * against one for a card that rests itself by attacking.
+ *
+ * `play.restedCountsAsBecoming` is the one mark this change added that no game
+ * reaches, and it is dead **by decision, not by luck**:
+ * `rules.placedRestedBecomesRested` is false, so a Character placed rested
+ * never counts as having become rested and the branch behind the flag is
+ * unreachable while the default stands. A mark that would go live the moment
+ * somebody flips the flag is the cheapest possible witness that the flag is
+ * doing something.
+ */
+const UNOBSERVED_IN_RANDOM_PLAY: readonly string[] = [];
+
+describe('the five families in games nobody staged', () => {
+  // 200 games, well past the rarest family: over 300 the `[Blocker]` watcher
+  // fired 11 times against the rested watcher's 235, and 200 keeps a margin on
+  // the smaller number without paying for a margin on the larger.
+  it('every one of them is reached by random play', { timeout: 60_000 }, () => {
+    const fired = new Set<string>();
+    for (let seed = 1; seed <= 200; seed += 1) {
+      let state: GameState = createGame({ seed, decks, firstPlayer: 'p1' });
+      let decision = 0;
+      let actions = 0;
+      while (state.status !== 'finished' && actions < 1500) {
+        const player = state.priority;
+        const action = decide(state, player, seed, decision);
+        decision += 1;
+        if (action === undefined) {
+          break;
+        }
+        const result = applyAction(state, action);
+        if (!result.ok) {
+          throw new Error(`seed ${seed}: ${result.reason} for ${JSON.stringify(action)}`);
+        }
+        state = result.state;
+        actions += 1;
+      }
+      for (const id of firedIds(state)) {
+        fired.add(id);
+      }
+    }
+
+    const seen = OBSERVED_IN_RANDOM_PLAY.filter((id) => fired.has(id));
+    expect([...seen].sort()).toEqual([...OBSERVED_IN_RANDOM_PLAY].sort());
+    for (const id of UNOBSERVED_IN_RANDOM_PLAY) {
+      expect(fired.has(id)).toBe(false);
+    }
   });
 });

@@ -213,16 +213,23 @@ export const ABIL_CARDS: CardDefinition[] = [
        *
        * A card that kills itself is not a shape this game prints, and it is
        * here as an instrument rather than as a transcription — which is what the
-       * rest of the file already does for `ABIL-012` Purge. `[Once Per Turn]` is
-       * moot on a card that leaves the field, and is written for the reason the
-       * `usedThisTurn` stamp is taken at payment: it costs nothing and it stops
-       * the ability being the sweep's cheapest repeatable action if the card is
-       * ever brought back.
+       * rest of the file already does for `ABIL-012` Purge.
+       *
+       * **The `[DON!! x3]` condition is the instrument's calibration, and it was
+       * measured rather than chosen.** Written without one, the ability was free
+       * and always legal, and random play took it every time: over 300 games
+       * `ABIL-011` was K.O.'d 175 times and **all 175** were its own doing, so
+       * the guarded `[On K.O.]` above went from rare to unreachable. An
+       * instrument that changes the population it measures is worse than no
+       * instrument. Three attached DON!! on one 2-cost body is uncommon enough
+       * that the card mostly dies the way it used to — to `ABIL-012` Purge,
+       * which is the opponent's effect and the case that matters.
        */
       {
         id: 'ABIL-011-selfKo',
         trigger: 'activateMain',
         oncePerTurn: true,
+        condition: { kind: 'donAttached', min: 3 },
         script: [{ op: 'ko', target: { self: true } }],
       },
     ],

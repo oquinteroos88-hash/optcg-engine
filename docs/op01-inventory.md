@@ -29,6 +29,11 @@ each card reports **what it needs**, never what the API for it would look like.
 > ([what it found](#what-batch-6-found--the-count-was-right-and-the-hard-part-was-not-the-zone)).
 > Pile A is still 38 of 38; none of the thirteen new ones was ever in it.
 >
+> **Batch 8 bought rows 7, 8 and 19 as one mechanism** — modifiable legality,
+> the last structural hole this document named. Three OP-01 cards and the three
+> starter `[Blocker]` prohibitions, taking OP-01 to **71 of 121**
+> ([the reframing, resolved](#the-reframing-modifier-is-the-hole-not-the-dsl-only-adds-resolved--batch-8)).
+>
 > **PR #30 built the two missing rules this document put back into backlog A**,
 > which frees `OP01-004` and `OP01-062` and empties that backlog for the second
 > time. The qualifier stands, and it is not a formality: **empty means nothing
@@ -502,7 +507,8 @@ without needing the argument: `OP01-014`'s `[On Block]` and `ST02-017`'s
 empty. It is behind a `rules` flag all the same, because the text does not say
 it in one sentence.
 
-So: **65 of 121 playable**, and the remaining 56 are what the gap table is now
+So: **65 of 121 playable** at batch 6, **71 of 121** after batch 8 took the
+three legality cards, and the remaining 50 are what the gap table is now
 about.
 
 ## Gaps, with both columns
@@ -519,8 +525,8 @@ an upper bound.
 | 4 | **Add DON!! from the DON!! deck** | 8 | **5** | 140 |
 | 5 | **Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]" | 14 | **3** | 399 |
 | 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
-| 7 | **Prohibitions** — "cannot" | 5 | **0** | 146 |
-| 8 | **Attack-legality modifiers** — widen or narrow who may be attacked | 3 | **2** | 49 |
+| 7 | ~~**Prohibitions** — "cannot"~~ — **bought** (batch 8), together with row 8, as **one** mechanism; the zero was right and stopped being right when put-into-play landed | 5 | **0** → **2** | 146 |
+| 8 | ~~**Attack-legality modifiers** — widen or narrow who may be attacked~~ — **bought** (batch 8); the count was right, 2 freed | 3 | **2, done** | 49 |
 | 9 | ~~**A trigger for something another card did**~~ — **built** (PR #30); the count was right, 2 freed | 3 | **2, done** | 11 |
 | 10 | **Scaling grants** — "+1000 for every card in your hand" | 2 | **2** | 23 |
 | 11 | **A cost paid with a Life card** | 2 | **2** | — |
@@ -531,7 +537,7 @@ an upper bound.
 | 16 | **A predicate about a card held in a variable** | 2 | **0** | — |
 | 17 | **Search the whole deck, and shuffle it** | 2 | **0** | 8 |
 | 18 | **A duration longer than end of turn** | 1 | **0** | 43 |
-| 19 | **Filter by printed keyword** — "[Blocker] Characters" | 1 | **0** | 6 |
+| 19 | ~~**Filter by printed keyword** — "[Blocker] Characters"~~ — **bought** (batch 8) as one field on `CardPredicate`; it was never `OP01-120`'s second wall, only `ST01-016`'s | 1 | **0** | 6 |
 | 20 | **Filter by attribute** — "＜Strike＞ attribute Characters" | 1 | **0** | — |
 | 21 | **A condition about the source's own orientation** | 1 | **0** | 7 |
 
@@ -640,7 +646,7 @@ inside a single step. OP-01 adds two demands the starters never printed:
 - **Play it rested.** `OP01-060` again: "you may play that card rested". The
   op needs an orientation, which is `orientDon`'s lesson repeated one zone over.
 
-### 2. Do prohibitions dominate OP-01?
+### 2. Do prohibitions dominate OP-01? *(answered, and then built — batch 8)*
 
 **No — and the way they fail to is more useful than the count.**
 
@@ -654,7 +660,7 @@ the shape the starters showed:
 
 | Card | The prohibition | Where the answer has to be visible | Also blocked by |
 | --- | --- | --- | --- |
-| `OP01-120` Shanks | opponent cannot activate a `[Blocker]` with 2000 power or less, this battle | `legalActions` — the blocker offer | printed-keyword filter (gap 19) |
+| `OP01-120` Shanks | opponent cannot activate a `[Blocker]` with 2000 power or less, this battle | `legalActions` — the blocker offer | ~~printed-keyword filter (gap 19)~~ — **nothing; written in batch 8** |
 | `OP01-024` Monkey.D.Luffy | cannot be K.O.'d in battle by ＜Strike＞ attribute Characters | `reducer/battle.ts` — damage resolution | attribute filter (gap 20) |
 | `OP01-099` Kurozumi Semimaru | {Kurozumi Clan} Characters other than this one cannot be K.O.'d in battle | `reducer/battle.ts`, as a board-wide `static` with no duration | name reference (gap 5) |
 | `OP01-051` Eustass"Captain"Kid | opponent cannot attack any card other than this Character | `legalActions` — the attack **target set** | negation, source orientation, put-into-play |
@@ -680,6 +686,29 @@ for two of them.
 The honest summary is that "prohibitions" is not one capability. It is at least
 three — blocker legality, attack legality, and K.O. immunity — that happen to
 share an English word.
+
+**What batch 8 did with that, and what the table above got wrong.** Three answer
+sites became three aggregators over one registry, and the five shapes went in
+without a special case between them — the design was cut against all five, as
+this section demanded, rather than against `ST01-012`.
+
+Two rows of the table above did not survive contact:
+
+- **`OP01-120` Shanks is not blocked by a printed-keyword filter.** "A [Blocker]
+  Character that has 2000 or less power" describes the *candidate*, and the
+  candidate predicate carries a keyword field like any other. `ST01-002` is the
+  same sentence and was never listed that way. Shanks is written.
+- **The "freed alone" zero expired quietly.** It was measured before
+  put-into-play shipped, and `ST01-002`'s other half was put-into-play. Re-check
+  the rows before trusting a column that old — that is now the standing rule for
+  this document.
+
+The three still out are out for the reasons stated: `OP01-024` on an attribute
+filter, `OP01-099` on a name reference, `OP01-051` on three gaps, `OP01-085` on a
+duration `Duration` cannot name. `OP01-085`'s is the sharpest of the four, and
+batch 8 measured why: an `endOfTurn` rule aimed at an opponent's Character
+expires before that Character can attack, so "until the end of your opponent's
+next turn" is not flavour on that card, it is the whole effect.
 
 ### 3. Does the "add DON!! from the DON!! deck" family appear, and how often?
 
@@ -778,7 +807,7 @@ They are set out in the next two sections, because two are missing rules and two
 are missing expressiveness, and the project keeps those in separate backlogs on
 purpose.
 
-## The reframing: `Modifier` is the hole, not "the DSL only adds"
+## The reframing: `Modifier` is the hole, not "the DSL only adds" *(resolved — batch 8)*
 
 The starter inventory's fourth structural hole was stated as *"the DSL can only
 add, never forbid"*. OP-01 shows that framing is one card away from being wrong,
@@ -808,6 +837,33 @@ That reframing costs nothing and changes what the design conversation is about.
 question is what a third and fourth `Modifier` member look like, and whether
 `hasKeyword`'s pattern — one function every reader goes through — generalises to
 "may this card attack that one".
+
+**Answered by building it, and the answer is: not a `Modifier` member, but yes
+to the pattern.**
+
+Not a member, because every `Modifier` answers "what value does this *card*
+have" — which is why each has a `target` and why `getPower` can walk the list
+card-first. A legality rule answers "may this *action* happen": it is scoped by a
+question, one of its two subject forms names no card at all ("your opponent
+cannot activate [Blocker]"), and it is read at three unrelated sites. Making it a
+fourth member would have meant a nullable `target` for the sake of entries
+`getPower` could only ever skip. So `GameState.legality` is `modifiers`'
+**sibling** — same id, same source, same two durations, same expiry lines.
+
+Yes to the pattern, exactly. `getPower` is the single point where printed value,
+DON!!, live modifiers and applicable statics are added up, and the reason no two
+callers ever disagree about a card's power is that there is only one such point.
+Legality got the same: `canActivateBlocker`, `canAttack` and `canBeKOdInBattle`
+are three thin questions over one walk, and all three run the same decision — the
+base rule, then permissions, then prohibitions, which win (CR 1-3-3).
+
+And the continuous face came free. `forEachStatic` already answers "which
+statics apply to this card", which is precisely what each aggregator needs, so
+`Ability.grants` gained a `legality` member beside `power` and `keyword` and
+there is no second walk. `OP01-021` Franky is that face; `OP01-112` Page One is
+the same clause bought for a turn by a script. CR keeps the two apart the same
+way — 8-1-3-3's permanent effects against 8-1-4-2's continuous ones — and this is
+one mechanism with two lifetimes, not two mechanisms.
 
 Three OP-01 cards, 2 freed, 49 in the full set on the "can also attack" and
 "cannot attack" probes together. Not large. But it is the one finding here that
@@ -979,7 +1035,7 @@ have been added to it as batches land:
 | OP01-018 | Hajrudin | char | vanilla | — |
 | OP01-019 | Bartolomeo | char | **C** | `[Opponent's Turn]` — `Condition` has no negation. Freed by that alone; `[Blocker]` is printed |
 | OP01-020 | Hyogoro | char | **A** ✅ | `activateMain`, cost `restSelf`; select 0–1 {field, you, leader+character} → `addPower +2000 endOfTurn` |
-| OP01-021 | Franky | char | **C** | an attack-legality modifier — **new hole**, `Modifier` is `power`/`grantKeyword` only |
+| OP01-021 | Franky | char | **A** ✅ | `static`, cond `donAttached 1`, `affects {self}`, `grants.legality` — `allow` on the `attack` question with a target predicate of `orientation: 'active'`. The card that reframed the hole, written as the reframing said it would be. **✅ written — batch 8** |
 | OP01-022 | Brook | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–2 {field, opponent, character} → `addPower −2000 endOfTurn` |
 | OP01-023 | Marco | char | vanilla | — |
 | OP01-024 | Monkey.D.Luffy | char | **C** | a prohibition (K.O. immunity in battle) **and** an attribute filter. Its `activateMain` half is expressible |
@@ -1070,7 +1126,7 @@ have been added to it as batches land:
 | OP01-109 | Who's.Who | char | **C** | a condition on how many DON!! you have on the field, and nothing else |
 | OP01-110 | Fukurokuju | char | vanilla | — |
 | OP01-111 | Black Maria | char | **A** ✅ | `onBlock`, `optional`, cost `returnDon 1` → `addPower self +1000 endOfTurn`. `[Blocker]` is printed |
-| OP01-112 | Page One | char | **C** | an attack-legality modifier, with a duration — the same hole as `OP01-021` |
+| OP01-112 | Page One | char | **A** ✅ | the same clause as `OP01-021`, written by a script instead of read off a static: `activateMain`, `oncePerTurn`, cost `returnDon 1`, `setLegality` with `endOfTurn`. The pair is what shows the mechanism has one shape. **✅ written — batch 8** |
 | OP01-113 | Holedem | char | **C** | the DON!! deck, and nothing else |
 | OP01-114 | X.Drake | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |
 | OP01-115 | Elephant's Marchoo | event | **C** | the DON!! deck, and nothing else. The `ko` half is expressible |
@@ -1078,7 +1134,7 @@ have been added to it as batches land:
 | OP01-117 | Sheep's Horn | event | **A** ✅ | `mainEvent`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 6} → `rest` |
 | OP01-118 | Ulti-Mortar | event | **C** | the DON!! deck on the `[Trigger]` half. The `[Counter]` half is expressible |
 | OP01-119 | Thunder Bagua | event | **C** | the DON!! deck on both halves. Everything else, `lifeAtMost` included, is expressible |
-| OP01-120 | Shanks | char | **C** | a `[Blocker]` prohibition **and** a printed-keyword filter — `ST01-002`'s shape exactly. `[Rush]` is printed |
+| OP01-120 | Shanks | char | **A** ✅ | `whenAttacking` → `setLegality` forbid, subject `{opponent, keyword: blocker, powerMax: 2000}`, `endOfBattle`. `ST01-002`'s shape with the inequality turned over; the printed-keyword filter was a misreading of this row — the keyword is a property of the candidate. `[Rush]` is printed. **✅ written — batch 8** |
 | OP01-121 | Yamato | char | **D** | name aliasing. See below |
 
 ## Ambiguous — pile D

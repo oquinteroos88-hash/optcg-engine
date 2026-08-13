@@ -227,12 +227,12 @@ been recomputed.
 | 2 | **A continuous ability that applies to its own source** ("this Character gains +1000") | 3 — ST01-004, ST01-013, ST02-003 | 268 (35 of them under a `[DON!! xN]`) | **closed — PR #12** |
 | 3 | **Change the orientation of DON!! cards**, own or opponent's, by quantity | 3 — ST02-008, ST02-015, ST02-016 | 71 | **closed — PR #13** |
 | 4 | **Put a card into play** from hand or from a life card | 3 — ST01-002, ST02-005, ST02-017 | 375 | open |
-| 5 | **Stop the opponent from using [Blocker]** — a restriction, not a grant | 3 — ST01-002, ST01-012, ST01-016 | 146 | open |
+| 5 | ~~**Stop the opponent from using [Blocker]** — a restriction, not a grant~~ | 3 — ST01-002, ST01-012, ST01-016 | 146 | **closed — PR #31**, and it was never "a restriction, not a grant": see the correction below |
 | 6 | **Rest the source as the price of an ability** | 2 — ST01-017, ST02-007 | 90 | **closed — PR #15** |
 | 7 | **Order cards you are putting back** ("the rest to the bottom in any order") | 1 — ST02-007 | 254 | open |
 | 8 | **Let the player choose which card a cost discards** | 1 — ST02-001 | 197 | open |
 | 9 | **A condition about the source's own orientation** ("if this Character is rested") | 1 — ST02-014 | 7 | open |
-| 10 | **Filter a selection by printed keyword** ("[Blocker] Characters") | 1 — ST01-016 | 6 | open |
+| 10 | ~~**Filter a selection by printed keyword** ("[Blocker] Characters")~~ | 1 — ST01-016 | 6 | **closed — PR #31**, as one field on the shared card predicate; asked of `hasKeyword`, so a *granted* [Blocker] counts |
 | 11 | **Fire on "this card is in a battle", and ask what it is battling** | 1 — ST02-010 | 1 | open |
 
 Read the two columns together, because they disagree in useful ways.
@@ -373,9 +373,21 @@ the cards looked at but not taken. A re-resolved `deckTop` selector cannot do
 it, because how many cards remain depends on how many the player took, and the
 DSL has no arithmetic.
 
-### 4. The DSL can only add, never forbid — **new**
+### 4. The DSL can only add, never forbid — **new** *(built, PR #31 — and the framing was wrong)*
 
-This is the finding of the inventory.
+This is the finding of the inventory, and OP-01 later corrected its own statement
+of it. `OP01-021` Franky prints "[DON!! x1] This Character can also attack your
+opponent's active Characters" — a **permission**, not a prohibition, and one the
+DSL could not say either. The hole was never directionality. It was that
+`Modifier` could say two things about a card, and everything that changes what a
+player may *do* fell outside it in either direction.
+
+What was built is one piece rather than two kept in a mirror: a timed rule in the
+state carrying a serializable predicate, a continuous face read off
+`Ability.grants` the way `power` and `keyword` already are, and three aggregators
+— the block, the attack, the K.O. All three starter cards below are written,
+`ST01-002` whole. The reframing is set out in `docs/op01-inventory.md`; the
+mechanism is in `packages/engine/README.md`.
 
 Every instruction the DSL has is additive or destructive: add power, grant a
 keyword, move, KO, rest, draw, give DON!!. `Modifier` is a closed union of
@@ -627,7 +639,13 @@ counted under gaps 6 **and** 7 and is only ever unlocked by the second. The
 ranking is still the right ranking — it just measures *cards touched*, not
 *cards freed*.
 
-**Second — decide the `[Blocker]` prohibitions.** Structural hole #4, 3 cards, 2
+**Second — decide the `[Blocker]` prohibitions.** *(Done — PR #31, and the
+warning below earned its keep: the design was cut against **five** shapes, not
+three. OP-01 added K.O. immunity in battle and Franky's permission, and those two
+are what forced three aggregators instead of one hook in `legalActions`. All
+three starter cards are written, `ST01-016` included — its `[Trigger]`'s
+printed-keyword filter turned out to be one field on the predicate the
+prohibitions already needed.)* Structural hole #4, 3 cards, 2
 of them in ST-01, 146 in the full set. This is the first thing on the list that
 needs a design conversation rather than an implementation, and the inventory
 now has enough shape to have it: three cards spanning unconditional, predicated,

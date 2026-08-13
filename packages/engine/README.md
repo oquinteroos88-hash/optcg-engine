@@ -596,12 +596,20 @@ contract and are never renamed.
 | Generic      | `gameFinished`, `unknownPlayer`, `malformedAction`, `notYourPriority`, `wrongStatus`, `battleInProgress`, `noBattle`, `wrongBattleStep` |
 | `PLAY_CARD`  | `cardNotInHand`, `unplayableCategory`, `notEnoughDon`, `trashChoiceRequired`, `trashChoiceNotAllowed`, `invalidTrashChoice` |
 | `ATTACH_DON` | `invalidCount`, `invalidAttachTarget`, `notEnoughActiveDon` |
-| `DECLARE_ATTACK` | `invalidAttacker`, `attackerNotActive`, `cannotAttackYet`, `firstTurnAttackForbidden`, `invalidTarget`, `targetNotRested` |
-| `DECLARE_BLOCK`  | `invalidBlocker`, `notABlocker`, `blockerNotActive` |
+| `DECLARE_ATTACK` | `invalidAttacker`, `attackerNotActive`, `cannotAttackYet`, `firstTurnAttackForbidden`, `invalidTarget`, `targetNotRested`, `attackForbidden` |
+| `DECLARE_BLOCK`  | `invalidBlocker`, `notABlocker`, `blockerNotActive`, `blockForbidden` |
 | `PLAY_COUNTER`   | `cardNotInHand`, `noCounterValue`, `invalidCounterTarget` |
 | `PLAY_COUNTER_EVENT` | `cardNotInHand`, `notACounterEvent`, `notEnoughDon` |
 | `ACTIVATE_ABILITY` | `unknownAbility`, `abilityNotActivatable`, `abilitySourceNotOnField`, `abilityConditionUnmet`, `abilityCostUnpayable`, `abilityAlreadyUsed` |
 | `ANSWER_CHOICE`  | `choicePending`, `noPendingChoice`, `missingAnswer`, `wrongChoiceId`, `notYourChoice`, `choiceKindMismatch`, `choiceCardinality`, `choiceCandidateUnknown`, `choiceDuplicateSelection`, `choiceOptionOutOfRange` |
+
+`blockForbidden` and `attackForbidden` are separate codes on purpose. A caller
+told `notABlocker` or `targetNotRested` is being told about a card or a board —
+something it could have worked out itself. These two say a move the rules allow
+was taken away by a card, which is a different thing to render and a different
+thing to debug. Neither should be seen in normal play: `legalActions` withholds
+the offer, so reaching one means the action came from a replayed log, a stale
+client, or a bot that kept an old list.
 
 `choicePending` is returned for *any other* action attempted while a choice is
 open: a suspended effect blocks the whole game, not only its own player.
@@ -609,6 +617,145 @@ open: a suspended effect blocks the whole game, not only its own player.
 There is deliberately no `wrongPhase` code: because the automatic phases run
 inside the turn transition, a player holding priority with no battle open is
 always in the Main phase.
+
+## Modifiable legality
+
+`Modifier` could say two things about a card, `power` and `grantKeyword`, and
+**everything that changes what a player may do fell outside it, in either
+direction**. `ST01-012`'s "your opponent cannot activate [Blocker]" and
+`OP01-021`'s "this Character can also attack your opponent's active Characters"
+are the same hole seen from its two sides, so this is one mechanism and not two
+kept in a mirror.
+
+### The registry is `modifiers`' sibling, not its fourth member
+
+`GameState.legality` holds `LegalityRule`s, which share everything that makes a
+grant a grant — an id, a source, one of the two durations the engine can expire
+— and differ in what a reader has to ask them. Every `Modifier` answers "what
+value does this **card** have", which is why each has a `target` and why
+`getPower` walks the list card-first. A legality rule answers "may this
+**action** happen": it is scoped by a question, one of its two subject forms
+names no card at all, and it is read at three unrelated sites. A fourth
+`Modifier` member would have meant a nullable `target` for the sake of entries
+`getPower` could only ever skip.
+
+The predicate is **data**, never a function — `CardPredicate`, which is
+`Selector` minus the zone. That is not style: a game suspended mid-effect has to
+survive `JSON.parse(JSON.stringify(state))` and come back the same game, and a
+closure is the one thing in the state that could not.
+
+### Three questions, because the Comprehensive Rules ask them in three places
+
+| Clause | Where the answer is visible | Rules |
+| --- | --- | --- |
+| `activateBlocker` | the Block Step, via `legalActions` and `validateDeclareBlock` | CR 10-1-4-1, 7-1-2-1 |
+| `attack` | the attack target set, asked per attacker | CR 7-1, 7-1-1-2 |
+| `koInBattle` | where the Damage Step *decides* the K.O. | CR 7-1-4-1-2, 10-2-1-3 |
+
+What "cannot activate [Blocker]" forbids is the **activation** and nothing
+wider. CR 10-1-4-1 defines the keyword as one "allowing you to activate it by
+resting this card during the Block Step", so what a card bans is the block
+declaration — not the keyword, and not resting as such. The game words the wider
+restriction differently: the official Q&A for "cannot be rested" stops both the
+actions that require resting *and* the card being rested by another effect. Two
+phrasings, two restrictions, and this is the narrow one.
+
+K.O. immunity is asked where the K.O. is decided, before `closeBattle` ends the
+"during this battle" effects, and it changes only that: CR 7-1-4-1-2 continues
+"Then, proceed to End of the Battle", and it proceeds there either way. The
+Damage Step emits `battleResolved` with a fourth outcome, `koPrevented`, rather
+than borrowing `noEffect` — a Character that shrugged off a hit and a Character
+that lost the comparison are not the same event, which is the distinction
+`battleEndedEarly` already exists to keep.
+
+CR 10-2-1-3 is why the clause says "in battle" at all: effects reading "cannot
+be K.O.'d" are valid when the card is K.O.'d "by an effect **or** due to the
+result of a battle", and every printed card in scope narrows it to the second.
+An unqualified immunity is a wider clause, not a second call site.
+
+### Two faces, one clause
+
+A card either says this continuously or buys it for a while, and the rules keep
+those apart: CR 8-1-3-3's permanent effects "constantly affect gameplay while
+they are valid" against CR 8-1-4-2's continuous effects that last "for a
+specified duration". So does the engine. `Ability.grants.legality` is the
+continuous face, read through `forEachStatic` — which already answers exactly
+the question each aggregator needs, so there is no second walk — and the
+`setLegality` instruction is the written one. `OP01-021` Franky and `OP01-112`
+Page One are the same clause on the two faces.
+
+A static grant carries no subject, for the same reason `power` and `keyword`
+grants carry none: `affects` already said who.
+
+### The decision, and who wins
+
+`canActivateBlocker`, `canAttack` and `canBeKOdInBattle` are three thin
+questions over one walk, and all three run the same procedure: start from the
+base rule, let permissions widen it, then let prohibitions take it away.
+Prohibitions win, which is **CR 1-3-3** — "if a card's effect requires a player
+to carry out an action while a currently active effect prohibits that action,
+the prohibiting effect always takes precedence". Not section 4-9, which earlier
+notes in this repo guessed at: 4-9 is "Base", and says nothing about conflicting
+effects.
+
+A permission is only consulted where the base rule says no, which is what "can
+**also** attack your opponent's active Characters" means.
+
+### The attacker-scoped rule, and why it lives in the state
+
+`ST01-016` is the shape that decides whether the design is cut right: "your
+opponent cannot activate [Blocker] if that Leader or Character attacks during
+this turn". It is written in the Main Phase, when there is no battle at all; it
+must sit inert through every other card's attack; it must apply to an attack the
+named card declares much later; and it must expire with the turn whether that
+attack ever came or not. A prohibition modelled as a property of a battle could
+do none of that, so `whileAttacker` is a field on the rule and the rule lives in
+`GameState`.
+
+### The affordance contract
+
+**A forbidden move is not offered.** `legalActions` is what a client builds its
+buttons from, so a prohibition has to be invisible rather than rejected — a UI
+that shows a block button and then refuses the click is describing a rule it
+does not have. `applyAction` revalidates anyway, as it does for everything.
+
+One consequence worth knowing: the attack target list is now built **per
+attacker** rather than once, because a permission is attacker-scoped. There is
+no single "the targets" any more.
+
+### Lifetimes
+
+`endOfBattle` rules die in `closeBattle`, on the line the power modifiers die on
+— CR 7-1-5-3 and 7-1-5-4 say "effects that last during this battle", not "power
+modifiers" — and so on both exits, the ordinary one and the vanished-participant
+one. `endOfTurn` rules die in `finishTurn`. And a rule that names a card **by
+identity** dies when that card leaves the field, in `detachFromField`, one line
+below the modifier purge: CR 3-1-6 makes the card that comes back a new card,
+and CR 10-2-13-4 applies exactly that reading to a card that leaves and returns.
+A rule whose subject is a *side* survives — no card leaving can carry away a ban
+that was never about it — and so does one whose **source** left, which is what
+lets `ST01-016` work from an Event sitting in the trash.
+
+### Two judgement calls, neither behind a flag
+
+**When the power predicate is read.** `ST01-002` bans "a [Blocker] Character
+that has 5000 or more power during this battle", and the engine tests that at
+the moment the block is attempted, against `getPower`. The alternative — fixing
+the set of banned cards when the effect resolved — has no textual support:
+CR 8-1-4-1 makes a one-shot effect one that "completes its processing
+immediately", and a ban lasting a battle is not that, while CR 8-1-4-2's
+continuous effect "continues to affect the game for a specified duration", which
+is a condition tested while it lasts. So a Blocker pushed to 5000 by somebody
+else's effect falls under the ban, and one pushed to 4000 blocks. No `rules`
+flag, because there is no second reading to switch to.
+
+**Attacking an active Character changes nothing else.** Nothing in CR 7-1 rests
+the card being attacked, and 7-1-4-1-2 gives the Damage Step one outcome against
+a Character. `OP01-021` widens the target set of 7-1-1-2 and touches nothing
+else — the Block Step still happens, the comparison still happens, the loser is
+still K.O.'d. Verified against the Comprehensive Rules text; the official
+card-level Q&A is rendered client-side and could not be read mechanically, so
+this is a reading of the rules rather than a quoted ruling.
 
 ## Test data
 
@@ -848,9 +995,18 @@ applies every action twice for the purity check and replays each finished game
 once, so counts are inflated by exactly 3.
 
 Phase 2A adds marks for the effect system — every `op`, the suspend/resume
-cycle, the cost kinds, the keywords, and the damage branches.
+cycle, the cost kinds, the keywords, and the damage branches. Modifiable
+legality adds seven more, and the two directions are counted apart on purpose:
+`legality.forbidden` and `legality.allowed` are the two halves of the hole the
+mechanism closed, and a sweep that reaches only one of them has half-tested it.
 
-Measured over 200 games with `--abilities --marks`, **five of the 61 declared
+That split earned its keep immediately. Six of the seven were hit within a few
+hundred games and `legality.allowed` was not, because every synthetic card in
+the ABIL set narrowed legality and none widened it — a direction whose only
+evidence would have been the test written for it. `ABIL-028` exists to close
+that, and it is `OP01-021` Franky transcribed with nothing taken away.
+
+Measured over 200 games with `--abilities --marks`, **six of the 75 declared
 marks are never reached**:
 
 | Dead mark | Why |

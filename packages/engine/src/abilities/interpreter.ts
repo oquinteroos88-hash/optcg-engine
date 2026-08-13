@@ -678,6 +678,28 @@ function execute(
       setLegality(draft, item, instruction, events);
       return;
     }
+    case 'lookAt': {
+      // CR 11-3-2: "cards remain in their original areas while being looked
+      // at". So nothing moves — the deck is read, not spent, and the whole op
+      // is one variable write.
+      const deck = draft.players[item.controller].deck;
+      const looked = deck.slice(0, instruction.count);
+      item.vars[instruction.as] = looked;
+      if (looked.length === 0) {
+        // An empty deck yields nothing to look at, and every instruction after
+        // this one degrades to a no-op on its own. Rule 1 of the interpreter:
+        // nothing aborts.
+        mark('op.lookAtNothing');
+        return;
+      }
+      mark('op.lookAt');
+      emit(draft, events, {
+        type: 'cardsLookedAt',
+        player: item.controller,
+        instanceIds: looked,
+      });
+      return;
+    }
     case 'reveal': {
       const revealed = resolveSelector(draft, ctxOf(item), instruction.from, EFFECTIVE);
       item.vars[instruction.as] = revealed;
@@ -692,6 +714,7 @@ function execute(
     case 'select':
     case 'confirm':
     case 'play':
+    case 'orderToBottom':
     case 'if':
     case 'forEach':
       throw new Error(`Engine bug: ${instruction.op} is control flow, not a mutation`);
@@ -851,15 +874,108 @@ function playInstruction(
   return true;
 }
 
+/**
+ * Puts `ordered` at the bottom of their owner's deck, first card shallowest.
+ *
+ * The mapping is the whole of the answer's meaning, so it is one loop and it is
+ * stated twice — here and in the DSL comment. Each card comes out of wherever
+ * it is in the deck and goes to the end, in the order given, which is CR 3-2-3
+ * read literally: "when multiple cards in a deck are moved simultaneously, they
+ * should be moved one by one". One by one onto the bottom leaves the **last**
+ * card placed deepest, so `ordered[0]` is the one its owner draws first.
+ *
+ * A card that is no longer in the deck is skipped rather than chased. Rule 1 of
+ * the interpreter: the ordering was decided about cards that were there, and an
+ * effect that moved one on in the meantime does not cancel the placement of the
+ * others.
+ */
+function placeAtBottom(
+  draft: GameState,
+  ordered: readonly InstanceId[],
+  events: GameEvent[],
+): void {
+  const placed: InstanceId[] = [];
+  for (const id of ordered) {
+    const card = draft.cards[id];
+    if (card === undefined) {
+      continue;
+    }
+    const deck = draft.players[card.owner].deck;
+    const at = deck.indexOf(id);
+    if (at === -1) {
+      mark('op.targetGone');
+      continue;
+    }
+    deck.splice(at, 1);
+    deck.push(id);
+    placed.push(id);
+  }
+  const first = placed[0];
+  if (first === undefined) {
+    return;
+  }
+  mark('op.orderToBottom');
+  emit(draft, events, {
+    type: 'deckOrdered',
+    player: mustGetCard(draft, first).owner,
+    instanceIds: placed,
+  });
+}
+
+/**
+ * Runs an `orderToBottom`, returning true when it stopped to ask.
+ *
+ * The candidates are filtered to cards still in a deck, which is what keeps
+ * `checkEffectShape`'s "offers a candidate it cannot place" honest, and the
+ * count decides whether there is a question at all: with one card or none the
+ * permutation is unique, so the placement happens on the spot. **The engine
+ * decides that, not the UI** — a client auto-answering a one-option question is
+ * a client holding a rule.
+ */
+function orderInstruction(
+  draft: GameState,
+  item: StackItem,
+  instruction: Instruction & { op: 'orderToBottom' },
+  events: GameEvent[],
+): boolean {
+  const candidates = targets(draft, item, instruction.cards).filter((id) => {
+    const card = draft.cards[id];
+    return card !== undefined && draft.players[card.owner].deck.includes(id);
+  });
+  if (candidates.length <= 1) {
+    // Nothing to ask: zero cards is nothing to place, one card has one place to
+    // go. Both still *place*, which is the half a "no choice needed" shortcut
+    // would be most likely to drop.
+    mark('choice.orderTrivial');
+    placeAtBottom(draft, candidates, events);
+    return false;
+  }
+  openChoice(draft, events, {
+    player: item.controller,
+    kind: 'orderCards',
+    prompt: instruction.prompt,
+    candidates,
+    // A permutation is exact at both ends. `validateAnswerChoice` leans on this
+    // pair being the candidate count, and `checkEffectShape` asserts it.
+    min: candidates.length,
+    max: candidates.length,
+    sink: { kind: 'orderToBottom' },
+  });
+  return true;
+}
+
 /** Opens the choice a suspending instruction needs, or resolves it trivially. */
 function suspend(
   draft: GameState,
   item: StackItem,
-  instruction: Instruction & { op: 'select' | 'confirm' | 'play' },
+  instruction: Instruction & { op: 'select' | 'confirm' | 'play' | 'orderToBottom' },
   events: GameEvent[],
 ): boolean {
   if (instruction.op === 'play') {
     return playInstruction(draft, item, instruction, events);
+  }
+  if (instruction.op === 'orderToBottom') {
+    return orderInstruction(draft, item, instruction, events);
   }
   if (instruction.op === 'confirm') {
     openChoice(draft, events, {
@@ -997,7 +1113,8 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
   if (
     instruction.op === 'select' ||
     instruction.op === 'confirm' ||
-    instruction.op === 'play'
+    instruction.op === 'play' ||
+    instruction.op === 'orderToBottom'
   ) {
     if (suspend(draft, item, instruction, events)) {
       return;
@@ -1215,6 +1332,23 @@ export function applyAnswer(
       throw new Error('Engine bug: answered a play choice with no open frame');
     }
     playFrame.index += 1;
+    return;
+  }
+
+  if (pending.sink.kind === 'orderToBottom') {
+    if (answer.kind !== 'order') {
+      throw new Error('Engine bug: an ordering answered with a non-order answer');
+    }
+    // The answer *is* the placement. Nothing is re-resolved: validation already
+    // proved this list is exactly `pending.candidates`, so there is no second
+    // reading of a `Ref` that could name a different card than the question was
+    // about — the same guarantee the `play` sink buys by carrying its card.
+    placeAtBottom(draft, answer.order, events);
+    const orderFrame = item.cursor[item.cursor.length - 1];
+    if (orderFrame === undefined) {
+      throw new Error('Engine bug: answered an ordering with no open frame');
+    }
+    orderFrame.index += 1;
     return;
   }
 

@@ -283,12 +283,25 @@ export interface PendingChoice {
    * answer could name a different card. So the record is complete on its own: the
    * card entering, and whether it enters rested. Nothing about the placement is
    * left to be looked up again.
+   *
+   * `orderToBottom` is the fifth, and it grew the union for the reason `play`
+   * did: **the answer is not a value, it is an action.** A `var` sink would
+   * write the permutation into a variable and leave the placement to a following
+   * instruction, which makes "look at 5, put the rest back" expressible as a
+   * script that looks and never puts back — a half-executed printed sentence,
+   * which is the failure `play`'s sink exists to prevent.
+   *
+   * Unlike `play` it carries nothing, and that is checkable rather than lucky:
+   * the cards to place are `PendingChoice.candidates`, and validation
+   * guarantees the answer is exactly that multiset, so the placement reads the
+   * answer alone and re-resolves nothing.
    */
   sink:
     | { kind: 'var'; name: string }
     | { kind: 'optIn' }
     | { kind: 'cost' }
-    | { kind: 'play'; entering: InstanceId; rested: boolean };
+    | { kind: 'play'; entering: InstanceId; rested: boolean }
+    | { kind: 'orderToBottom' };
 }
 
 /**
@@ -313,7 +326,20 @@ export type ResumeStep =
 export type ChoiceAnswer =
   | { kind: 'cards'; selected: InstanceId[] }
   | { kind: 'yesNo'; value: boolean }
-  | { kind: 'option'; index: number };
+  | { kind: 'option'; index: number }
+  /**
+   * A permutation of `PendingChoice.candidates` — every one of them, once each,
+   * in the order the player wants them placed.
+   *
+   * A separate member rather than a re-use of `cards` with `min === max`,
+   * because the two answer different questions. `cards` says *which*, and its
+   * order is incidental — `selectCards` ignores it. This says *in what order*,
+   * and nothing is being selected: the set was already decided by the cards the
+   * player did not take. Sharing the member would make a `selectCards` answer
+   * silently acceptable for an ordering question, and `choiceKindMismatch`
+   * would stop meaning anything.
+   */
+  | { kind: 'order'; order: InstanceId[] };
 
 export interface Decklist {
   leader: CardId;

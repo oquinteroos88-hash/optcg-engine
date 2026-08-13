@@ -1,7 +1,7 @@
 import { applyAnswer } from '../abilities/interpreter.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
-import type { ChoiceAnswer, GameState, PlayerId } from '../types.js';
+import type { ChoiceAnswer, GameState, InstanceId, PendingChoice, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
 
 interface AnswerChoiceAction {
@@ -46,27 +46,47 @@ export function validateAnswerChoice(state: GameState, action: AnswerChoiceActio
       }
       return null;
     case 'selectCards':
-    case 'orderCards': {
-      if (answer.kind !== 'cards') {
-        return REASONS.choiceKindMismatch;
-      }
-      const selected = answer.selected;
-      if (selected.length < pending.min || selected.length > pending.max) {
-        return REASONS.choiceCardinality;
-      }
-      const seen = new Set<string>();
-      for (const id of selected) {
-        if (typeof id !== 'string' || !pending.candidates.includes(id)) {
-          return REASONS.choiceCandidateUnknown;
-        }
-        if (seen.has(id)) {
-          return REASONS.choiceDuplicateSelection;
-        }
-        seen.add(id);
-      }
-      return null;
-    }
+      return answer.kind === 'cards'
+        ? cardListReason(pending, answer.selected)
+        : REASONS.choiceKindMismatch;
+    /**
+     * A permutation, checked with the codes that were already here.
+     *
+     * Three properties — the right *length*, every id *from* the candidates,
+     * and no id *twice* — force the answer to be exactly the candidate
+     * multiset. That is the pigeonhole: n distinct members drawn from a set of
+     * n is that set. So "a card is missing" needs no reason code of its own,
+     * because it is not reachable without one of the three already having
+     * fired, and a code that can never be returned is a code that lies about
+     * the contract.
+     *
+     * The length comes from `min`/`max`, which `orderToBottom` opens equal to
+     * `candidates.length`; `checkEffectShape` asserts that rather than trusting
+     * it, so `choiceCardinality` here really does mean "not all of them".
+     */
+    case 'orderCards':
+      return answer.kind === 'order'
+        ? cardListReason(pending, answer.order)
+        : REASONS.choiceKindMismatch;
   }
+}
+
+/** Shared by both card-list answers: cardinality, membership, distinctness. */
+function cardListReason(pending: PendingChoice, ids: readonly InstanceId[]): string | null {
+  if (ids.length < pending.min || ids.length > pending.max) {
+    return REASONS.choiceCardinality;
+  }
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (typeof id !== 'string' || !pending.candidates.includes(id)) {
+      return REASONS.choiceCandidateUnknown;
+    }
+    if (seen.has(id)) {
+      return REASONS.choiceDuplicateSelection;
+    }
+    seen.add(id);
+  }
+  return null;
 }
 
 export function applyAnswerChoice(

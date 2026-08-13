@@ -195,6 +195,7 @@ describe('a real game, ST-01 against ST-02', () => {
       'ST02-001-main',
       'ST02-005-onPlay',
       'ST02-005-trigger',
+      'ST02-007-main',
       'ST02-008-whenAttacking',
       'ST02-009-onPlay',
       'ST02-013-endOfTurn',

@@ -5,19 +5,21 @@ import { starterCorpusStates } from './corpus';
 /**
  * Which choices the UI actually has to render.
  *
- * `PendingChoice['kind']` still lists four variants, but `selectOption` and
- * `orderCards` were removed from the engine's instruction set: nothing can open
- * one any more, and the phase 2C brief says not to build UI for them. That is a
- * claim about the whole system rather than about a type, so it is measured
- * rather than assumed — the day a card brings one back, the choice overlay has
- * no branch for it and this test says so first.
+ * `PendingChoice['kind']` lists four variants and the corpus now opens three.
+ * `orderCards` came back with `ST02-007` Bonney, exactly as this test was
+ * written to catch: it was the assertion that would go red first, and it did.
+ * `selectOption` is still unproduced — no op writes one, no card asks for one,
+ * and the overlay has no branch for it.
+ *
+ * The claim is about the whole system rather than about a type, which is why it
+ * is measured rather than assumed.
  */
 describe('the starter corpus opens only the two choice shapes the UI renders', () => {
   const states = starterCorpusStates();
 
-  it('never opens selectOption or orderCards', () => {
+  it('opens the three the overlay renders, and never selectOption', () => {
     const kinds = new Set(states.map((state) => state.pending?.kind).filter((k) => k !== undefined));
-    expect([...kinds].sort()).toEqual(['selectCards', 'yesNo']);
+    expect([...kinds].sort()).toEqual(['orderCards', 'selectCards', 'yesNo']);
   });
 
   it('publishes a prompt and a well-formed cardinality on every one of them', () => {

@@ -319,7 +319,16 @@ function reduceAnsweringChoice(
         intent: {
           type: 'ANSWER_CHOICE',
           choiceId: choice.id,
-          answer: { kind: 'cards', selected: [...mode.selected] },
+          // An ordering answers with the sequence, not the set. `selected` has
+          // been an ordered list of click order since it was written — for
+          // `selectCards` the order is ignored, and here it is the whole answer.
+          // The cardinality gate above is what makes it a permutation: the
+          // engine opens an ordering with min === max === candidates.length, so
+          // a partial sequence never becomes an intent.
+          answer:
+            choice.kind === 'orderCards'
+              ? { kind: 'order', order: [...mode.selected] }
+              : { kind: 'cards', selected: [...mode.selected] },
         },
       };
     }

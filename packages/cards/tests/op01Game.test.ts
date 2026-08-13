@@ -255,6 +255,33 @@ describe('a real game of OP-01 against OP-01', () => {
     expect(seen).toBe(true);
   });
 
+  it('reaches the red half of batch 9 in the deck built to find something', () => {
+    // `OP01-030` searches {Straw Hat Crew} Characters, and the mono-red fixture
+    // is the red deck that holds three kinds of them. Its `[Trigger]` half
+    // shares the `[Main]`'s list, so either route firing proves the script.
+    const fired = new Set<string>();
+    for (const seed of [2, 3, 5]) {
+      let state = createGame({ seed, decks: OP01_ZORO_DECKS, firstPlayer: 'p1' });
+      for (let step = 0; step < ACTIONS; step += 1) {
+        if (state.status === 'finished') break;
+        const action = decide(state, state.priority, seed, step);
+        if (action === undefined) break;
+        const result = applyAction(state, action);
+        if (!result.ok) {
+          throw new Error(`action ${step} (${action.type}) rejected: ${result.reason}`);
+        }
+        state = result.state;
+        for (const event of result.events) {
+          if (event.type === 'abilityTriggered') fired.add(event.abilityId);
+        }
+        assertInvariants(state);
+      }
+      expect(state.pending, `seed ${seed}`).toBeNull();
+      expect(state.stack, `seed ${seed}`).toEqual([]);
+    }
+    expect([...fired].some((id) => id.startsWith('OP01-030-'))).toBe(true);
+  });
+
   it('activates the Oden Leader, and pays its filtered price from a real hand', () => {
     // The second Leader in this repo with a written ability, and the first whose
     // price the player has to *choose*: "trash 1 {Land of Wano} type card from
@@ -267,7 +294,10 @@ describe('a real game of OP-01 against OP-01', () => {
     // Keeping them out of that pair is deliberate: putting BE-BENG!! into the Law
     // deck cost three 4000-power bodies, and with them the only route a random
     // red/green game had to the *attacker* side of CR 7-1-1-4.
-    const ODEN_SEEDS = [177, 146, 178, 119];
+    // 10 joined for batch 9: OP01-041 Momonosuke searches {Land of Wano}, and
+    // this fixture is built out of them, so it is the deck where the search
+    // finds something rather than resolving to nothing.
+    const ODEN_SEEDS = [177, 146, 178, 119, 10];
     const fired = new Set<string>();
     for (const seed of ODEN_SEEDS) {
       let state = createGame({ seed, decks: OP01_ODEN_DECKS, firstPlayer: 'p1' });
@@ -291,6 +321,7 @@ describe('a real game of OP-01 against OP-01', () => {
     }
     expect(fired.has('OP01-031-main')).toBe(true);
     expect(fired.has('OP01-059-main')).toBe(true);
+    expect(fired.has('OP01-041-main')).toBe(true);
   });
 
   it('reaches every [Trigger] half from real damage, not from a staged position', () => {

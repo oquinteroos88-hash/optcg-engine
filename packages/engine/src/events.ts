@@ -99,6 +99,14 @@ export type GameEvent =
   | { type: 'cardMoved'; player: PlayerId; instanceId: InstanceId; to: 'hand' | 'deck' | 'trash' | 'life' }
   | { type: 'cardDiscarded'; player: PlayerId; instanceId: InstanceId }
   | { type: 'cardsRevealed'; player: PlayerId; instanceIds: InstanceId[] }
+  /**
+   * Cards seen but not moved (CR 11-3-2). Private to the looker by CR 11-3-1;
+   * the ids are here because this log is perfect-information by design, and the
+   * privacy is the client's to keep. See the header above.
+   */
+  | { type: 'cardsLookedAt'; player: PlayerId; instanceIds: InstanceId[] }
+  /** Placed at the bottom of the deck in this order, first card shallowest. */
+  | { type: 'deckOrdered'; player: PlayerId; instanceIds: InstanceId[] }
   | { type: 'donReturnedToDeck'; player: PlayerId; count: number }
   | { type: 'lifeBanished'; player: PlayerId; instanceId: InstanceId; remaining: number }
   | { type: 'turnEnded'; turn: number; player: PlayerId }

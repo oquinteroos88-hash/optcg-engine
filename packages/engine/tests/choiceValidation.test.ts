@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction, createGame, legalActions } from '../src/index.js';
-import type { Action, GameState, InstanceId, PendingChoice } from '../src/index.js';
+import type { Action, ChoiceAnswer, GameState, InstanceId, PendingChoice } from '../src/index.js';
 import { chooseAction } from '../src/bots/randomBot.js';
 import { checkInvariants, checkTurnLeak } from '../src/invariants.js';
 import { ABIL_DECK } from '../src/testdata/abilityDecks.js';
@@ -65,6 +65,27 @@ function validSelections(pending: PendingChoice, limit: number): InstanceId[][] 
   return out;
 }
 
+/**
+ * The card-list answer `pending` expects, in the right dialect.
+ *
+ * `selectCards` and `orderCards` take the same *content* — a list of candidate
+ * ids — and different members, because they answer different questions. Every
+ * probe below builds its list and then comes through here, so the tests say
+ * which rule they are breaking rather than which member they forgot.
+ */
+function cardListAnswer(pending: PendingChoice, ids: readonly InstanceId[]): ChoiceAnswer {
+  return pending.kind === 'orderCards'
+    ? { kind: 'order', order: [...ids] }
+    : { kind: 'cards', selected: [...ids] };
+}
+
+/** The wrong dialect for this pending, for the kind-mismatch probes. */
+function wrongCardListAnswer(pending: PendingChoice, ids: readonly InstanceId[]): ChoiceAnswer {
+  return pending.kind === 'orderCards'
+    ? { kind: 'cards', selected: [...ids] }
+    : { kind: 'order', order: [...ids] };
+}
+
 function accept(state: GameState, action: Action): void {
   const result = applyAction(state, action);
   if (!result.ok) {
@@ -89,6 +110,9 @@ describe('answer validation over a corpus of real pendings', () => {
     const kinds = new Set(corpus.map((state) => state.pending?.kind));
     expect(kinds.has('yesNo')).toBe(true);
     expect(kinds.has('selectCards')).toBe(true);
+    // Batch 9. The corpus is built from real ABIL games, so this is a claim
+    // about the ability deck reaching an ordering, not about the type.
+    expect(kinds.has('orderCards')).toBe(true);
   });
 
   it('holds the priority invariant on every one of them', () => {
@@ -118,13 +142,14 @@ describe('answer validation over a corpus of real pendings', () => {
         continue;
       }
       for (const selected of validSelections(pending, 8)) {
-        accept(state, { ...base, answer: { kind: 'cards', selected } });
+        accept(state, { ...base, answer: cardListAnswer(pending, selected) });
       }
     }
   });
 
   it('rejects each way of breaking the pending with its own reason', () => {
     let cardinalityChecked = 0;
+    let kindChecked = 0;
     let membershipChecked = 0;
     let duplicateChecked = 0;
 
@@ -160,25 +185,39 @@ describe('answer validation over a corpus of real pendings', () => {
       }
 
       rejectWith(state, { ...base, answer: { kind: 'yesNo', value: true } }, 'choiceKindMismatch');
+      // And the *other* card-list dialect, which is the one a caller is most
+      // likely to send by accident: a `cards` answer to an ordering carries
+      // exactly the right ids and still means the wrong thing.
+      kindChecked += 1;
+      rejectWith(
+        state,
+        { ...base, answer: wrongCardListAnswer(pending, pending.candidates) },
+        'choiceKindMismatch',
+      );
 
       // Cardinality, both directions.
       if (pending.min > 0) {
         cardinalityChecked += 1;
-        rejectWith(state, { ...base, answer: { kind: 'cards', selected: [] } }, 'choiceCardinality');
+        rejectWith(state, { ...base, answer: cardListAnswer(pending, []) }, 'choiceCardinality');
       }
       const tooMany = pending.candidates.slice(0, pending.max + 1);
       if (tooMany.length > pending.max) {
         cardinalityChecked += 1;
-        rejectWith(
-          state,
-          { ...base, answer: { kind: 'cards', selected: tooMany } },
-          'choiceCardinality',
-        );
+        rejectWith(state, { ...base, answer: cardListAnswer(pending, tooMany) }, 'choiceCardinality');
       }
 
       // Membership: an id that exists in the game but is not on offer.
       const stranger = Object.keys(state.cards).find((id) => !pending.candidates.includes(id));
-      if (stranger !== undefined && pending.max >= 1) {
+      // An ordering needs the *whole* length or cardinality fires first, so the
+      // stranger replaces a candidate instead of being added to a short list.
+      if (stranger !== undefined && pending.kind === 'orderCards') {
+        membershipChecked += 1;
+        rejectWith(
+          state,
+          { ...base, answer: cardListAnswer(pending, [stranger, ...pending.candidates.slice(1)]) },
+          'choiceCandidateUnknown',
+        );
+      } else if (stranger !== undefined && pending.max >= 1) {
         membershipChecked += 1;
         // Math.max, because a min of 0 turns `min - 1` into a negative slice end,
         // which quietly returns *most of the array* instead of none of it — and
@@ -187,7 +226,7 @@ describe('answer validation over a corpus of real pendings', () => {
         const selected = [stranger, ...pending.candidates.slice(0, Math.max(pending.min - 1, 0))];
         rejectWith(
           state,
-          { ...base, answer: { kind: 'cards', selected } },
+          { ...base, answer: cardListAnswer(pending, selected) },
           'choiceCandidateUnknown',
         );
       }
@@ -198,13 +237,14 @@ describe('answer validation over a corpus of real pendings', () => {
         duplicateChecked += 1;
         rejectWith(
           state,
-          { ...base, answer: { kind: 'cards', selected: [first, first] } },
+          { ...base, answer: cardListAnswer(pending, [first, first]) },
           'choiceDuplicateSelection',
         );
       }
     }
 
     expect(cardinalityChecked).toBeGreaterThan(0);
+    expect(kindChecked).toBeGreaterThan(0);
     expect(membershipChecked).toBeGreaterThan(0);
     // Not asserted as non-zero: the ABIL set has no "choose up to 2" card yet,
     // so this may legitimately be 0 here. interpreter.test.ts pins the rule

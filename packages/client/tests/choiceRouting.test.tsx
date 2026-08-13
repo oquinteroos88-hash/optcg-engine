@@ -54,6 +54,7 @@ function mustState(): GameState {
 describe('the choice overlay', () => {
   const cardsChoice = firstPendingState((pending) => pending.kind === 'selectCards');
   const yesNoChoice = firstPendingState((pending) => pending.kind === 'yesNo');
+  const orderChoice = firstPendingState((pending) => pending.kind === 'orderCards');
 
   it('renders the prompt and the candidates without looping', () => {
     loadState(cardsChoice);
@@ -121,6 +122,65 @@ describe('the choice overlay', () => {
     expect(screen.queryByRole('dialog', { name: 'Elección' })).toBeNull();
     act(() => useStore.getState().animTick(1));
     expect(screen.getByRole('dialog', { name: 'Elección' })).toBeDefined();
+  });
+
+  it('renders an ordering with a position badge per candidate, and confirms only when full', () => {
+    // The first new choice kind since phase 2C, and the whole of its UI: tap the
+    // candidates in the order you want them, watch the numbers appear, confirm.
+    // No drag library and no second way to click a card - the interaction the
+    // overlay already had, with the position made visible.
+    loadState(orderChoice);
+    const pending = orderChoice.pending;
+    expect(pending).toBeDefined();
+    const candidates = pending?.candidates ?? [];
+    expect(candidates.length).toBeGreaterThan(1);
+    render(<GameScreen />);
+
+    // A permutation is exact, so an empty answer must not be confirmable - the
+    // opposite of the min-0 selection above, and the reason the button is driven
+    // by the published cardinality rather than by the kind.
+    const confirm = screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    expect(screen.getAllByLabelText('sin ordenar').length).toBe(candidates.length);
+
+    for (let at = 0; at < candidates.length; at += 1) {
+      const id = candidates[at];
+      act(() => {
+        useStore.getState().uiEvent({ kind: 'toggleChoiceCandidate', instanceId: id as string });
+      });
+      expect(screen.getAllByLabelText('posición ' + String(at + 1)).length).toBe(1);
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    expect(mustState().pending?.id).not.toBe(pending?.id);
+    // The order really reached the engine: the last card tapped is the deepest.
+    const deck = mustState().players[pending?.player ?? 'p1'].deck;
+    expect(deck.slice(-candidates.length)).toEqual([...candidates]);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('cannot be escaped mid-ordering either, and a re-tap unplaces a card', () => {
+    loadState(orderChoice);
+    const candidates = orderChoice.pending?.candidates ?? [];
+    const first = candidates[0];
+    render(<GameScreen />);
+    act(() => {
+      useStore.getState().uiEvent({ kind: 'toggleChoiceCandidate', instanceId: first as string });
+    });
+    expect(screen.getAllByLabelText('posición 1').length).toBe(1);
+
+    // Tapping the same card again takes it back out, which is the only undo the
+    // mode needs: a player who placed the wrong card first can say so.
+    act(() => {
+      useStore.getState().uiEvent({ kind: 'toggleChoiceCandidate', instanceId: first as string });
+    });
+    expect(screen.queryAllByLabelText('posición 1').length).toBe(0);
+
+    // And there is still no way out. An ordering is as unrefusable as any other
+    // open choice.
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(useStore.getState().ui.mode.kind).toBe('answeringChoice');
+    expect(mustState().pending).not.toBeNull();
   });
 
   it('names the player who is being asked, even when it is not the turn player', () => {

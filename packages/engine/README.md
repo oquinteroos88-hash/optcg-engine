@@ -300,6 +300,70 @@ wrong — `wrongChoiceId`, `notYourChoice`, `missingAnswer`, `choiceKindMismatch
 which rule it broke. `choiceValidation.test.ts` checks both directions over
 every choice a few hundred bot games actually open.
 
+**`orderCards` needed no new code among those.** Its answer is a permutation of
+`candidates`, and three properties force exactly that: the right length, every
+id drawn from the candidates, and no id twice. That is the pigeonhole — n
+distinct members of an n-element set are that set — so "a card is missing" is
+unreachable without one of the three firing first, and a reason code that can
+never be returned is a code that lies about the contract. The length premise is
+`min === max === candidates.length`, which the op opens and `checkEffectShape`
+asserts rather than leaving the validator to hope for.
+
+### The three choice kinds, and the one that came back
+
+`PendingChoice['kind']` has four members and the engine produces three.
+
+Phase 2A shipped with `orderCards` in the type and no op able to open one; it
+was deleted from the instruction set with a note saying it would return "with
+its op and its tests". `ST02-007` Jewelry Bonney is what brought it back —
+"look at 5 cards from the top of your deck; reveal up to 1 {Supernovas} type
+card and add it to your hand. Then, place the rest at the bottom of your deck in
+any order."
+
+Two problems, and only the first is the choice:
+
+- **The order.** The answer is `{ kind: 'order' }`, its own `ChoiceAnswer`
+  member rather than a re-use of `cards` with `min === max`. `cards` says
+  *which*, and `selectCards` ignores its order; this says *in what order*, and
+  nothing is being selected. Sharing the member would let a `selectCards` answer
+  through for an ordering, and `choiceKindMismatch` would stop meaning anything.
+- **Naming "the rest".** The cards not taken cannot be re-derived from a
+  selector, because how many are left depends on how many the player took and
+  the DSL has no arithmetic. `lookAt` records the window in `vars` and the fifth
+  `Ref` member, `minus`, is the difference. It *could* have been re-derived —
+  after the take, the untaken cards really are the top of the deck — and that
+  would be quietly wrong the first time a script touched the deck in between.
+
+`selectOption` remains unproduced: no op writes one, no printed card asks for
+one, and `packages/client/tests/choiceShapes.test.ts` measures the claim rather
+than asserting it in a comment.
+
+### Looking at a deck, and where the order goes
+
+| Question | Answer | Rule |
+| --- | --- | --- |
+| Does looking move the cards? | No. `lookAt` writes a variable and nothing else. | CR 11-3-2 |
+| Who sees them? | Only the player of the effect. | CR 11-3-1 |
+| Does the deck get shuffled after? | No — cards go back as they were unless the card says otherwise. | CR 11-3-3 |
+| May the player take nothing? | Yes, and may decline even when a card qualifies. | CR 8-4-4-1, 8-4-4-2 |
+| Shorter deck than the window? | Look at what is there; an empty deck is a no-op. | CR 8-4-4-1 |
+| Which end of the answer is deepest? | The last. `order[0]` is drawn first. | CR 3-2-3 |
+
+The last row is the one two implementers would resolve opposite ways, so it is
+derived rather than picked: CR 3-2-3 moves multiple deck cards "one by one", and
+one by one onto the bottom leaves the last card placed deepest. It is **not**
+behind a `rules` flag, and the reason is that it is not a rules question at all —
+the player chooses the order, so either mapping is reachable by a player who
+knows which it is. What a flag would protect is a client that guessed, and the
+fix for that is saying so: the overlay's own line is "tap them in the order you
+will draw them".
+
+**Looking is private and this engine does not model that.** CR 11-3-1 makes the
+looked-at cards knowledge of the looker alone; `cardsLookedAt` carries the ids
+because this log is perfect-information by design (see `events.ts`), and the
+client shows only the count. That is a hot-seat compromise, not hidden
+information — filed with the rest of the per-player-view debt.
+
 **Priority follows `pending.player`** for as long as the choice is open, and
 goes back to being derived the moment it is answered. Outside a suspended
 effect, priority is not remembered at all: it is the defender while a battle is
@@ -1016,6 +1080,8 @@ marks are never reached**:
 | `op.targetGone` | Needs something to remove a target *between* choosing it and acting on it. Random play essentially never builds that chain, and "abort the whole script" is the natural wrong implementation, so `staleTargets.test.ts` builds the position directly. |
 | `ability.costLostBeforeResolution` | The defensive re-check when an earlier effect in a chain spends the resources a queued ability needed. Pinned by `staleTargets.test.ts` with a hand-queued stack item. |
 | `battle.endedEarly` | Needs an effect that removes a battle participant *during* the battle, and no ABIL card does — the set was cut before any card could. `battleVanished.test.ts` registers its own cards for it, and it fires in ordinary play elsewhere: `packages/cards` reaches it in 2 of 300 OP-01 games, on `OP01-017` Nico Robin K.O.ing the Character she is attacking. Dead in *this* sweep, not in the repo. |
+| `choice.orderTrivial` | An ordering with one card or none, which needs a deck down to its last two cards while the card that looks at it is still on the board. Games end on deck-out before that. `orderCards.test.ts` builds both positions directly. |
+| `op.lookAtNothing` | Looking at an empty deck. Same reason, one step further: a player with no deck has already lost at the next rule processing (CR 9-2-1-2). |
 
 `battle.blocked` was dead in Phase 0 and is now reached 294 times: the ABIL set
 has real Blockers, so the redirect branch is exercised by ordinary play for the

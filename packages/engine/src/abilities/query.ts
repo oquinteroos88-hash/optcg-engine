@@ -204,6 +204,13 @@ export function resolveRef(
     }
     return [ref.battle === 'attacker' ? battle.attacker : battle.target];
   }
+  if ('minus' in ref) {
+    // Order-preserving, and the order is the one `of` produced: for
+    // `lookAt`-then-take that is deck order, top first, which is what the
+    // ordering choice should offer the player.
+    const removed = new Set(resolveRef(state, ctx, ref.minus.without, lens));
+    return resolveRef(state, ctx, ref.minus.of, lens).filter((id) => !removed.has(id));
+  }
   return resolveSelector(state, ctx, ref.selector, lens);
 }
 

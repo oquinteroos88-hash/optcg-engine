@@ -92,6 +92,7 @@ function uiCanProduce(state: GameState, action: Action): string | null {
 const FIRING_ABILITIES = [
   'ST01-001-main',
   'ST01-002-trigger',
+  'ST01-002-whenAttacking',
   'ST01-005-whenAttacking',
   'ST01-007-main',
   'ST01-011-onPlay',
@@ -105,6 +106,7 @@ const FIRING_ABILITIES = [
   'ST02-001-main',
   'ST02-005-onPlay',
   'ST02-005-trigger',
+  'ST02-007-main',
   'ST02-008-whenAttacking',
   'ST02-009-onPlay',
   'ST02-013-endOfTurn',
@@ -162,7 +164,15 @@ describe('every scripted ability is reachable through the UI', () => {
     }
     expect(byKind).toEqual({
       // Activated Main abilities: the contextual menu is the only way in.
-      ACTIVATE_ABILITY: ['ST01-001-main', 'ST01-007-main', 'ST01-017-main'],
+      ACTIVATE_ABILITY: [
+        'ST01-001-main',
+        'ST01-007-main',
+        'ST01-017-main',
+        // Batch 9. Bonney is the first ability in this corpus whose *answer* is
+        // an ordering, and it is reached the ordinary way: an activated ability
+        // off the contextual menu.
+        'ST02-007-main',
+      ],
       // Playing the card is what fires it — [On Play], and the Event's main half.
       PLAY_CARD: [
         'ST01-011-onPlay',
@@ -174,6 +184,7 @@ describe('every scripted ability is reachable through the UI', () => {
       ],
       // Declaring the attack fires [When Attacking].
       DECLARE_ATTACK: [
+        'ST01-002-whenAttacking',
         'ST01-005-whenAttacking',
         'ST01-012-whenAttacking',
         'ST02-008-whenAttacking',

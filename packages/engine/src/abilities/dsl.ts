@@ -133,12 +133,27 @@ export interface Selector extends CardPredicate {
   count?: number;
 }
 
-/** How an instruction names the cards it acts on. */
+/**
+ * How an instruction names the cards it acts on.
+ *
+ * `minus` is the fifth member and the one that names something no selector can:
+ * **the cards the player did not take.** "Look at 5, reveal up to 1, then place
+ * the rest at the bottom" cannot say "the rest" any other way — how many are
+ * left depends on how many the player took, and the DSL has no arithmetic.
+ *
+ * It is a difference over ids already in `vars`, never a selector re-run. The
+ * distinction matters: after the take, the untaken cards *are* still the top of
+ * the deck, so `deckTop(N - taken)` would give the same answer today — and it
+ * would be quietly wrong the first time a script did anything else to the deck
+ * in between. Recording what was looked at makes the assumption unnecessary
+ * rather than merely true.
+ */
 export type Ref =
   | { self: true }
   | { var: string }
   | { battle: 'attacker' | 'target' }
-  | { selector: Selector };
+  | { selector: Selector }
+  | { minus: { of: Ref; without: Ref } };
 
 /**
  * A destination zone. Cards always move to the zones of their *owner*, which
@@ -323,6 +338,58 @@ export type Instruction =
    */
   | { op: 'orientDon'; player: PlayerRef; orientation: Orientation; count: number }
   | { op: 'reveal'; as: string; from: Selector }
+  /**
+   * Records the top `count` cards of the controller's deck in `vars[as]`,
+   * **without moving them**.
+   *
+   * Not moving them is the rule, not an optimisation: CR 11-3-2 says "cards
+   * remain in their original areas while being looked at". So this op writes no
+   * card into any zone and only the variable changes.
+   *
+   * It is a different act from `reveal`, and the printed cards keep them
+   * apart in one sentence — "**Look at** 5 cards from the top of your deck;
+   * **reveal** up to 1 {Supernovas} type card and add it to your hand". CR
+   * 11-3-1 makes looking private: "such effects apply only to the player of that
+   * effect". Revealing is public and CR 11-2-1 makes it compulsory for the card
+   * that then moves deck-to-hand, secret area to secret area.
+   *
+   * The engine's log is perfect-information by design (see `events.ts`), so
+   * `cardsLookedAt` carries the ids and the privacy lives in the client's
+   * rendering. Filed with the other hidden-information debts — this engine does
+   * not model per-player views, and that is a declared divergence rather than an
+   * oversight.
+   *
+   * No `player` field. Every printed card in this family says "your deck", and
+   * `discardHand` set the precedent: a cost or an op that can only ever look at
+   * its own controller's zone should not be able to say otherwise, right or
+   * wrong. A short deck yields what there is (CR 8-4-4-1); an empty one yields
+   * nothing and the whole effect degrades to a no-op.
+   */
+  | { op: 'lookAt'; as: string; count: number }
+  /**
+   * Puts `cards` at the bottom of their owner's deck in an order the controller
+   * chooses — "place the rest at the bottom of your deck in any order".
+   *
+   * The fourth suspending op, and the one that brought `orderCards` back. It
+   * opens a `PendingChoice` whose answer is a **permutation** of the candidates,
+   * and the answer is the placement: `order[0]` ends up nearest the top of the
+   * deck and `order.at(-1)` deepest, so the list reads as *the order the cards
+   * will be drawn in*. That follows CR 3-2-3 — "when multiple cards in a deck
+   * are moved simultaneously, they should be moved one by one" — placed one by
+   * one at the bottom, the last one placed is the deepest.
+   *
+   * With one card or none there is exactly one possible answer, so nothing is
+   * asked. The engine deciding that is deliberate: a UI auto-answering a
+   * one-option question is a UI holding a rule.
+   *
+   * No `top` sibling, and the absence is the finding rather than an omission.
+   * The printed top-**or**-bottom cards (`OP01-073`, `OP01-077`, `OP01-088`)
+   * ask the player to *split* the looked-at cards between two ends and order
+   * each side — a partition plus an order, which a permutation cannot express.
+   * That is a different choice shape and a different gap; see
+   * `docs/op01-inventory.md`.
+   */
+  | { op: 'orderToBottom'; cards: Ref; prompt: string }
   /**
    * Puts one card into its controller's Character area — "play up to 1 red
    * Character card with a cost of 2 or less from your hand", or the whole text

@@ -332,6 +332,22 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
         player: event.player,
         text: `revela ${event.instanceIds.map((id) => nameOf(state, id)).join(', ')}`,
       };
+    case 'cardsLookedAt':
+      // The count, never the cards. CR 11-3-1 makes looking private to the
+      // player of the effect, and this log is on screen for both of them —
+      // hot-seat is one screen. The engine's event carries the ids because its
+      // log is perfect-information by design; keeping them off the board is the
+      // client's job and this is the whole of it. A real per-player view is a
+      // different piece of work and is not pretended at here.
+      return {
+        player: event.player,
+        text: `mira ${event.instanceIds.length} cartas del tope de su mazo`,
+      };
+    case 'deckOrdered':
+      return {
+        player: event.player,
+        text: `pone ${event.instanceIds.length} cartas al fondo del mazo en el orden que eligió`,
+      };
     case 'donReturnedToDeck':
       return { player: event.player, text: `devuelve ${event.count} DON!! al mazo de DON!!` };
     case 'lifeBanished':
@@ -375,6 +391,11 @@ const EFFECT_EVENTS = new Set<GameEvent['type']>([
   'cardMoved',
   'cardDiscarded',
   'cardsRevealed',
+  // Both count as "something happened": an ability whose whole visible output
+  // is five cards going to the bottom of a deck has still done its job, and
+  // without these it would read as an ability that resolved to nothing.
+  'cardsLookedAt',
+  'deckOrdered',
   'cardDrawn',
   'donAttached',
   'donGained',

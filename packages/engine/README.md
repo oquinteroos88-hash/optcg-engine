@@ -444,6 +444,71 @@ DON!! are fungible, so paying a cost rests the first N active cost-area DON!! in
 array order. Which physical DON!! pays is unobservable; picking deterministically
 keeps replays stable.
 
+### Adding DON!! from the DON!! deck, and the ten that is not a cap
+
+`addDon` is `orientDon`'s sibling and takes a **count and an orientation**,
+never a selection: DON!! are fungible, and CR 3-3-2 lets both players see and
+reorder that deck freely, which is exactly why which card moves cannot matter.
+141 cards in the full set add DON!! this way across fifteen phrasings and every
+one reduces to those two numbers.
+
+Two bounds, and neither is a guard the op checks:
+
+- **A short DON!! deck yields what there is.** CR 1-3-2 performs "as many of the
+  actions as possible" and CR 8-4-4-1 says the same of a specified number. The
+  DON!! Phase already reads that way in the rules themselves — CR 6-4-2 places 1
+  from a 1-card deck, CR 6-4-3 places none from an empty one.
+- **The cost area cannot hold eleven, and no rule says so.** This is worth
+  stating carefully because it looked like it might change a phase-0 invariant
+  and does not. There is no rule capping the cost area. CR 5-1-2 gives each
+  player "a 10-card DON!! deck", those ten cards are the entire supply, and the
+  only places one can be are the DON!! deck, the cost area and attached to a
+  card. So an eleventh in the cost area would need an eleventh card to exist.
+
+  `checkFieldLimits`' cost-area clause is therefore a **derived check, not an
+  independent rule** — `checkDonConservation` makes it unreachable rather than
+  merely unviolated. It is kept, on the same grounds as the other unreachable
+  paths in this repo: an absence nobody can see is worse than a guarded one.
+  What it must not become is the place `addDon` gets clamped. The bound is the
+  deck running out, and it lives in the op.
+
+The orientation is required rather than defaulted. CR 3-9-3 does supply a
+default — "when placing DON!! cards in the cost area, they should be set as
+active unless otherwise specified" — and every printed card says, so an optional
+field carrying it would be a field nothing sets.
+
+**It adds; it never returns.** Sixteen cards in the full set read "when a DON!!
+card on your field is returned to your DON!! deck", which is the inverse
+movement. That trigger is not built, `returnDon` has emitted
+`donReturnedToDeck` for it since PR #11, and `addDon` emits `donAdded` — a third
+event, distinct from `donGained`, which is the DON!! Phase's own step. The day
+the trigger is written it cannot wake on an add.
+
+### What injecting DON!! did to the driver's bias
+
+`HOLD_DON_EVERY` — the driver's 1-in-3 refusal to attach DON!! before ending a
+turn — was calibrated in PR #27 against the economy as it stood. An op that
+*injects* DON!! changes that economy, so it was measured rather than assumed.
+300 blue/purple games, same seeds, same policy, cards the only difference:
+
+| | before batch 10 | after |
+| --- | --- | --- |
+| Counter Steps reached | 14958 | 14903 |
+| average active cost-area DON!! at a Counter Step | 0.249 | 0.253 |
+| `PLAY_COUNTER_EVENT` **offered** | 14 | 25 |
+| `PLAY_COUNTER_EVENT` **taken** | 7 | 9 |
+| DON!! added by effect | 0 | 145, across 122 of 300 games |
+| `OP01-086-counter` reached | 3/300 | 4/300 |
+| `OP01-087-counter` reached | 1/300 | 2/300 |
+| `OP01-089-counter` reached | 3/300 | 3/300 |
+
+The bias needed no recalibration and did not get one. The average barely moved —
+six of the eight cards **rest** what they add, so the pool a defender can spend
+at a Counter Step grows much less than the raw count does — while the *offers*
+went up by 79%, because the DON!! that do arrive active arrive at the moments a
+Counter Event is affordable. Nothing came off the reachable list; every
+`[Counter]` half reached before is reached at least as often now.
+
 ## Combat
 
 Four steps, no backtracking. `priority` moves to the defender for the block and
@@ -1070,7 +1135,7 @@ the ABIL set narrowed legality and none widened it — a direction whose only
 evidence would have been the test written for it. `ABIL-028` exists to close
 that, and it is `OP01-021` Franky transcribed with nothing taken away.
 
-Measured over 200 games with `--abilities --marks`, **six of the 75 declared
+Measured over 200 games with `--abilities --marks`, **eight of the 82 declared
 marks are never reached**:
 
 | Dead mark | Why |

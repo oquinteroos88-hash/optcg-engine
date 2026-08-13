@@ -436,6 +436,8 @@ ranked table, and four of its items have since been built:
 | Putting cards into play | 375 | **done — the `play` instruction** |
 | `[Blocker]` prohibitions | 146 | open — structural |
 | ~~`orderCards`, and naming "the cards not taken"~~ | 254 | **closed — PR #32** (the permutation form; the top-or-bottom *split* is a separate shape and stays open, 27 cards) |
+| ~~Add DON!! from the DON!! deck~~ | 141 | **closed — PR #33** |
+| Fire on "a DON!! card on your field is returned to your DON!! deck" | 16 | open — the *inverse* movement. `donReturnedToDeck` has been emitted since PR #11 and nothing listens; PR #33 guarantees `addDon` never emits it |
 | Suspendable costs | 197 | **done — the `discardHand` cost asks** |
 | Resting the source as a cost | 90 | **done — PR #15** (`restSelf`) |
 | Negation in `Condition` — `[Opponent's Turn]` | 77 | open — *added by this sweep* |

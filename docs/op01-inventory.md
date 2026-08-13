@@ -522,7 +522,7 @@ an upper bound.
 | 1 | ~~**Put a card into play**~~ — **bought** (batch 6); hand, deck top, active or rested | 19 | ~~**8**~~ **done** | 379 |
 | 2 | ~~**A payment whose card the player picks**~~ — the **cost** half is **bought** (batch 5, 3 freed); the **instruction** half, "your opponent trashes 1 card from their hand", is open | 12 | **6** → **3** | 292 |
 | 3 | ~~**`orderCards`, and naming "the rest"**~~ — **bought** (batch 9) for the *permutation* half; the row bundled two shapes and only one of them is a permutation — see below | 9 | **5** → **4 built, 2 deferred** | 226 |
-| 4 | **Add DON!! from the DON!! deck** | 8 | **5** | 140 |
+| 4 | ~~**Add DON!! from the DON!! deck**~~ — **bought** (batch 10). Touched was right; **freed was 8, not 5** — all three exclusions had expired | 8 | **5** → **8, done** | 141 |
 | 5 | **Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]" | 14 | **3** | 399 |
 | 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
 | 7 | ~~**Prohibitions** — "cannot"~~ — **bought** (batch 8), together with row 8, as **one** mechanism; the zero was right and stopped being right when put-into-play landed | 5 | **0** → **2** | 146 |
@@ -745,16 +745,61 @@ by re-reading the row.
 **Yes — 8 cards, hand-counted, 5 of them freed by this gap alone.** It is fourth
 on the freed column and fourth on the touched column.
 
-| Card | What it wants | Freed alone |
-| --- | --- | --- |
-| `OP01-093` Ulti | add up to 1 and **rest** it | ✅ |
-| `OP01-113` Holedem | add up to 1 and rest it, `[On K.O.]` | ✅ |
-| `OP01-115` Elephant's Marchoo | K.O., then add up to 1 and **set it active** | ✅ |
-| `OP01-118` Ulti-Mortar | `[Trigger]` — add up to 1 and set it active | ✅ |
-| `OP01-119` Thunder Bagua | add and rest, add and set active | ✅ |
-| `OP01-061` Kaido (Leader) | add up to 1 and set it active | ✗ — also needs a trigger that does not exist |
-| `OP01-101` Sasaki | add up to 1 and rest it | ✗ — also needs a chosen discard |
-| `OP01-106` Basil Hawkins | add up to 1 and rest it | ✗ — also needs put-into-play |
+| Card | What it wants | Freed alone | Written |
+| --- | --- | --- | --- |
+| `OP01-093` Ulti | add up to 1 and **rest** it | ✅ | batch 10 |
+| `OP01-113` Holedem | add up to 1 and rest it, `[On K.O.]` | ✅ | batch 10 |
+| `OP01-115` Elephant's Marchoo | K.O., then add up to 1 and **set it active** | ✅ | batch 10 |
+| `OP01-118` Ulti-Mortar | `[Trigger]` — add up to 1 and set it active | ✅ | batch 10 |
+| `OP01-119` Thunder Bagua | add and rest, add and set active | ✅ | batch 10 |
+| `OP01-061` Kaido (Leader) | add up to 1 and set it active | ~~✗ also needs a trigger that does not exist~~ → **✅**, PR #30 built it | batch 10 |
+| `OP01-101` Sasaki | add up to 1 and rest it | ~~✗ also needs a chosen discard~~ → **✅**, batch 5 bought the **cost** half, which is the half it wants | batch 10 |
+| `OP01-106` Basil Hawkins | add up to 1 and rest it | ~~✗ also needs put-into-play~~ → **✅**, batch 6 built it | batch 10 |
+
+**The freed column was three PRs stale, and that is the second time in three
+batches.** Batch 9 found a row bundling two mechanisms; this one found a row
+whose *touched* count was exactly right and whose *freed* count was wrong for
+reasons that had nothing to do with this gap at all. So the counting rule gets a
+second clause:
+
+> A gap row's **touched** column ages well — it is a fact about printed text.
+> Its **freed** column does not, because "freed alone" is a claim about every
+> *other* gap, and every closed gap since it was written can falsify it. Re-read
+> the exclusions before trusting the number, not the number.
+
+**The probe, before the design.** 141 cards in the full set add DON!! this way,
+in fifteen distinct phrasings, and every one reduces to a **count and an
+orientation** — including the compound "set 1 active, and add 1 additional and
+rest it", which is the op applied twice. Two things the probe was looking for
+and did not find: **nothing** adds a DON!! *attached* to a card, and exactly one
+card in the whole game (`OP12-075`) adds from the **opponent's** DON!! deck. One
+mechanism, and the op needs no `player` field.
+
+Two neighbours the probe did find, both out of scope and both getting their own
+row rather than being folded into this one:
+
+| Shape | Printed | Cards | Why it is not this gap |
+| --- | --- | --- | --- |
+| Delayed add | "add up to 1 … and set it as active **at the end of this turn**" | `OP13-066` | a delayed effect, which the engine cannot schedule |
+| Add then claw back | "add up to 5 … and rest them. Then, **at the end of this turn, return** DON!! cards from your field to your DON!! deck" | `OP08-074` | the same delayed effect, plus the inverse movement |
+
+Neither is in OP-01, so no card in this batch prints an exception to "a DON!!
+added by an effect is an ordinary DON!! from then on".
+
+### The deslinde with the inverse-trigger family
+
+Sixteen cards in the full set read **"when a DON!! card on your field is
+returned to your DON!! deck"**. That is the *opposite* movement, it already has
+an event — `donReturnedToDeck`, emitted by the `returnDon` cost since PR #11 —
+and it is **not** built here: nothing fires on it, and this batch does not
+change that.
+
+What this batch owes that family is a guarantee rather than an implementation:
+`addDon` emits `donAdded` and never `donReturnedToDeck`, so the day the trigger
+is built it cannot wake on a card that added DON!! rather than returning them.
+`addDon.test.ts` asserts exactly that, and asserts it does not emit `donGained`
+either — that one is the DON!! Phase's own step (CR 6-4-1) and a third distinct
+event.
 
 This is the family the 34-card sample could not see, and OP-01 confirms the
 sizing was right rather than a probe artefact. Every one of the eight asks for

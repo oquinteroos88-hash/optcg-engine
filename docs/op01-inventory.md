@@ -740,6 +740,28 @@ in any order" was one phrase and two mechanisms; "prohibitions" was one word and
 three buildings (question 2). Both were caught by writing the cards rather than
 by re-reading the row.
 
+**Third instance, and the rule needs no fourth clause — it needs applying
+earlier.** PR #34 re-probed all six of the prose trigger rows before writing
+anything, precisely because of this paragraph, and the K.O. row split in its
+hand: 24 cards match "K.O.'d by your opponent's effect", of which **6** are
+observers ("**When** this Character is K.O.'d by …"), **8** are prohibitions
+("**cannot** be K.O.'d by …") and **9** are replacement effects ("**would** be
+K.O.'d … you may … **instead**"). One phrase, three mechanisms, and only the
+first is a trigger. The row's own number was 7, so the table was never badly
+wrong — it was wrong in the direction the rule predicts, and reading the texts
+was what said which way.
+
+The rested row bundled nothing and split anyway, from the other side: one
+mechanism, **five** firing sites, which is a bundling of *callers* rather than
+of card texts and does not show up in any probe at all. The row was right and
+the implementation still had a shape nobody had counted. So the rule's scope
+widens by a sentence rather than by a clause:
+
+> Re-probe the row before building it, and read the matched texts rather than
+> the count. Then ask the mirror question the count cannot answer: **how many
+> places in the engine can cause this fact?** A row can bundle mechanisms and an
+> implementation can bundle callers, and the two are found by different means.
+
 ### 3. Does the "add DON!! from the DON!! deck" family appear, and how often?
 
 **Yes — 8 cards, hand-counted, 5 of them freed by this gap alone.** It is fourth
@@ -801,6 +823,19 @@ is built it cannot wake on a card that added DON!! rather than returning them.
 either — that one is the DON!! Phase's own step (CR 6-4-1) and a third distinct
 event.
 
+**Built since, by PR #34, and the guarantee held.** `whenDonReturnedToDeck`
+listens at `payCost`'s `returnDon`, which is the only place in the engine where
+a DON!! card's location becomes `donDeck` — so the family needed one line and no
+routine extracted. `proseTriggers.test.ts` now asserts the far half from this
+side too: `addDon` runs, `donAdded` is emitted, `donReturnedToDeck` is not, and
+the observer stays asleep. A guarantee written by one PR and checked by the next
+is the shape this deslinde was written for.
+
+**No card in OP-01 or either starter prints the trigger**, which was re-checked
+row by row before PR #34 built it and is why that PR added nothing to the tables
+below. Every one of the sixteen is in `EB03`, `EB04`, `OP02`, `OP04`–`OP06`,
+`OP08`, `OP09`, `OP11`, `OP12`, `OP14`, `ST10` or `ST34`.
+
 This is the family the 34-card sample could not see, and OP-01 confirms the
 sizing was right rather than a probe artefact. Every one of the eight asks for
 a **count and an orientation**, exactly as PR #11 predicted from `OP16-073`.
@@ -856,6 +891,23 @@ happened to a different card*. Every member of the current `Trigger` union
 except `static` is "something happened to **me**" or "**I** was played". There
 is no member for a spectator, and — this is the part the second question
 catches — **there is no engine site that could fire one.**
+
+**And that answer aged badly in the one way this document keeps warning about.**
+PR #30 built the three, and then asked the same prose question of all 2665 cards
+rather than of the 121 here — and found *six* families of exactly this shape,
+four of them larger than either of the two OP-01 turned up. PR #34 built five of
+them (`docs/trigger-reachability.md` has the ledger), and **not one is printed
+on an OP-01 card or on either starter.** The table above is a table of markers
+in OP-01, and it was right about OP-01; what it could not be was a table of
+markers, because a sample cannot see a family printed only on later sets.
+
+That is the same finding as the DON!!-deck row, and it now has three instances:
+a prose marker is invisible to a tag search, a later-set family is invisible to
+any sample, and **an English phrase in a gap row can bundle two mechanisms.**
+The K.O.-cause family caught the third for the second time in four PRs — 23
+cards match "K.O.'d by your opponent's effect", of which 6 are observers, 8 are
+prohibitions and 9 are replacement effects — two further mechanisms, and neither
+of them this one.
 
 ### 5. How many OP-01 cards would be playable today?
 

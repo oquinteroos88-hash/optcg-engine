@@ -1,12 +1,18 @@
 # Trigger reachability sweep
 
-**There are thirteen triggers now, and twelve are reachable by a real card.**
+**There are seventeen triggers now, and twelve are reachable by a real card.**
 The sweep below was run against eleven, which is what the union held at the
 time; PR #30 added `whenActivatingEvent`, `whenOpponentActivatesEvent` and
 `whenOpponentCharacterKOd` and removed `whenOpponentAttacks`'s status as the only
-trigger that watches somebody else. Two of the three are reachable by printed
-cards today; `whenOpponentCharacterKOd` is not, and the reason is written up in
-[the third finding](#a-third-finding--the-largest-prose-trigger-families-are-in-no-document).
+trigger that watches somebody else, and PR #34 added four more —
+`whenDonReturnedToDeck`, `whenBecomingRested`, `whenOpponentActivatesBlocker`
+and `whenOpponentPlaysCharacter`. Two of the seven are reachable by printed
+cards today; the other five are not, and the reason is one fact rather than five:
+**every card that prints them is outside the sets this project has scripted.**
+See [the third finding](#a-third-finding--the-largest-prose-trigger-families-are-in-no-document),
+which is where the whole family was found, and
+[what PR #34 built](#the-third-findings-six-families-five-built-one-deslindada)
+for what happened to each of its six rows.
 
 **All eleven triggers are now reachable by a real card.** The sweep found one
 hole — `counterEvent` — and it has since been closed: the engine can activate a
@@ -390,15 +396,15 @@ this project knew about are **not the big ones**:
 
 | Prose trigger | Cards | In any document? |
 | --- | --- | --- |
-| "when a DON!! card on your field is returned to your DON!! deck" | **16** | no |
-| "when this Character becomes rested" | 8 | no |
-| "when this Character is K.O.'d **by your opponent's effect**" | 7 | no |
+| "when a DON!! card on your field is returned to your DON!! deck" | **16** | yes — built by PR #34 |
+| "when this Character becomes rested" | 8 | yes — built by PR #34 |
+| "when this Character is K.O.'d **by your opponent's effect**" | 7 → **6** | yes — built by PR #34, and it is not a trigger |
 | "when this card deals damage" | 5 | no |
-| "when your opponent activates **[Blocker]**" (alone or with an Event) | **4** | no |
+| "when your opponent activates **[Blocker]**" (alone or with an Event) | **4** | yes — built by PR #34 |
 | "when a card is trashed from your hand by an effect" | 4 | no |
 | "when your opponent activates an Event" | 5 | yes — built by PR #30 |
 | "when you activate an Event" | 3 | yes — built by PR #30 |
-| "when your opponent plays a Character" | 2 | no |
+| "when your opponent plays a Character" | 2 | yes — built by PR #34 |
 | "when a [Trigger] activates" | 2 | no |
 | "when your opponent's Character is K.O.'d" | 3 | yes — built by PR #30 |
 
@@ -424,6 +430,74 @@ them measured a *sample*. That is the same lesson PR #11 recorded when the
 structurally invisible to a 34-card sample. **A prose marker is invisible to a
 tag search, and a family printed on later sets is invisible to any sample.**
 
+## The third finding's six families: five built, one deslindada
+
+PR #34 took the table above as its brief. Every row was re-probed before any
+code was written, because the table's own numbers are text probes and the
+counting rule this project keeps says a row naming an English phrase can bundle
+two mechanisms. Two of the six rows moved.
+
+| Prose family | Table said | Re-count | What it turned out to be |
+| --- | --- | --- | --- |
+| "a DON!! card on your field is returned to your DON!! deck" | 16 | **16** | one trigger, one firing site |
+| "when this Character becomes rested" | 8 | **8** | one trigger, **five** firing sites collapsed into one routine |
+| "K.O.'d by your opponent's effect" | 7 | **6 observers + 8 prohibitions + 9 replacements** | **not a trigger** — a question for `onKO` |
+| "when your opponent activates [Blocker]" | 4 | **4** | one trigger, and the far half of PR #31 |
+| "when your opponent plays a Character" | 2 | **2** | one trigger, on the shared `enterCharacterArea` |
+| "when this card deals damage" / "a card trashed from hand" / "when a [Trigger] activates" | 5 / 4 / 2 | — | **not in this PR** — see the deslinde below |
+
+**The K.O. row was one phrase and two mechanisms**, which is the third time that
+has happened and the second time in four PRs. A probe for `K.O.'d by your
+opponent's effect` returns 23 cards. Six of them read "**When** this Character
+is K.O.'d by your opponent's effect …" and are observers. Eight read "**cannot**
+be K.O.'d by your opponent's effects" and nine read "**would** be K.O.'d … you
+may … **instead**" — prohibitions and replacement effects, which are two further
+mechanisms and neither of them this one. The row's own number was 7, closer to
+the observer count than to the probe's, so the table was never badly wrong; it
+was wrong in the way the counting rule predicts, and only reading the texts said
+which way. The row's own number was 7,
+which was closer to the observer count than to the probe's, so the table was
+never badly wrong; it was wrong in the way the counting rule predicts, and only
+reading the texts said which way.
+
+**The rested row was one phrase and five callers**, which is the same lesson
+seen from the implementation side rather than the card side. Nothing in the
+eight printed texts says *how* the Character came to be rested, so the trigger
+answers to attacking (CR 7-1-1-1), blocking (CR 10-1-4-1), a `restSelf` cost and
+a `rest` instruction alike — and putting it at each of those would have been
+four copies of one rule. `setOrientation` owns the transition instead. The
+Refresh Phase goes through the same routine and cannot fire it, because it moves
+cards the other way (CR 6-2-4): a direction, not an exclusion.
+
+**The deslinde.** Three of the sweep's rows are *not* in PR #34 and are not
+deferred by oversight:
+
+- **"when this card deals damage" (5)** and **"when a [Trigger] activates" (2)**
+  are facts the engine does have and were simply out of the PR's scope, which
+  was the five largest.
+- **"a card is trashed from your hand by an effect" (4)** is the same.
+- The **top-or-bottom partition (27 cards)** is not a trigger family at all — it
+  is `orderCards`' unbuilt half, deslindada by PR #32 and still open. If the
+  sweep's six were being counted as "six things PR #34 might close", that is the
+  one that was never a candidate.
+
+**Neither flag this PR added can be reached by a printed card in scope**, and
+that is worth saying in the same breath as the defaults. `effectPlayIsPlayingACharacter`
+and `placedRestedBecomesRested` decide readings for cards that are not in OP-01
+or either starter, so both were argued from the Comprehensive Rules and from the
+printed text of cards in later sets, and neither has a behavioural witness in a
+real deck yet. See the engine README for the arguments.
+
+**What none of this changes: no card in scope prints any of the five.** That
+was checked row by row before the design, against OP-01 and both starters, and
+it is a stronger statement than "no new cards were freed" — it means this PR
+adds no card to any inventory at all. Every one of the 45 cards printing these
+five families is in `EB01`–`EB04`, `OP02`–`OP16`, `P`, `ST10`, `ST14`, `ST22`,
+`ST29`, `ST32` or `ST34`. That is the same structural blindness PR #11 recorded
+for the 140-card DON!! family: **a family printed on later sets is invisible to
+any sample, and building it is a bet on the sets rather than a response to
+them.**
+
 **Backlog B — missing expressiveness.** The trigger is reachable and the move
 exists, but the DSL cannot say what the card does. This is the inventory's
 ranked table, and four of its items have since been built:
@@ -437,7 +511,16 @@ ranked table, and four of its items have since been built:
 | `[Blocker]` prohibitions | 146 | open — structural |
 | ~~`orderCards`, and naming "the cards not taken"~~ | 254 | **closed — PR #32** (the permutation form; the top-or-bottom *split* is a separate shape and stays open, 27 cards) |
 | ~~Add DON!! from the DON!! deck~~ | 141 | **closed — PR #33** |
-| Fire on "a DON!! card on your field is returned to your DON!! deck" | 16 | open — the *inverse* movement. `donReturnedToDeck` has been emitted since PR #11 and nothing listens; PR #33 guarantees `addDon` never emits it |
+| ~~Fire on "a DON!! card on your field is returned to your DON!! deck"~~ | 16 | **closed — PR #34** (`whenDonReturnedToDeck`). The event had been emitted since PR #11 and nothing listened; PR #33 guaranteed `addDon` never emits it, and PR #34 gave it the listener |
+| ~~Fire on "when this Character becomes rested"~~ | 8 | **closed — PR #34** (`whenBecomingRested`, on the shared orientation transition) |
+| ~~Ask what caused a K.O.~~ | 6 | **closed — PR #34** (`koCause`; *not* a new trigger) |
+| ~~Fire on "when your opponent activates [Blocker]"~~ | 4 | **closed — PR #34** (`whenOpponentActivatesBlocker`, the same act `canActivateBlocker` forbids) |
+| ~~Fire on "when your opponent plays a Character"~~ | 2 | **closed — PR #34** (`whenOpponentPlaysCharacter`, on `enterCharacterArea`) |
+| Prohibitions — "cannot be K.O.'d by your opponent's effects" | 8 | open — *added by PR #34*, split out of the row above; a **fourth `LegalityQuestion`**, not a trigger |
+| Replacement effects — "would be K.O.'d … you may … instead" | 9 | open — *added by PR #34*, split out of the row above; the engine has **no replacement step at all** |
+| Fire on "when this card deals damage" | 5 | open — *added by PR #34* |
+| Fire on "a card is trashed from your hand by an effect" | 4 | open — *added by PR #34* |
+| Fire on "when a [Trigger] activates" | 2 | open — *added by PR #34* |
 | Suspendable costs | 197 | **done — the `discardHand` cost asks** |
 | Resting the source as a cost | 90 | **done — PR #15** (`restSelf`) |
 | Negation in `Condition` — `[Opponent's Turn]` | 77 | open — *added by this sweep* |

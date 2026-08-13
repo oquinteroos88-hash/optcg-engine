@@ -69,7 +69,7 @@ export type GameEvent =
       type: 'choiceOpened';
       player: PlayerId;
       choiceId: string;
-      kind: 'selectCards' | 'yesNo' | 'selectOption' | 'orderCards';
+      kind: 'selectCards' | 'yesNo' | 'selectOption' | 'orderCards' | 'partitionCards';
       prompt: string;
     }
   | { type: 'choiceAnswered'; player: PlayerId; choiceId: string }

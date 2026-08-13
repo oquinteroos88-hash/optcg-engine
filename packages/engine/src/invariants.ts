@@ -430,7 +430,11 @@ function checkEffectShape(state: GameState, violations: string[]): void {
   if (pending.min > pending.max) {
     violations.push(`effectShape: choice ${pending.id} has min ${pending.min} > max ${pending.max}`);
   }
-  if (pending.kind === 'selectCards' || pending.kind === 'orderCards') {
+  if (
+    pending.kind === 'selectCards' ||
+    pending.kind === 'orderCards' ||
+    pending.kind === 'partitionCards'
+  ) {
     if (pending.max > pending.candidates.length) {
       violations.push(`effectShape: choice ${pending.id} allows more cards than it offers`);
     }
@@ -448,6 +452,24 @@ function checkEffectShape(state: GameState, violations: string[]): void {
     }
     if (pending.candidates.length < 2) {
       violations.push(`effectShape: ordering ${pending.id} has no choice to offer`);
+    }
+  }
+  // A partition leans on the same cardinality guarantee — `cardListReason` is
+  // shared — so the same assertion holds, with one clause deliberately looser.
+  //
+  // **One candidate is a real question here and is not one for an ordering.**
+  // A single card has one permutation and two ends, so `orderToBottom` places it
+  // without asking and `orderToDeckEnds` must ask. That is why the floor below
+  // is 1 rather than 2, and it is the only line in this file where the two kinds
+  // are allowed to differ.
+  if (pending.kind === 'partitionCards') {
+    if (pending.min !== pending.candidates.length || pending.max !== pending.candidates.length) {
+      violations.push(
+        `effectShape: partition ${pending.id} must ask for all ${pending.candidates.length} candidates, asks ${pending.min}-${pending.max}`,
+      );
+    }
+    if (pending.candidates.length < 1) {
+      violations.push(`effectShape: partition ${pending.id} has no cards to place`);
     }
   }
   const seen = new Set<InstanceId>();

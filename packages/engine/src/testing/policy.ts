@@ -429,14 +429,27 @@ export function answerFor(
         kind: 'option',
         index: scoreFor(seed, decision, `#opt|${pending.id}`) % Math.max(1, pending.max),
       };
-    case 'selectCards':
-    case 'orderCards': {
+    case 'selectCards': {
       const size = cardinalityFor(pending, seed, decision);
       return {
         kind: 'cards',
         selected: rankCandidates(pending.candidates, seed, decision).slice(0, size),
       };
     }
+    /**
+     * The whole candidate list, in ranked order — no cardinality, because a
+     * permutation has none.
+     *
+     * `rankCandidates` is what keeps the perturbation property intact here: each
+     * card's place comes from its own key, so a candidate added to the list
+     * lands wherever its own score puts it and every other card keeps its
+     * position relative to the rest. Deriving the order from indices — "reverse
+     * them", "shuffle by cursor" — would make every position depend on the
+     * length, which is the failure mode that burned two seed sets before the
+     * shared policy existed.
+     */
+    case 'orderCards':
+      return { kind: 'order', order: rankCandidates(pending.candidates, seed, decision) };
   }
 }
 

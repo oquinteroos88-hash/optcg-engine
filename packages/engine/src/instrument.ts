@@ -72,6 +72,9 @@ export const MARK_NAMES = [
   // branches most likely to be silently wrong, so each gets its own name.
   'choice.opened',
   'choice.noCandidates',
+  // An ordering with one card or none: the permutation is unique, so the engine
+  // places without asking rather than letting a client answer for the player.
+  'choice.orderTrivial',
   'choice.answered',
   'ability.activated',
   'ability.resolved',
@@ -96,6 +99,9 @@ export const MARK_NAMES = [
   'op.giveDon',
   'op.orientDon',
   'op.reveal',
+  'op.lookAt',
+  'op.lookAtNothing',
+  'op.orderToBottom',
   'op.play',
   'op.playNoTarget',
   'op.playNotACharacter',

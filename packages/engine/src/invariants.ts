@@ -381,6 +381,21 @@ function checkEffectShape(state: GameState, violations: string[]): void {
       violations.push(`effectShape: choice ${pending.id} allows more cards than it offers`);
     }
   }
+  // An ordering is a permutation, and `validateAnswerChoice` leans on that:
+  // right length plus membership plus distinctness only forces the exact
+  // multiset when the length is the whole candidate list. Asserted here rather
+  // than assumed there, so a future op that opens a loose ordering fails
+  // loudly instead of accepting a partial answer.
+  if (pending.kind === 'orderCards') {
+    if (pending.min !== pending.candidates.length || pending.max !== pending.candidates.length) {
+      violations.push(
+        `effectShape: ordering ${pending.id} must ask for all ${pending.candidates.length} candidates, asks ${pending.min}-${pending.max}`,
+      );
+    }
+    if (pending.candidates.length < 2) {
+      violations.push(`effectShape: ordering ${pending.id} has no choice to offer`);
+    }
+  }
   const seen = new Set<InstanceId>();
   for (const id of pending.candidates) {
     if (seen.has(id)) {

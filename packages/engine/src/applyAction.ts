@@ -58,6 +58,8 @@ function malformedAnswer(raw: unknown): boolean {
   switch (answer['kind']) {
     case 'cards':
       return !Array.isArray(answer['selected']);
+    case 'order':
+      return !Array.isArray(answer['order']);
     case 'yesNo':
       return typeof answer['value'] !== 'boolean';
     case 'option':

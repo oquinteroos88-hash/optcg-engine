@@ -243,8 +243,12 @@ describe('ABIL-011 / ABIL-012 — onKO and a chained trigger', () => {
 
     expect(done.players.p2.characters).toEqual([rusher]);
     expect(done.players.p2.trash[0]).toBe(scout);
-    // The chained [On K.O.] drew a card for the scout's controller.
-    expect(done.players.p2.hand).toHaveLength(p2HandBefore + 1);
+    // Two chained [On K.O.]s drew for the scout's controller, not one. The
+    // scout carries the plain `onKO` **and** the `koCause`-guarded one, and
+    // `ABIL-012` is p1's script — the opponent's effect — so both wake. The
+    // pair is the whole point of the card: `koByOpponentEffect.test.ts` shows
+    // the same scout K.O.'d in battle waking only the first.
+    expect(done.players.p2.hand).toHaveLength(p2HandBefore + 2);
     assertSettled(done);
   });
 });

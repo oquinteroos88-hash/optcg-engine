@@ -56,6 +56,16 @@ export interface SideSpec {
   lifeCards?: CardId[];
   /** Replace the hand entirely instead of adding to the dealt one. */
   clearHand?: boolean;
+  /**
+   * Put these cards on top of the deck, first one topmost.
+   *
+   * The deck's *order* became a precondition the day an effect looked at it:
+   * "look at 5 cards from the top of your deck" is a table case about five
+   * named cards, and a shuffled deck makes it a table case about whatever the
+   * seed dealt. Applied last, after every other stager has finished taking
+   * cards out of the deck, so nothing can push these back down.
+   */
+  deckTop?: CardId[];
 }
 
 export interface ScenarioSpec {
@@ -180,6 +190,13 @@ function applySide(draft: GameState, player: PlayerId, side: SideSpec): void {
 
   for (const cardId of side.hand ?? []) {
     ps.hand.push(takeFromDeck(draft, player, cardId));
+  }
+
+  // Last, so no later stager can take one of these back out of the deck. They
+  // are pulled from wherever they are and re-inserted in the order given.
+  if (side.deckTop !== undefined) {
+    const ids = side.deckTop.map((cardId) => takeFromDeck(draft, player, cardId));
+    ps.deck.unshift(...ids);
   }
 }
 

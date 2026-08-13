@@ -23,7 +23,7 @@ import { OP01_BP_DECKS, OP01_DOFFY_DECKS } from './support.js';
  * turning sideways.
  */
 
-const SEEDS = [1, 15, 56, 24, 63, 13, 112, 132, 92] as const;
+const SEEDS = [249, 23, 63, 131, 24, 197, 92] as const;
 const ACTIONS = 400;
 
 /** Every blue/purple ability a random game of these decks reaches. */
@@ -52,6 +52,12 @@ const BATCH_3_BP_ABILITIES = [
   // Batch 8 - the permission bought with a DON!! handed back. Franky's static
   // twin, written by a script instead of read off the board.
   'OP01-112-main',
+  // Batch 9 - looks at five, plays a {SMILE} out of them, buries the rest.
+  // Both halves: the [Trigger] points at the [Main] and shares its list, so a
+  // real game reaching it means real damage turned the Event over in the Life
+  // area and the player took the [Trigger] instead of the card.
+  'OP01-116-main',
+  'OP01-116-trigger',
   // Batch 7 — the Leader that has been dealing these games since batch 3 with
   // its printed ability doing nothing. It fires in 183 games of 300.
   'OP01-062-onOwnEvent',
@@ -198,7 +204,11 @@ describe('a real game of OP-01 blue/purple', () => {
     // OP01-071's two halves come along, because Doflamingo's is the only blue
     // deck that holds it at four copies: the [Trigger] plays it, and the
     // [On Play] it wakes then bottom-decks something.
-    const DOFFY_SEEDS = [42, 1, 18, 88, 25];
+    // 9 joined for batch 9: OP01-084 looks at five and buries the rest, and
+    // this is the blue deck that holds the {Baroque Works} Events its search is
+    // for. Its [DON!! x1] [When Attacking] gate is what makes it rare enough to
+    // need a seed of its own.
+    const DOFFY_SEEDS = [42, 1, 18, 88, 25, 9];
     const fired = new Set<string>();
     let restedArrivals = 0;
     for (const seed of DOFFY_SEEDS) {
@@ -230,6 +240,7 @@ describe('a real game of OP-01 blue/purple', () => {
     expect(fired.has('OP01-060-whenAttacking')).toBe(true);
     expect(fired.has('OP01-071-trigger')).toBe(true);
     expect(fired.has('OP01-071-onPlay')).toBe(true);
+    expect(fired.has('OP01-084-whenAttacking')).toBe(true);
     // And at least one of those arrivals really came down sideways.
     expect(restedArrivals).toBeGreaterThan(0);
   });

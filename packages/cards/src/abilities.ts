@@ -1,4 +1,4 @@
-import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
+import type { Ability, CardCategory, CardId, Condition, Instruction } from '@optcg/engine';
 
 /**
  * Card effects for the real cards, written in the engine's DSL.
@@ -64,6 +64,103 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * the stack item, so two abilities reading one list stay independent at run
  * time.
  */
+/**
+ * "Look at N cards from the top of your deck; reveal up to 1 <filter> card and
+ * add it to your hand. Then, place the rest at the bottom of your deck in any
+ * order."
+ *
+ * Four printed cards say this with one word changed, so it is written once.
+ *
+ * Four instructions, and the order of them is the printed order:
+ *
+ * 1. **`lookAt`** records the top N in `looked` and moves nothing — CR 11-3-2,
+ *    "cards remain in their original areas while being looked at". It is what
+ *    makes step 4 possible at all.
+ * 2. **`select`** offers the matching ones. Its `deckTop` count has to be the
+ *    same N `lookAt` used, and nothing in the type system says so; it is safe
+ *    because `lookAt` does not suspend, so nothing can run between them, and
+ *    `abilCardShapes.test.ts` checks the pairing rather than trusting this
+ *    comment. Reading the candidates out of `looked` instead would need a
+ *    selector predicated on a variable — gap 16, and a different PR.
+ *    `min: 0` because "up to 1" may take nothing (CR 8-4-4-1), and because
+ *    CR 8-4-4-2 lets a player decline a secret-area choice outright.
+ * 3. **`moveCard`** takes it to hand. The printed "reveal" is not decoration:
+ *    CR 11-2-1 makes a deck-to-hand move revealed whether the card says so or
+ *    not, secret area to secret area.
+ * 4. **`orderToBottom`** buries what is left, `looked` minus what step 2 took.
+ */
+function lookKeepBury(
+  count: number,
+  types: string[],
+  prompt: string,
+  category?: CardCategory[],
+): Instruction[] {
+  return [
+    { op: 'lookAt', as: 'looked', count },
+    {
+      op: 'select',
+      as: 'kept',
+      from: {
+        zone: 'deckTop',
+        owner: 'you',
+        count,
+        types,
+        ...(category === undefined ? {} : { category }),
+      },
+      min: 0,
+      max: 1,
+      prompt,
+    },
+    { op: 'moveCard', target: { var: 'kept' }, to: { zone: 'hand' } },
+    {
+      op: 'orderToBottom',
+      cards: { minus: { of: { var: 'looked' }, without: { var: 'kept' } } },
+      prompt: 'Place the rest at the bottom of your deck, first card drawn first',
+    },
+  ];
+}
+
+/** ST02-007, OP01-041, OP01-030 and OP01-084, one sentence apart. */
+const SABAODY: Instruction[] = lookKeepBury(
+  5,
+  ['Straw Hat Crew'],
+  'Reveal up to 1 {Straw Hat Crew} type Character card',
+  ['character'],
+);
+
+/**
+ * `OP01-116`'s [Main], shared with its [Trigger] the way JET_PISTOL is.
+ *
+ * The same four steps with the middle one changed: it **plays** the card it
+ * found rather than adding it to hand, and plays it out of the deck. Nothing
+ * about `play` cares which zone the card came from — `removeFromNonFieldZone`
+ * covers all four — so this needed no engine change beyond the ordering itself.
+ */
+const SMILE: Instruction[] = [
+  { op: 'lookAt', as: 'looked', count: 5 },
+  {
+    op: 'select',
+    as: 'summoned',
+    from: {
+      zone: 'deckTop',
+      owner: 'you',
+      count: 5,
+      types: ['SMILE'],
+      category: ['character'],
+      costMax: 3,
+    },
+    min: 0,
+    max: 1,
+    prompt: 'Play up to 1 {SMILE} type Character card with a cost of 3 or less',
+  },
+  { op: 'play', target: { var: 'summoned' } },
+  {
+    op: 'orderToBottom',
+    cards: { minus: { of: { var: 'looked' }, without: { var: 'summoned' } } },
+    prompt: 'Place the rest at the bottom of your deck, first card drawn first',
+  },
+];
+
 /**
  * "Play up to 1 {Baroque Works} type Character card with a cost of 3 or less
  * from your hand."
@@ -2221,6 +2318,108 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
       },
       script: [{ op: 'draw', player: 'you', count: 1 }],
     },
+  ],
+
+  // -------------------------------------------------------------------------
+  // Batch 9 — look at the top of the deck, keep one, bury the rest in order.
+  //
+  // Four cards print one sentence with one word changed, and `lookKeepBury`
+  // above is that sentence written once. The fifth, `OP01-116`, plays what it
+  // finds instead of taking it to hand and so writes its own script.
+  // -------------------------------------------------------------------------
+
+  // ST02-007 Jewelry Bonney
+  // "[Activate: Main] ➀ You may rest this Character: Look at 5 cards from the
+  //  top of your deck; reveal up to 1 {Supernovas} type card and add it to your
+  //  hand. Then, place the rest at the bottom of your deck in any order."
+  //
+  // **The card this whole mechanism was named after.** It has been blocked
+  // since the original starter inventory, which listed three walls: the
+  // rest-the-source cost (gone in PR #15), `orderCards` and a way to name "the
+  // rest" (both gone here). It is the last starter card the two inventories
+  // carried as honestly missing.
+  //
+  // ➀ is `restDon 1` and "You may rest this Character" is `restSelf`, in that
+  // printed order — CR 8-3-1-1 pays a cost list "starting from the text closest
+  // to the top", and the order is the card's.
+  'ST02-007': [
+    {
+      id: 'ST02-007-main',
+      trigger: 'activateMain',
+      cost: [{ kind: 'restDon', count: 1 }, { kind: 'restSelf' }],
+      script: lookKeepBury(5, ['Supernovas'], 'Reveal up to 1 {Supernovas} type card'),
+    },
+  ],
+
+  // OP01-041 Kouzuki Momonosuke
+  // "[Activate: Main] ➀ You may rest this Character: Look at 5 cards from the
+  //  top of your deck; reveal up to 1 {Land of Wano} type card and add it to
+  //  your hand. Then, place the rest at the bottom of your deck in any order."
+  //
+  // Bonney with one type changed, down to the cost list.
+  'OP01-041': [
+    {
+      id: 'OP01-041-main',
+      trigger: 'activateMain',
+      cost: [{ kind: 'restDon', count: 1 }, { kind: 'restSelf' }],
+      script: lookKeepBury(5, ['Land of Wano'], 'Reveal up to 1 {Land of Wano} type card'),
+    },
+  ],
+
+  // OP01-030 In Two Years!! At the Sabaody Archipelago!!
+  // "[Main] Look at 5 cards from the top of your deck; reveal up to 1 {Straw
+  //  Hat Crew} type Character card and add it to your hand. Then, place the
+  //  rest at the bottom of your deck in any order."
+  // "[Trigger] Activate this card's [Main] effect."
+  //
+  // The `[Trigger]` points at the `[Main]` rather than restating it, so the two
+  // abilities share one instruction list — `ST01-015`'s pattern, and the only
+  // encoding where the halves cannot drift apart.
+  'OP01-030': [
+    { id: 'OP01-030-main', trigger: 'mainEvent', script: SABAODY },
+    { id: 'OP01-030-trigger', trigger: 'trigger', script: SABAODY },
+  ],
+
+  // OP01-084 Mr.2.Bon.Kurei(Bentham)
+  // "[DON!! x1] [When Attacking] Look at 5 cards from the top of your deck;
+  //  reveal up to 1 {Baroque Works} type Event card and add it to your hand.
+  //  Then, place the rest at the bottom of your deck in any order."
+  //
+  // The only one of the four that filters on a category as well as a type, and
+  // the only one behind a `[DON!! xN]` gate.
+  'OP01-084': [
+    {
+      id: 'OP01-084-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      script: lookKeepBury(
+        5,
+        ['Baroque Works'],
+        'Reveal up to 1 {Baroque Works} type Event card',
+        ['event'],
+      ),
+    },
+  ],
+
+  // OP01-116 Artificial Devil Fruit SMILE
+  // "[Main] Look at 5 cards from the top of your deck; play up to 1 {SMILE}
+  //  type Character card with a cost of 3 or less. Then, place the rest at the
+  //  bottom of your deck in any order."
+  // "[Trigger] Activate this card's [Main] effect."
+  //
+  // The fifth card, and the one that needed two gaps rather than one. It
+  // **plays** what it finds instead of taking it to hand, and it plays it from
+  // the *deck* — which batch 6 built and `OP01-060` Doflamingo already walks.
+  // The inventory listed it under both gaps and it stayed blocked; put-into-play
+  // landed first, so this batch is the second half.
+  //
+  // `select` then `play` rather than `play` straight off the selector: the
+  // printed "up to 1" is the player's choice of *which* and *whether*, and a
+  // bare `Ref` would have the engine take the first match. The card played is
+  // then out of the deck, and "the rest" is the four the `minus` did not remove.
+  'OP01-116': [
+    { id: 'OP01-116-main', trigger: 'mainEvent', script: SMILE },
+    { id: 'OP01-116-trigger', trigger: 'trigger', script: SMILE },
   ],
 
   // -------------------------------------------------------------------------

@@ -238,7 +238,11 @@ export const OP01_R_ZORO: Decklist = {
     { cardId: 'OP01-029', qty: 4 }, // Radical Beam!!
     { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2, 4000
-    { cardId: 'OP01-018', qty: 3 }, // Hajrudin — vanilla, cost 4, 6000
+    { cardId: 'OP01-018', qty: 1 }, // Hajrudin — vanilla, cost 4, 6000
+    // Batch 9's red card. Two copies off a vanilla body: this deck's {Straw Hat
+    // Crew} Characters are what its search has to find, and there are three
+    // kinds of them here.
+    { cardId: 'OP01-030', qty: 2 }, // In Two Years!! — look 5, keep 1, bury the rest
     { cardId: 'OP01-023', qty: 3 }, // Marco — vanilla, cost 3, 5000
   ],
 };
@@ -288,7 +292,10 @@ export const OP01_G_ODEN: Decklist = {
     { cardId: 'OP01-057', qty: 4 }, // Paradise Waterfall — [Counter] and [Trigger]
     { cardId: 'OP01-059', qty: 4 }, // BE-BENG!! — the filtered discard, again
     { cardId: 'OP01-054', qty: 3 }, // X.Drake — [On Play] K.O. a rested Character
-    { cardId: 'OP01-045', qty: 3 }, // Jean Bart — vanilla, cost 4, 6000
+    { cardId: 'OP01-045', qty: 1 }, // Jean Bart — vanilla, cost 4, 6000
+    // Batch 9's green card, and this is the deck it belongs in: it searches
+    // {Land of Wano}, and this fixture is built out of them.
+    { cardId: 'OP01-041', qty: 2 }, // Momonosuke — look 5, keep 1, bury the rest
   ],
 };
 
@@ -400,16 +407,19 @@ export const OP01_BP_KAIDO: Decklist = {
     { cardId: 'OP01-108', qty: 4 },
     { cardId: 'OP01-111', qty: 4 },
     { cardId: 'OP01-117', qty: 4 },
-    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-100', qty: 3 }, // Kurozumi Higurashi — [Blocker] only, cost 2
     { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
     { cardId: 'OP01-103', qty: 1 }, // Scratchmen Apoo — vanilla, cost 4
+    // Batch 9's purple card. It plays a {SMILE} Character costing 3 or less out
+    // of the five it looked at, and OP01-104 Speed sits at 4 copies here.
+    { cardId: 'OP01-116', qty: 2 }, // Artificial Devil Fruit SMILE
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
     // Batch 8's purple card. Three copies: the permission is *bought* with an
     // [Activate: Main] that hands a DON!! back, so it needs the body on the
     // board, the cost payable, and an active enemy Character to point at.
     { cardId: 'OP01-112', qty: 3 }, // Page One — DON!! -1: may attack active Characters
-    { cardId: 'OP01-107', qty: 2 }, // Babanuki — vanilla, cost 5
+    { cardId: 'OP01-107', qty: 1 }, // Babanuki — vanilla, cost 5
     { cardId: 'OP01-104', qty: 4 }, // Speed — [Trigger] Play this card
     { cardId: 'OP01-110', qty: 2 }, // Fukurokuju — vanilla, cost 6
     // Blue, and legal under a blue/purple Leader. Present so the type-gated
@@ -475,9 +485,12 @@ export const OP01_B_DOFLAMINGO: Decklist = {
     { cardId: 'OP01-080', qty: 4 }, // Miss Doublefinger — [On K.O.] draw
     { cardId: 'OP01-086', qty: 4 }, // Overheat — [Counter] and [Trigger] bounce
     { cardId: 'OP01-089', qty: 2 }, // Crescent Cutlass — [Counter] bounce
-    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-076', qty: 2 }, // Bellamy — vanilla, cost 2
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    // Batch 9's blue card. It searches {Baroque Works} *Events*, and this deck
+    // holds six of them between OP01-087 and OP01-089.
+    { cardId: 'OP01-084', qty: 2 }, // Mr.2.Bon.Kurei — look 5, keep 1, bury the rest
   ],
 };
 

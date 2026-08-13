@@ -37,6 +37,10 @@ function minimalAnswer(state: GameState): ChoiceAnswer {
     // about which one a player would pick.
     case 'orderCards':
       return { kind: 'order', order: [...pending.candidates] };
+    // A partition has no smaller answer either, and the trivial one is legal:
+    // every candidate to the bottom. Which side is not what this test is about.
+    case 'partitionCards':
+      return { kind: 'partition', top: [], bottom: [...pending.candidates] };
   }
 }
 

@@ -343,6 +343,17 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
         player: event.player,
         text: `mira ${event.instanceIds.length} cartas del tope de su mazo`,
       };
+    case 'deckPartitioned':
+      // The counts, and only the counts, because that is what a player at a
+      // table would see: cards going to each end without their faces. The ids
+      // are in the event and stay out of the line — the same trade
+      // `cardsLookedAt` already makes, and the reason the engine's note on this
+      // event calls it the first whose shape is public while its contents are
+      // not.
+      return {
+        player: event.player,
+        text: `pone ${event.top.length} cartas al tope y ${event.bottom.length} al fondo del mazo`,
+      };
     case 'deckOrdered':
       return {
         player: event.player,
@@ -408,6 +419,7 @@ const EFFECT_EVENTS = new Set<GameEvent['type']>([
   // without these it would read as an ability that resolved to nothing.
   'cardsLookedAt',
   'deckOrdered',
+  'deckPartitioned',
   'cardDrawn',
   'donAttached',
   'donGained',

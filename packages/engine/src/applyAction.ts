@@ -60,6 +60,12 @@ function malformedAnswer(raw: unknown): boolean {
       return !Array.isArray(answer['selected']);
     case 'order':
       return !Array.isArray(answer['order']);
+    // Both sides, because either may legitimately be empty and neither may be
+    // missing: "all five to the bottom" is a legal partition and `top: []` is
+    // how it is spelled, while an absent `top` is a payload that never named a
+    // side at all.
+    case 'partition':
+      return !Array.isArray(answer['top']) || !Array.isArray(answer['bottom']);
     case 'yesNo':
       return typeof answer['value'] !== 'boolean';
     case 'option':

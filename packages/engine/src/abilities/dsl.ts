@@ -22,8 +22,31 @@ import type { InstanceId, Orientation, PlayerId } from '../types.js';
 
 export type Keyword = 'rush' | 'blocker' | 'doubleAttack' | 'banish';
 
-/** Matches `Modifier['duration']`: the two lifetimes the engine can expire. */
-export type Duration = 'endOfBattle' | 'endOfTurn';
+/**
+ * The lifetimes the engine can expire — shared by `Modifier` and `LegalityRule`,
+ * which is why the third member arrived once and served both.
+ *
+ * `endOfOpponentNextTurn` is that third member, and PR #31 is what proved the
+ * union was short one. A prohibition aimed at an opponent's Character with an
+ * `endOfTurn` lifetime **expires before that Character can act** — the turn ends,
+ * the rule dies, and the opponent's turn begins unencumbered. That is why
+ * `OP01-085` prints "until the end of your opponent's next turn" and not "during
+ * this turn": Bandai needed a duration the engine did not have, and 43 cards in
+ * the full set print it.
+ *
+ * It is the only duration that spans a change of turn player, which is what
+ * makes it different in kind rather than in length. The other two are measured
+ * against something the engine is already inside — a battle, a turn — and this
+ * one is measured against **whose** turn ends, so `Modifier` and `LegalityRule`
+ * both had to start recording their controller and the turn they were written
+ * on. CR 6-6-1-2 is the rule it implements, and it splits the End Phase's expiry
+ * step by player for exactly this reason: "(1) Process any continuous effects of
+ * the **turn player** … due to be processed at the end of this turn or at the
+ * end of your turn … (2) Process any continuous effects of the **non-turn
+ * player**". An `endOfOpponentNextTurn` effect is always in clause (2) when it
+ * dies, because it dies on its controller's opponent's turn.
+ */
+export type Duration = 'endOfBattle' | 'endOfTurn' | 'endOfOpponentNextTurn';
 
 /** Resolved against the ability's controller, not the state's active player. */
 export type PlayerRef = 'you' | 'opponent';

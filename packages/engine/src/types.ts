@@ -1,5 +1,6 @@
 import type {
   CardPredicate,
+  Duration,
   Keyword,
   LegalityClause,
   LegalityEffect,
@@ -130,6 +131,33 @@ export interface GameState {
      * down before it can cost something.
      */
     placedRestedBecomesRested: boolean;
+    /**
+     * Whether a turn already **in progress** can be the "next turn" that
+     * `endOfOpponentNextTurn` counts to.
+     *
+     * True — it cannot. The effect must survive the End Phase of the turn it was
+     * written in and die in the *following* one of the opponent's.
+     *
+     * The Comprehensive Rules do not answer this. CR 6-6-1-2 says which End
+     * Phase clause processes the expiry and says nothing about counting, and the
+     * phrase "your opponent's next turn" appears on 43 printed cards and in no
+     * rule. So the default is read off the English: a turn that is happening is
+     * not a turn that is *next*, and a card wanting the current one says
+     * "during this turn" — 459 cards do exactly that, which is what makes the
+     * distinction load-bearing rather than stylistic.
+     *
+     * **The case is reachable, which is why it is a flag and not a comment.**
+     * `OP08-112` S-Snake prints "[Trigger] Activate this card's [On Play]
+     * effect", and a `[Trigger]` fires out of the Life area during the
+     * opponent's turn — so its "cannot attack until the end of your opponent's
+     * next turn" really can be written while that turn is in progress. Nothing
+     * in `OP01-085` can reach it: its `[On Play]` is a Main Phase action and
+     * fires on its controller's own turn only.
+     *
+     * False makes the turn in progress count, so an effect written during the
+     * opponent's turn dies at the end of it — behaving as `endOfTurn`.
+     */
+    nextTurnExcludesTurnInProgress: boolean;
   };
 }
 
@@ -190,17 +218,42 @@ export type Modifier =
       target: InstanceId;
       kind: 'power';
       value: number;
-      duration: 'endOfBattle' | 'endOfTurn';
+      duration: Duration;
       source: InstanceId;
+      controller: PlayerId;
+      writtenOnTurn: number;
     }
   | {
       id: string;
       target: InstanceId;
       kind: 'grantKeyword';
       keyword: Keyword;
-      duration: 'endOfBattle' | 'endOfTurn';
+      duration: Duration;
       source: InstanceId;
+      controller: PlayerId;
+      writtenOnTurn: number;
     };
+
+/**
+ * What every timed record has to know once one of the durations spans a change
+ * of turn player, and why both fields are **required** rather than added only to
+ * the entries that need them.
+ *
+ * `controller` is *whose* effect this is, and it is stored rather than derived
+ * from `source`. A rule outlives the card that wrote it — ST01-016's source is
+ * an Event sitting in the trash before the rule is ever consulted — so
+ * `state.cards[source].controller` is a question that can stop having an answer,
+ * and control of a card can change while a rule it wrote is still in force.
+ *
+ * `writtenOnTurn` is `state.turn` at the moment of writing, and it exists for
+ * one question: whether a turn already **in progress** counts as "your
+ * opponent's *next* turn". See `rules.nextTurnExcludesTurnInProgress`.
+ *
+ * Neither is optional. `exactOptionalPropertyTypes` plus the no-explicit-
+ * undefined rule make an always-present field the only encoding that round-trips
+ * exactly, and a record that sometimes knows whose it is would put the question
+ * "does this one have a controller?" in front of every reader.
+ */
 
 /**
  * A timed legality rule written onto the state by a `setLegality` instruction.
@@ -231,7 +284,10 @@ export type Modifier =
 export interface LegalityRule {
   id: string;
   source: InstanceId;
-  duration: 'endOfBattle' | 'endOfTurn';
+  duration: Duration;
+  /** See the note above `Modifier`'s pair of the same two fields. */
+  controller: PlayerId;
+  writtenOnTurn: number;
   effect: LegalityEffect;
   /** Whose cards, and which of them. Absolute sides: `PlayerRef` is resolved. */
   subject: { player: PlayerId; match?: CardPredicate } | { is: InstanceId };

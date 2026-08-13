@@ -1,9 +1,10 @@
+import type { Duration } from '../abilities/dsl.js';
 import { KO_BY_BATTLE, KO_CAUSE_VAR } from '../abilities/dsl.js';
 import { fieldIds } from '../abilities/query.js';
 import { fireSidedTriggers, fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
-import { dropLegalityNaming, expireLegality } from '../legality.js';
+import { dropLegalityNaming } from '../legality.js';
 import type { CardInstance, GameState, InstanceId, Orientation, PlayerId } from '../types.js';
 
 /** CR 3-7-6: "Up to 5 Character cards can be placed in the Character area." */
@@ -37,16 +38,64 @@ export function finishGame(
 }
 
 /**
- * Everything with an end-of-turn lifetime, expired together.
+ * CR 6-6-1-2: everything whose lifetime this End Phase ends, modifiers and
+ * legality rules together, because the two share a `Duration` and always have.
  *
  * The legality half is what makes ST01-016 finish honestly: "your opponent
  * cannot activate [Blocker] if that Leader or Character attacks during this
  * turn" ends with the turn whether the named card ever attacked or not, so the
  * rule cannot be cleared by the attack it was waiting for — only by the clock.
+ *
+ * `expireLegality` used to be called from here and is not any more, because the
+ * two lists now answer the same per-entry question and a second function that
+ * could only filter by an exact duration would have been the place the third
+ * duration was forgotten.
  */
-export function expireEndOfTurnModifiers(draft: GameState): void {
-  draft.modifiers = draft.modifiers.filter((modifier) => modifier.duration !== 'endOfTurn');
-  expireLegality(draft, 'endOfTurn');
+export function expireEndOfTurnModifiers(draft: GameState, endingPlayer: PlayerId): void {
+  draft.modifiers = draft.modifiers.filter(
+    (modifier) => !expiresAtEndOf(draft, modifier, endingPlayer),
+  );
+  draft.legality = draft.legality.filter((rule) => !expiresAtEndOf(draft, rule, endingPlayer));
+}
+
+/**
+ * Whether a timed record dies in the End Phase now running.
+ *
+ * **This is the whole of `endOfOpponentNextTurn`, and it takes an `endingPlayer`
+ * because that duration is the first one the engine has that cannot be answered
+ * without knowing whose turn just ended.** `endOfTurn` never had to ask: CR
+ * 6-6-1-2 expires both players' turn-scoped effects in the same End Phase, in
+ * two clauses that differ only in the order the two players process them —
+ * "(1) … of the **turn player** … (2) … of the **non-turn player**". Both die,
+ * so the question never came up.
+ *
+ * A duration that spans a change of turn player has to answer it. The rule reads
+ * off clause (2) directly: an `endOfOpponentNextTurn` effect belongs to a player
+ * and dies on that player's **opponent's** turn, so it survives every End Phase
+ * in which its controller is the turn player and dies in the first one in which
+ * they are not.
+ *
+ * The `writtenOnTurn` comparison is the second half, and it is the ambiguity
+ * `rules.nextTurnExcludesTurnInProgress` names: an effect written *during* the
+ * opponent's turn is already inside a turn that clause (2) would end. See the
+ * flag in `types.ts` for which reading ships and why.
+ */
+function expiresAtEndOf(
+  state: GameState,
+  entry: { duration: Duration; controller: PlayerId; writtenOnTurn: number },
+  endingPlayer: PlayerId,
+): boolean {
+  if (entry.duration === 'endOfTurn') {
+    return true;
+  }
+  if (entry.duration !== 'endOfOpponentNextTurn') {
+    // `endOfBattle`, which the End of the Battle expired long before this.
+    return false;
+  }
+  if (entry.controller === endingPlayer) {
+    return false;
+  }
+  return !state.rules.nextTurnExcludesTurnInProgress || state.turn > entry.writtenOnTurn;
 }
 
 // DON!! are fungible: rest the first `cost` active cost-area DON in array order.

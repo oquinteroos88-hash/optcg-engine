@@ -1,3 +1,4 @@
+import type { Duration } from './abilities/dsl.js';
 import { isLegalityRuleLive } from './legality.js';
 import { legalActions } from './legalActions.js';
 import { getOpponent, isOnField } from './selectors.js';
@@ -223,6 +224,43 @@ function checkModifierShape(state: GameState, violations: string[]): void {
     ) {
       violations.push(`modifierShape: ${modifier.id} is endOfBattle but no battle is open`);
     }
+  }
+}
+
+/**
+ * The upper bound on how long an `endOfOpponentNextTurn` entry may live, and
+ * the only new way a timed record can go wrong now that one duration outlasts
+ * the turn it was written in.
+ *
+ * Two turns, and it is arithmetic rather than a safety margin. Written on its
+ * controller's own turn T, the entry dies in the End Phase of T+1, so while it
+ * is alive `state.turn - writtenOnTurn` is at most 1. Written *during* the
+ * opponent's turn T — which only a `[Trigger]` fired out of the Life area can
+ * do — it survives that End Phase by `nextTurnExcludesTurnInProgress`, survives
+ * its controller's turn T+1, and dies in T+2, so the difference reaches 2 and
+ * stops there.
+ *
+ * A record that outlives this has stopped being expired by anything at all,
+ * which is the failure the older two durations could not have: they are measured
+ * against something the engine is already inside. Scoped to a playing game, like
+ * the `endOfBattle` clauses above and below — a finished game runs no more End
+ * Phases, and what it leaves behind harms nobody.
+ */
+const MAX_TURNS_ALIVE = 2;
+
+function checkSpanningDuration(
+  state: GameState,
+  entry: { id: string; duration: Duration; writtenOnTurn: number },
+  label: string,
+  violations: string[],
+): void {
+  if (state.status !== 'playing' || entry.duration !== 'endOfOpponentNextTurn') {
+    return;
+  }
+  if (state.turn - entry.writtenOnTurn > MAX_TURNS_ALIVE) {
+    violations.push(
+      `${label}: ${entry.id} is endOfOpponentNextTurn, written on turn ${entry.writtenOnTurn}, still alive on turn ${state.turn}`,
+    );
   }
 }
 

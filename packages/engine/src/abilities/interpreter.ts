@@ -366,6 +366,11 @@ function addModifier(
       value: grant.power,
       duration,
       source: item.source,
+      // Whose effect this is, and when it was written. Only
+      // `endOfOpponentNextTurn` reads either, and both are stored on every
+      // modifier rather than on the ones that need them — see `types.ts`.
+      controller: item.controller,
+      writtenOnTurn: draft.turn,
     });
     emit(draft, events, { type: 'powerGranted', target, value: grant.power, duration });
     return;
@@ -378,6 +383,8 @@ function addModifier(
     keyword: grant.keyword,
     duration,
     source: item.source,
+    controller: item.controller,
+    writtenOnTurn: draft.turn,
   });
   emit(draft, events, { type: 'keywordGranted', target, keyword: grant.keyword, duration });
 }
@@ -441,6 +448,12 @@ function setLegality(
       id: `leg-${draft.log.length}`,
       source: item.source,
       duration: instruction.duration,
+      // The pair `endOfOpponentNextTurn` needs, and the reason `OP01-085` can
+      // aim a prohibition at an opponent's Character and have it still be there
+      // when that Character tries to attack: the rule outlives the turn it was
+      // written in, and the End Phase can only tell whose it is by asking.
+      controller: item.controller,
+      writtenOnTurn: draft.turn,
       effect: instruction.effect,
       subject,
       clause: instruction.clause,

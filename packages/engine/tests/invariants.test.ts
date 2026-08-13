@@ -101,6 +101,8 @@ describe('invariants: each checker fires on targeted corruption', () => {
         value: 1000,
         duration: 'endOfTurn',
         source: draft.players.p1.leader,
+        controller: 'p1',
+        writtenOnTurn: draft.turn,
       });
     });
     expect(offField.some((v) => v.startsWith('modifierShape'))).toBe(true);
@@ -113,6 +115,8 @@ describe('invariants: each checker fires on targeted corruption', () => {
         value: 1000,
         duration: 'endOfBattle',
         source: draft.players.p1.leader,
+        controller: 'p1',
+        writtenOnTurn: draft.turn,
       });
     });
     expect(orphaned.some((v) => v.includes('endOfBattle'))).toBe(true);

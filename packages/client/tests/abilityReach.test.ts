@@ -91,13 +91,16 @@ function uiCanProduce(state: GameState, action: Action): string | null {
 /** The abilities the scripted set contains that emit an event when they fire. */
 const FIRING_ABILITIES = [
   'ST01-001-main',
+  'ST01-002-trigger',
   'ST01-005-whenAttacking',
   'ST01-007-main',
   'ST01-011-onPlay',
+  'ST01-012-whenAttacking',
   'ST01-014-counter',
   'ST01-014-trigger',
   'ST01-015-main',
   'ST01-015-trigger',
+  'ST01-016-main',
   'ST01-017-main',
   'ST02-001-main',
   'ST02-005-onPlay',
@@ -164,11 +167,17 @@ describe('every scripted ability is reachable through the UI', () => {
       PLAY_CARD: [
         'ST01-011-onPlay',
         'ST01-015-main',
+        'ST01-016-main',
+        'ST02-005-onPlay',
         'ST02-009-onPlay',
         'ST02-017-main',
       ],
       // Declaring the attack fires [When Attacking].
-      DECLARE_ATTACK: ['ST01-005-whenAttacking', 'ST02-008-whenAttacking'],
+      DECLARE_ATTACK: [
+        'ST01-005-whenAttacking',
+        'ST01-012-whenAttacking',
+        'ST02-008-whenAttacking',
+      ],
       // [Counter] Events, the action PLAY_COUNTER cannot express.
       // ST01-014 Guard Point joined the day the driver learned to hold DON!!
       // back: its [Counter] half has been written since PR #10 and had never
@@ -186,16 +195,24 @@ describe('every scripted ability is reachable through the UI', () => {
       // the ST-02 Leader is the answer to its own payment, not the activation
       // that started it, and the UI has to publish a `pendingChoice` for a cost
       // and not only for a script.
-      // Four of these are here because the *answer* is what fires them, not the
-      // move that opened the question. ST02-001's cost asks which card pays;
-      // ST02-005 and ST02-017 are life [Trigger]s, whose opt-in is an answer —
-      // and ST02-005-onPlay is here because the card its own [Trigger] played
-      // announces itself on that same answer, one effect deep.
+      // These are here because the *answer* is what fires them, not the move
+      // that opened the question. ST02-001's cost asks which card pays;
+      // ST02-005, ST02-017 and ST01-002 are life [Trigger]s, whose opt-in is an
+      // answer.
+      //
+      // ST02-005-onPlay moved to PLAY_CARD when the [Blocker] prohibitions
+      // landed, and the move is the point of this case rather than noise in it:
+      // it was here because the *first* game to fire it fired it one effect
+      // deep, off its own [Trigger]'s answer. Three new abilities in these decks
+      // deal different games, and the first firing is now an ordinary play from
+      // hand. Which route a card is reached by is a property of the corpus, not
+      // of the card — and this case exists to make that visible instead of
+      // silent.
       ANSWER_CHOICE: [
+        'ST01-002-trigger',
         'ST01-014-trigger',
         'ST01-015-trigger',
         'ST02-001-main',
-        'ST02-005-onPlay',
         'ST02-005-trigger',
         'ST02-015-trigger',
         'ST02-017-trigger',

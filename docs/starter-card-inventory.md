@@ -7,6 +7,30 @@ can the Phase 2A DSL already say?**
 The project bet was "if the DSL holds these ~40, it holds 400". This measures
 that before the effort is spent.
 
+## The campaign is closed, and the starters finish at 33 of 34
+
+**PR #36 built the last capability either inventory ranked** — the top-or-bottom
+partition, `orderCards`' other half — and with it the queue this document opened
+is empty. Nothing below is pending work. What is left is **declared rows**: each
+has a name, a size, and a stated reason it is not being built.
+
+| Row | Size | Why it is declared |
+| --- | --- | --- |
+| Fire on "this card is in a battle", and ask what it is battling | 1 — `ST02-010` | **two** capabilities, one card in 2665. Ruled by PR #35 |
+| A player-chosen **discard instruction** | 3 in OP-01 | the last open half of the deterministic-discard divergence |
+| Give **active** DON!! as a cost | 5 | no starter or OP-01 card prints it |
+| Move the **opponent's** DON!! | 2 | the same |
+| Layered evaluation for a static's own gate | 1 — `OP06-002` | priced and declined; see `docs/trigger-reachability.md` |
+| The Life-area "top or bottom" | 58 | **found by PR #36's probe** — a different area and a different question; see the note in `docs/op01-inventory.md` |
+
+The starters themselves do not move: they finish at **33 of 34**, where PR #35
+left them. Neither of the two cards PR #36 freed is a starter card — both are
+OP-01 blue — so the partition closes the *capability* queue without touching
+this deck's count. `ST02-010` Basil Hawkins remains the one card here with
+printed text the engine does not execute, and it remains so on purpose.
+
+OP-01 finishes at **86 of 121**.
+
 ## Status: 33 of 34, and the thirty-fourth is a ruling
 
 **The starter campaign is closed.** PR #35 wrote the last two capability rows

@@ -477,9 +477,10 @@ deferred by oversight:
   was the five largest.
 - **"a card is trashed from your hand by an effect" (4)** is the same.
 - The **top-or-bottom partition (27 cards)** is not a trigger family at all — it
-  is `orderCards`' unbuilt half, deslindada by PR #32 and still open. If the
-  sweep's six were being counted as "six things PR #34 might close", that is the
-  one that was never a candidate.
+  is `orderCards`' unbuilt half, deslindada by PR #32 and **closed by PR #36**.
+  If the sweep's six were being counted as "six things PR #34 might close", that
+  is the one that was never a candidate — and it was the last capability either
+  inventory ranked.
 
 **Neither flag this PR added can be reached by a printed card in scope**, and
 that is worth saying in the same breath as the defaults. `effectPlayIsPlayingACharacter`
@@ -509,7 +510,9 @@ ranked table, and four of its items have since been built:
 | DON!! orientation changes | 71 | **done — PR #13** (`orientDon`) |
 | Putting cards into play | 375 | **done — the `play` instruction** |
 | `[Blocker]` prohibitions | 146 | open — structural |
-| ~~`orderCards`, and naming "the cards not taken"~~ | 254 | **closed — PR #32** (the permutation form; the top-or-bottom *split* is a separate shape and stays open, 27 cards) |
+| ~~`orderCards`, and naming "the cards not taken"~~ | 254 | **closed — PR #32** (the permutation form) |
+| ~~The top-or-bottom **partition**~~ | 27 → **35** | **closed — PR #36** (`orderToDeckEnds`, `partitionCards`). The re-probe widened it: 27 print an explicit order clause and 8 more have a window of one card, which is the same mechanism with a trivial side |
+| The **Life-area** "top or bottom" | 58 | open — *added by PR #36*, and a different question entirely: "add 1 card from the top **or** bottom of your Life cards" is a choice between two named cards, not a partition |
 | ~~Add DON!! from the DON!! deck~~ | 141 | **closed — PR #33** |
 | ~~Fire on "a DON!! card on your field is returned to your DON!! deck"~~ | 16 | **closed — PR #34** (`whenDonReturnedToDeck`). The event had been emitted since PR #11 and nothing listened; PR #33 guaranteed `addDon` never emits it, and PR #34 gave it the listener |
 | ~~Fire on "when this Character becomes rested"~~ | 8 | **closed — PR #34** (`whenBecomingRested`, on the shared orientation transition) |

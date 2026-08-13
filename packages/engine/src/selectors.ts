@@ -1,5 +1,6 @@
-import type { AbilityContext, Keyword } from './abilities/dsl.js';
+import type { Ability, AbilityContext, Keyword } from './abilities/dsl.js';
 import { PRINTED_KEYWORD } from './abilities/dsl.js';
+import type { Lens } from './abilities/query.js';
 import { evalCondition, fieldIds, resolveSelector } from './abilities/query.js';
 import { mark } from './instrument.js';
 import { getAbilities, getCardDef } from './registry.js';
@@ -44,6 +45,34 @@ export function getPowerWithoutStatics(state: GameState, id: InstanceId): number
 }
 
 /**
+ * Printed keywords plus the ones live modifiers grant. Static grants are not
+ * included.
+ *
+ * `getPowerWithoutStatics`'s twin and, like it, a recursion anchor rather than
+ * a rules term: a `Selector` filtering on "[Blocker] Characters" evaluated
+ * inside static evaluation would ask `hasKeyword`, which walks the statics it
+ * is already inside. This is the fixed point that breaks that loop. Nothing
+ * outside `WITHOUT_STATICS` should call it — a granted `[Blocker]` blocks.
+ */
+export function hasKeywordWithoutStatics(
+  state: GameState,
+  id: InstanceId,
+  keyword: Keyword,
+): boolean {
+  const card = state.cards[id];
+  if (card === undefined) {
+    return false;
+  }
+  if (getCardDef(card.cardId).keywords.includes(PRINTED_KEYWORD[keyword])) {
+    return true;
+  }
+  return state.modifiers.some(
+    (modifier) =>
+      modifier.kind === 'grantKeyword' && modifier.target === id && modifier.keyword === keyword,
+  );
+}
+
+/**
  * Walks every `static` ability whose source is on the field and whose condition
  * holds, calling `visit` for each one that applies to `id`.
  *
@@ -51,10 +80,10 @@ export function getPowerWithoutStatics(state: GameState, id: InstanceId): number
  * the state when a card with a static enters or leaves, so nothing has to be
  * cleaned up, recalculated, or kept in sync when it does.
  */
-function forEachStatic(
+export function forEachStatic(
   state: GameState,
   id: InstanceId,
-  visit: (grants: { power?: number; keyword?: Keyword }) => void,
+  visit: (grants: NonNullable<Ability['grants']>) => void,
 ): void {
   for (const player of PLAYER_IDS) {
     for (const sourceId of fieldIds(state, player)) {
@@ -77,7 +106,7 @@ function forEachStatic(
         // effect. Declared divergence — docs/trigger-reachability.md, backlog A.
         if (
           ability.condition !== undefined &&
-          !evalCondition(state, ctx, ability.condition, getPowerWithoutStatics)
+          !evalCondition(state, ctx, ability.condition, WITHOUT_STATICS)
         ) {
           continue;
         }
@@ -91,7 +120,7 @@ function forEachStatic(
         const applies =
           'self' in affects
             ? id === sourceId
-            : resolveSelector(state, ctx, affects.selector, getPowerWithoutStatics).includes(id);
+            : resolveSelector(state, ctx, affects.selector, WITHOUT_STATICS).includes(id);
         if (!applies) {
           continue;
         }
@@ -125,17 +154,8 @@ export function getPower(state: GameState, id: InstanceId): number {
  * has to block, and a check against the printed list alone would not see it.
  */
 export function hasKeyword(state: GameState, id: InstanceId, keyword: Keyword): boolean {
-  const card = state.cards[id];
-  if (card === undefined) {
-    return false;
-  }
-  if (getCardDef(card.cardId).keywords.includes(PRINTED_KEYWORD[keyword])) {
+  if (hasKeywordWithoutStatics(state, id, keyword)) {
     return true;
-  }
-  for (const modifier of state.modifiers) {
-    if (modifier.kind === 'grantKeyword' && modifier.target === id && modifier.keyword === keyword) {
-      return true;
-    }
   }
   let granted = false;
   forEachStatic(state, id, (grants) => {
@@ -146,6 +166,26 @@ export function hasKeyword(state: GameState, id: InstanceId, keyword: Keyword): 
   });
   return granted;
 }
+
+/**
+ * The reading every caller outside static evaluation uses: what a card's power
+ * and keywords actually are right now.
+ */
+export const EFFECTIVE: Lens = { power: getPower, keyword: hasKeyword };
+
+/**
+ * The reading `forEachStatic` uses on its own conditions and `affects`
+ * selectors, and the only place it belongs. Both members are recursion anchors;
+ * see `getPowerWithoutStatics` and `hasKeywordWithoutStatics`.
+ *
+ * The guard has a cost, and it is declared: a static whose own gate asks about
+ * power or a keyword cannot have that gate opened by another card's continuous
+ * effect. Declared divergence — docs/trigger-reachability.md, backlog A.
+ */
+export const WITHOUT_STATICS: Lens = {
+  power: getPowerWithoutStatics,
+  keyword: hasKeywordWithoutStatics,
+};
 
 export function getActiveCostDon(state: GameState, player: PlayerId): InstanceId[] {
   const ids: InstanceId[] = [];

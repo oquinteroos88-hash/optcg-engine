@@ -1,26 +1,44 @@
 import { getCardDef } from '../registry.js';
 import type { GameState, InstanceId, PlayerId } from '../types.js';
 import { PLAYER_IDS } from '../types.js';
-import type { AbilityContext, Condition, PlayerRef, Ref, Selector } from './dsl.js';
+import type {
+  AbilityContext,
+  CardPredicate,
+  Condition,
+  Keyword,
+  PlayerRef,
+  Ref,
+  Selector,
+} from './dsl.js';
 
 /**
  * Reading side of the DSL: selectors, refs and conditions. Pure — nothing here
  * writes to the state.
  *
- * Power comes in as a parameter rather than being imported. That is the
- * recursion guard for continuous effects: `getPower` has to evaluate every
- * `static` ability's condition and `affects` selector, and if those filtered
- * on *effective* power they would call `getPower` again on the same card and
- * never bottom out. Static evaluation therefore passes the without-statics
- * reading — and only static evaluation. Scripts and the conditions of
- * non-static abilities pass `getPower`: a card has one power value, made
- * higher or lower than printed by effects (Comprehensive Rules 2-6-3), an
- * activation condition is met or not against that value as it stands
- * (8-4-1-1), and the Damage Step compares "the power" of the same card
+ * The two board-state readings come in as parameters rather than being
+ * imported. That is the recursion guard for continuous effects: `getPower` has
+ * to evaluate every `static` ability's condition and `affects` selector, and if
+ * those filtered on *effective* power they would call `getPower` again on the
+ * same card and never bottom out. Static evaluation therefore passes the
+ * without-statics reading — and only static evaluation. Scripts and the
+ * conditions of non-static abilities pass the effective one: a card has one
+ * power value, made higher or lower than printed by effects (Comprehensive
+ * Rules 2-6-3), an activation condition is met or not against that value as it
+ * stands (8-4-1-1), and the Damage Step compares "the power" of the same card
  * (7-1-4-1). A condition that asks about power asks about the same magnitude
  * everything else reads.
+ *
+ * `keyword` joined `power` here the day `CardPredicate` gained a keyword
+ * filter, and it had to: `hasKeyword` walks the same statics `getPower` does,
+ * so a selector reading "[Blocker] Characters" evaluated *inside* static
+ * evaluation would re-enter it on the same card. One anchor per readable
+ * property, bundled so a third cannot be added without noticing the two that
+ * are already there.
  */
-export type PowerFn = (state: GameState, id: InstanceId) => number;
+export interface Lens {
+  power: (state: GameState, id: InstanceId) => number;
+  keyword: (state: GameState, id: InstanceId, keyword: Keyword) => boolean;
+}
 
 export function opponentOf(player: PlayerId): PlayerId {
   return player === 'p1' ? 'p2' : 'p1';
@@ -69,63 +87,85 @@ function zoneIds(state: GameState, player: PlayerId, selector: Selector): Instan
   }
 }
 
-function matches(
+/**
+ * Whether one card satisfies a predicate, with no question of where it is.
+ *
+ * Exported because a legality rule tests a candidate the caller already holds —
+ * the card trying to block, the card being attacked — and has no zone to walk.
+ * `resolveSelector` is this plus a place to look, which is the whole difference
+ * between the two types.
+ */
+export function matchesPredicate(
   state: GameState,
-  ctx: AbilityContext,
-  selector: Selector,
+  predicate: CardPredicate,
   id: InstanceId,
-  powerOf: PowerFn,
+  lens: Lens,
 ): boolean {
   const card = state.cards[id];
   if (card === undefined) {
     return false;
   }
-  if (selector.excludeSelf === true && id === ctx.source) {
-    return false;
-  }
   const def = getCardDef(card.cardId);
-  if (selector.category !== undefined && !selector.category.includes(def.category)) {
+  if (predicate.category !== undefined && !predicate.category.includes(def.category)) {
     return false;
   }
-  if (selector.colors !== undefined && !selector.colors.includes(def.color)) {
+  if (predicate.colors !== undefined && !predicate.colors.includes(def.color)) {
     return false;
   }
-  if (selector.types !== undefined) {
+  if (predicate.types !== undefined) {
     const types = def.types ?? [];
-    if (!selector.types.some((wanted) => types.includes(wanted))) {
+    if (!predicate.types.some((wanted) => types.includes(wanted))) {
       return false;
     }
   }
-  if (selector.costMax !== undefined && def.cost > selector.costMax) {
+  if (predicate.costMax !== undefined && def.cost > predicate.costMax) {
     return false;
   }
-  if (selector.costMin !== undefined && def.cost < selector.costMin) {
+  if (predicate.costMin !== undefined && def.cost < predicate.costMin) {
     return false;
   }
-  if (selector.powerMax !== undefined && powerOf(state, id) > selector.powerMax) {
+  if (predicate.powerMax !== undefined && lens.power(state, id) > predicate.powerMax) {
     return false;
   }
-  if (selector.powerMin !== undefined && powerOf(state, id) < selector.powerMin) {
+  if (predicate.powerMin !== undefined && lens.power(state, id) < predicate.powerMin) {
     return false;
   }
   // Orientation is only meaningful on the field; off-field cards are normalized
   // to 'active', so filtering elsewhere would silently match everything.
-  if (selector.orientation !== undefined && card.orientation !== selector.orientation) {
+  if (predicate.orientation !== undefined && card.orientation !== predicate.orientation) {
+    return false;
+  }
+  // Through `hasKeyword`, never the printed list: a granted [Blocker] is a
+  // [Blocker] Character.
+  if (predicate.keyword !== undefined && !lens.keyword(state, id, predicate.keyword)) {
     return false;
   }
   return true;
+}
+
+function matches(
+  state: GameState,
+  ctx: AbilityContext,
+  selector: Selector,
+  id: InstanceId,
+  lens: Lens,
+): boolean {
+  if (selector.excludeSelf === true && id === ctx.source) {
+    return false;
+  }
+  return matchesPredicate(state, selector, id, lens);
 }
 
 export function resolveSelector(
   state: GameState,
   ctx: AbilityContext,
   selector: Selector,
-  powerOf: PowerFn,
+  lens: Lens,
 ): InstanceId[] {
   const found: InstanceId[] = [];
   for (const player of ownersFor(ctx, selector.owner)) {
     for (const id of zoneIds(state, player, selector)) {
-      if (matches(state, ctx, selector, id, powerOf)) {
+      if (matches(state, ctx, selector, id, lens)) {
         found.push(id);
       }
     }
@@ -149,7 +189,7 @@ export function resolveRef(
   state: GameState,
   ctx: AbilityContext,
   ref: Ref,
-  powerOf: PowerFn,
+  lens: Lens,
 ): InstanceId[] {
   if ('self' in ref) {
     return [ctx.source];
@@ -164,14 +204,14 @@ export function resolveRef(
     }
     return [ref.battle === 'attacker' ? battle.attacker : battle.target];
   }
-  return resolveSelector(state, ctx, ref.selector, powerOf);
+  return resolveSelector(state, ctx, ref.selector, lens);
 }
 
 export function evalCondition(
   state: GameState,
   ctx: AbilityContext,
   condition: Condition,
-  powerOf: PowerFn,
+  lens: Lens,
 ): boolean {
   switch (condition.kind) {
     case 'donAttached': {
@@ -185,7 +225,7 @@ export function evalCondition(
     case 'lifeAtMost':
       return state.players[resolvePlayerRef(ctx, condition.player)].life.length <= condition.value;
     case 'countCards': {
-      const count = resolveSelector(state, ctx, condition.selector, powerOf).length;
+      const count = resolveSelector(state, ctx, condition.selector, lens).length;
       if (condition.min !== undefined && count < condition.min) {
         return false;
       }
@@ -197,8 +237,8 @@ export function evalCondition(
     case 'varTrue':
       return ctx.vars[condition.name] === true;
     case 'and':
-      return condition.of.every((sub) => evalCondition(state, ctx, sub, powerOf));
+      return condition.of.every((sub) => evalCondition(state, ctx, sub, lens));
     case 'or':
-      return condition.of.some((sub) => evalCondition(state, ctx, sub, powerOf));
+      return condition.of.some((sub) => evalCondition(state, ctx, sub, lens));
   }
 }

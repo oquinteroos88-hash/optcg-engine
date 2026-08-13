@@ -10,10 +10,10 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **66 cards** — the 18 starter cards whose printed
- * abilities the DSL can express, **all 35** of OP-01 pile A, and the 13 OP-01
- * cards that a chosen payment (3), putting cards into play (8) and two missing
- * rules (2) freed out of pile C. It
+ * Scope of this file today: **72 cards** — the 21 starter cards whose printed
+ * abilities the DSL can express, **all 35** of OP-01 pile A, and the 16 OP-01
+ * cards that a chosen payment (3), putting cards into play (8), two missing
+ * rules (2) and modifiable legality (3) freed out of pile C. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -34,6 +34,12 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * `ST02-005` and `ST02-017` were on this list for four batches, each with one
  * printed half the DSL could express and one that needed a card *put into
  * play*. Batch 6 built that, and both are scripted below.
+ *
+ * `ST01-002`, `ST01-012` and `ST01-016` were the three starter cards the DSL
+ * could not say a word of: the `[Blocker]` prohibitions, gap 5 of the starter
+ * inventory and the one it said needed a design conversation rather than an
+ * implementation. Batch 8 had it. All three are scripted below, `ST01-002`
+ * whole — its `[Trigger]` half had been waiting on batch 6 since.
  *
  * `OP01-017` Nico Robin was in this list for one PR and is not any more. She
  * was written, her table cases passed, and she was withheld because the
@@ -2214,6 +2220,264 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
         ],
       },
       script: [{ op: 'draw', player: 'you', count: 1 }],
+    },
+  ],
+
+  // -------------------------------------------------------------------------
+  // Batch 8 — modifiable legality. Six cards, five printed shapes.
+  //
+  // The starter inventory's advice was "do not design it from ST01-012 alone —
+  // that is the easy one", and these are what checked it. The unconditional
+  // ban, the ban predicated on the candidate's power, the ban tied to a card
+  // you chose that outlives its battle, and the permission that widens the
+  // attack target set: four shapes, one `setLegality`, no special cases. The
+  // fifth — K.O. immunity in battle — is built and reachable and has no printed
+  // card here, because both OP-01 cards that print it want something else as
+  // well (an attribute filter, a name reference). `ABIL-030` pins it instead,
+  // and `docs/op01-inventory.md` says why it is not a card.
+  // -------------------------------------------------------------------------
+
+  // ST01-012 Monkey.D.Luffy
+  // "[Rush]"
+  // "[DON!! x2] [When Attacking] Your opponent cannot activate [Blocker] during
+  //  this battle."
+  //
+  // The simplest of the five and the one that would have led the design astray.
+  // No predicate on the candidate, no card to hang on, no life past the battle:
+  // a rule about a *side*, for one battle. `[Rush]` is printed and needs nothing
+  // written.
+  //
+  // What it forbids is the **activation** and nothing wider. CR 10-1-4-1
+  // defines [Blocker] as a keyword effect "allowing you to activate it by
+  // resting this card during the Block Step", and the game words the wider
+  // restriction differently: the Q&A for "cannot be rested" stops both the
+  // actions that require resting *and* being rested by another card's effect.
+  // Two phrasings, two restrictions; this is the narrow one, so an effect that
+  // rests the opponent's Blocker for some other reason is untouched.
+  'ST01-012': [
+    {
+      id: 'ST01-012-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 2 },
+      script: [
+        {
+          op: 'setLegality',
+          effect: 'forbid',
+          subject: { player: 'opponent' },
+          clause: { question: 'activateBlocker' },
+          duration: 'endOfBattle',
+        },
+      ],
+    },
+  ],
+
+  // ST01-002 Usopp
+  // "[DON!! x2] [When Attacking] Your opponent cannot activate a [Blocker]
+  //  Character that has 5000 or more power during this battle."
+  // "[Trigger] Play this card."
+  //
+  // The same ban with a predicate on the candidate, and the predicate is the
+  // interesting half: `powerMin` is read through the effective lens, so the
+  // question is asked of the power the Blocker has **at the moment it tries to
+  // block**. A 4000-power Blocker standing under somebody else's continuous
+  // +1000 is a 5000-power Blocker and falls under the ban; take the continuous
+  // away and it blocks. That is CR 2-6-3 read the only way this engine has ever
+  // read it, and PR #9's semantics applied one building over.
+  //
+  // `keyword: 'blocker'` is in the predicate because the card prints it — "a
+  // [Blocker] Character" is an adjective on the candidate here, where
+  // ST01-012's "[Blocker]" names the effect being activated. Redundant against
+  // the question, exact against the text, and correct either way.
+  //
+  // The `[Trigger]` waited four batches on put-into-play (PR #29) and this ban
+  // on batch 8. Neither half was ever written alone.
+  'ST01-002': [
+    {
+      id: 'ST01-002-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 2 },
+      script: [
+        {
+          op: 'setLegality',
+          effect: 'forbid',
+          subject: { player: 'opponent', match: { keyword: 'blocker', powerMin: 5000 } },
+          clause: { question: 'activateBlocker' },
+          duration: 'endOfBattle',
+        },
+      ],
+    },
+    {
+      id: 'ST01-002-trigger',
+      trigger: 'trigger',
+      script: [{ op: 'play', target: { self: true } }],
+    },
+  ],
+
+  // OP01-120 Shanks
+  // "[Rush]"
+  // "[When Attacking] Your opponent cannot activate a [Blocker] Character that
+  //  has 2000 or less power during this battle."
+  //
+  // ST01-002's shape with the inequality turned over and no `[DON!! xN]` gate.
+  // `docs/op01-inventory.md` listed it as also blocked by a printed-keyword
+  // filter; re-checked before this batch, that was a misreading of its own row.
+  // The keyword is a property of the candidate, `CardPredicate` carries it, and
+  // it was never a second gap.
+  'OP01-120': [
+    {
+      id: 'OP01-120-whenAttacking',
+      trigger: 'whenAttacking',
+      script: [
+        {
+          op: 'setLegality',
+          effect: 'forbid',
+          subject: { player: 'opponent', match: { keyword: 'blocker', powerMax: 2000 } },
+          clause: { question: 'activateBlocker' },
+          duration: 'endOfBattle',
+        },
+      ],
+    },
+  ],
+
+  // ST01-016 Diable Jambe
+  // "[Main] Select up to 1 of your {Straw Hat Crew} type Leader or Character
+  //  cards. Your opponent cannot activate [Blocker] if that Leader or Character
+  //  attacks during this turn."
+  // "[Trigger] K.O. up to 1 of your opponent's [Blocker] Characters with a cost
+  //  of 3 or less."
+  //
+  // **The card the design had to be cut for.** Its ban is written during the
+  // Main Phase, when there is no battle at all; it must sit inert through every
+  // other card's attack; it must apply to an attack the chosen card declares
+  // minutes later; and it must expire with the turn whether that attack ever
+  // came or not. A prohibition modelled as a property of a battle could not do
+  // any of that, which is why `whileAttacker` is a field on the rule and the
+  // rule lives in the state.
+  //
+  // "Up to 1" answered with nothing writes no rule: a ban waiting on a card
+  // nobody chose can never apply, and rule 1 of the interpreter makes that a
+  // no-op rather than a failure. If the chosen card later leaves the field the
+  // rule goes with it — CR 3-1-6 makes the card that comes back a different
+  // card, and CR 10-2-13-4 applies exactly that reading to a card that returns.
+  //
+  // The `[Trigger]` is the printed-keyword filter, and it arrived as one field
+  // on `CardPredicate` rather than as a mechanism: `keyword` is asked of
+  // `hasKeyword`, so a Character that *gained* [Blocker] is a [Blocker]
+  // Character here, which is the doctrine that function has enforced since it
+  // was written.
+  'ST01-016': [
+    {
+      id: 'ST01-016-main',
+      trigger: 'mainEvent',
+      script: [
+        {
+          op: 'select',
+          as: 'chosen',
+          from: {
+            zone: 'field',
+            owner: 'you',
+            category: ['leader', 'character'],
+            types: ['Straw Hat Crew'],
+          },
+          min: 0,
+          max: 1,
+          prompt: 'Select up to 1 of your {Straw Hat Crew} Leader or Character cards',
+        },
+        {
+          op: 'setLegality',
+          effect: 'forbid',
+          subject: { player: 'opponent' },
+          clause: { question: 'activateBlocker' },
+          duration: 'endOfTurn',
+          whileAttacker: { var: 'chosen' },
+        },
+      ],
+    },
+    {
+      id: 'ST01-016-trigger',
+      trigger: 'trigger',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: {
+            zone: 'field',
+            owner: 'opponent',
+            category: ['character'],
+            keyword: 'blocker',
+            costMax: 3,
+          },
+          min: 0,
+          max: 1,
+          prompt: "K.O. up to 1 of your opponent's [Blocker] Characters with a cost of 3 or less",
+        },
+        { op: 'ko', target: { var: 'victim' } },
+      ],
+    },
+  ],
+
+  // OP01-021 Franky
+  // "[DON!! x1] This Character can also attack your opponent's active
+  //  Characters."
+  //
+  // The reframing, printed. This is not a prohibition and it is not a second
+  // mechanism: it is the same rule pointed the other way, widening CR 7-1-1-2's
+  // "the opponent's Leader card or 1 of their **rested** Character cards" for
+  // one card and no other.
+  //
+  // A `static`, because `[DON!! x1]` is a condition re-read every time the
+  // question is asked and not a duration (CR 8-1-3-3 against 8-1-4-2). Take the
+  // DON!! off and the permission is gone the same instant, with nothing to
+  // clean up — the whole reason continuous effects write nothing to the state.
+  //
+  // Attacking an active Character changes nothing else about the battle: the
+  // target is not rested by being attacked (no rule in CR 7-1 does that), the
+  // Block Step still happens, and the Damage Step still K.O.s a loser
+  // (CR 7-1-4-1-2). Only the target set moved.
+  'OP01-021': [
+    {
+      id: 'OP01-021-static',
+      trigger: 'static',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [],
+      affects: { self: true },
+      grants: {
+        legality: {
+          effect: 'allow',
+          clause: { question: 'attack', target: { orientation: 'active' } },
+        },
+      },
+    },
+  ],
+
+  // OP01-112 Page One
+  // "[Activate: Main] [Once Per Turn] DON!! −1: This Character can also attack
+  //  your opponent's active Characters during this turn."
+  //
+  // Franky's permission bought rather than owned, and the pair is what proves
+  // the mechanism has one shape and not two: the same clause, written by a
+  // script with a duration instead of read off a static. `DON!! −1` is
+  // `returnDon`, which has existed since PR #11, and the `[Once Per Turn]` is
+  // printed so it is written.
+  //
+  // The subject is `{ cards: { self: true } }` rather than a side: the
+  // permission is this Character's, and a rule naming a card by identity dies
+  // with it if it leaves the field (CR 3-1-6).
+  'OP01-112': [
+    {
+      id: 'OP01-112-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      cost: [{ kind: 'returnDon', count: 1 }],
+      script: [
+        {
+          op: 'setLegality',
+          effect: 'allow',
+          subject: { cards: { self: true } },
+          clause: { question: 'attack', target: { orientation: 'active' } },
+          duration: 'endOfTurn',
+        },
+      ],
     },
   ],
 });

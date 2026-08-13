@@ -495,6 +495,22 @@ a reminder that a B item's cost is not always confined to the DSL, and that
 "missing expressiveness" and "missing rule" are labels for where a gap *starts*,
 not for everything it touches.
 
+**Both of those second-place items are now built, and the second of them proved
+the point above twice over.** Put-into-play went first (PR #29). Modifiable
+legality followed, and it is the largest counter-example this list has to its own
+labels: it began as a B item — "the DSL cannot say *cannot*" — and its
+implementation touched `legalActions`, `applyAction`, the Damage Step, two
+expiry sites and the field-exit path, while adding exactly one instruction to the
+DSL. `restSelf` reached one extra building; this reached three, and the
+`legalActions` half is the same lesson: a prohibition has to be **invisible**,
+not refused, or the affordance contract breaks.
+
+It also closed the last of the four structural holes
+`docs/starter-card-inventory.md` opened with, and corrected one of them on the
+way: the hole was never "the DSL can only add". It was that `Modifier` could say
+two things about a card, so *everything* that changes what a player may do fell
+outside it, permissions included.
+
 The ranking rule did not change; what changed is that the A column ran out. The
 next time an A item appears it will still outrank everything in B, which is
 precisely why the two lists stay separate even while one of them is empty.

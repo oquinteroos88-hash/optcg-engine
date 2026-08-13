@@ -238,12 +238,17 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
       // battleResolved carries no player: derive it from the attacker.
       const attackerCard = state.cards[event.attacker];
       const player = attackerCard === undefined ? null : attackerCard.controller;
+      // `koPrevented` deliberately does not share wording with `noEffect`: the
+      // attack won its comparison and the Character stood anyway, which is a
+      // different thing from an attack that lost.
       const outcome =
         event.outcome === 'ko'
           ? `${nameOf(state, event.target)} queda KO`
           : event.outcome === 'lifeDamage'
             ? 'el ataque impacta en la vida'
-            : 'el ataque no tiene efecto';
+            : event.outcome === 'koPrevented'
+              ? `${nameOf(state, event.target)} no puede quedar KO en combate`
+              : 'el ataque no tiene efecto';
       return { player, text: `combate resuelto: ${outcome}` };
     }
     case 'battleEndedEarly': {
@@ -294,6 +299,19 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
         player: state.cards[event.target]?.controller ?? null,
         text: `${nameOf(state, event.target)} gana ${PRINTED_KEYWORD[event.keyword]}`,
       };
+    case 'legalitySet': {
+      const question =
+        event.question === 'activateBlocker'
+          ? 'activar [Blocker]'
+          : event.question === 'attack'
+            ? 'elegir a quien atacar'
+            : 'quedar KO en combate';
+      const verb = event.effect === 'forbid' ? 'restringe' : 'amplia';
+      return {
+        player: state.cards[event.source]?.controller ?? null,
+        text: `${nameOf(state, event.source)} ${verb}: ${question}`,
+      };
+    }
     case 'orientationChanged':
       return {
         player: state.cards[event.instanceId]?.controller ?? null,
@@ -349,6 +367,10 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
 const EFFECT_EVENTS = new Set<GameEvent['type']>([
   'powerGranted',
   'keywordGranted',
+  // An ability whose whole output is a legality rule changes nothing a board
+  // reading can show. Without this line it would look exactly like an "up to 1"
+  // answered with nothing, which is the bug this set exists to prevent.
+  'legalitySet',
   'koed',
   'cardMoved',
   'cardDiscarded',

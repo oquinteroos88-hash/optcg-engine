@@ -112,6 +112,16 @@ export const MARK_NAMES = [
   'keyword.banish',
   'static.powerApplied',
   'static.keywordApplied',
+  'static.legalityApplied',
+
+  // Modifiable legality. The two directions are counted apart because they are
+  // the two halves of the hole this mechanism closed, and a run that reaches
+  // only one of them has only half-tested it.
+  'legality.forbidden',
+  'legality.allowed',
+  'op.setLegality',
+  'op.setLegalityNoSubject',
+  'battle.koPrevented',
 
   // Damage.
   'damage.absorbedByEmptyLife',

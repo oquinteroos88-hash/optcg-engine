@@ -36,7 +36,7 @@ import { OP01_DECKS, OP01_ODEN_DECKS, OP01_ZORO_DECKS } from './support.js';
  * nothing, and the starter seeds two packages over have never moved.
  */
 
-const SEEDS = [199, 170, 301, 19, 2, 6, 21, 98, 117, 292] as const;
+const SEEDS = [1, 3, 310, 148, 19, 97, 275, 6, 14] as const;
 const ACTIONS = 400;
 
 /**
@@ -76,6 +76,8 @@ const BATCH_ABILITIES = [
   // Batch 6 — the two red cards that put cards on the field.
   'OP01-009-trigger',
   'OP01-014-onBlock',
+  // Batch 8 - the [Blocker] ban predicated on the candidate's current power.
+  'OP01-120-whenAttacking',
   // Batch 4 — `OP01-007` and `OP01-039` are here; `OP01-001` and `OP01-032` are
   // not and never can be. A `static` is **read**, never fired, so it emits no
   // `abilityTriggered` and cannot belong to a set of ability ids. Both are

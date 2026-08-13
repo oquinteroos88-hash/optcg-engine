@@ -347,9 +347,15 @@ describe('a whole game of ST-01 against ST-02, clicked from end to end', () => {
       expect(fired, id).toContain(id);
     }
     // And the games really end. A uniform clicker attaches DON!! and activates
-    // abilities as readily as it attacks, so these seven run the decks out
-    // rather than the Life; `lifeOut` is what the engine's own suite pins.
-    expect([...reasons].sort()).toEqual(['deckOut']);
+    // abilities as readily as it attacks, so most of these seven run the decks
+    // out rather than the Life.
+    //
+    // `lifeOut` joined the set when the [Blocker] prohibitions landed, and it is
+    // the mechanism showing up in the crudest possible measurement: a ban that
+    // withholds a block is an attack that lands, and enough of those end a game
+    // on Life before the deck runs dry. Both endings are asserted rather than
+    // one, because a set that quietly grew is the thing this line is for.
+    expect([...reasons].sort()).toEqual(['deckOut', 'lifeOut']);
     expect(errorSpy).not.toHaveBeenCalled();
   });
 });

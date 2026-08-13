@@ -24,10 +24,11 @@ const SETUP = { seed: 82, deckIdP1: 'ST-01', deckIdP2: 'ST-02', firstPlayer: 'p1
 /**
  * The same seeds the engine-level corpus uses (`tests/corpus.ts`), re-searched
  * once when the drivers stopped choosing by index. Seed 82 is the one that
- * turns a Gum-Gum Jet Pistol over as damage while clicking, which is the only
- * way this suite reaches `ST01-015-trigger`.
+ * turned a Gum-Gum Jet Pistol over as damage while clicking. Seed 83 does that
+ * job now: giving the ST-02 Leader and two of its cards abilities changed what
+ * the bot has to click, and every click game after it moved.
  */
-const CLICK_SEEDS = [82, 465, 160, 9, 8, 46, 105] as const;
+const CLICK_SEEDS = [82, 465, 160, 9, 8, 46, 105, 83] as const;
 const MAX_TURNS_OF_CLICKING = 4000;
 
 let errorSpy: ReturnType<typeof vi.spyOn>;

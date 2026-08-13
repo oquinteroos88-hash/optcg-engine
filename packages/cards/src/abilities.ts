@@ -10,9 +10,10 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * are loaded — same shape on the other side, same public registry, same
  * `getAbilities` lookup. Nothing about the engine changes.
  *
- * Scope of this file today: **54 cards** — the 16 starter cards whose printed
- * abilities the DSL can express, **all 35** of OP-01 pile A, and the 3 OP-01
- * cards that a player-chosen payment freed out of pile C. It
+ * Scope of this file today: **64 cards** — the 18 starter cards whose printed
+ * abilities the DSL can express, **all 35** of OP-01 pile A, and the 11 OP-01
+ * cards that a chosen payment (3) and putting cards into play (8) freed out of
+ * pile C. It
  * opened with the pile-A cards of `docs/starter-card-inventory.md` and has
  * grown one closed gap at a time (PRs #11, #12, #13, and the rest-the-source
  * cost), so the pile labels no longer describe its starter contents. The two
@@ -30,9 +31,9 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  *   reminder, and a printed keyword is already a rule the engine applies from
  *   `CardDefinition.keywords`. Writing an ability for them would be writing the
  *   same rule twice.
- * - `ST02-005` and `ST02-017` — one printed half each fits the DSL today and
- *   the other needs a card *put into play*. A card whose printed text is half
- *   implemented is worse than one that is honestly missing.
+ * `ST02-005` and `ST02-017` were on this list for four batches, each with one
+ * printed half the DSL could express and one that needed a card *put into
+ * play*. Batch 6 built that, and both are scripted below.
  *
  * `OP01-017` Nico Robin was in this list for one PR and is not any more. She
  * was written, her table cases passed, and she was withheld because the
@@ -57,6 +58,31 @@ import type { Ability, CardId, Condition, Instruction } from '@optcg/engine';
  * the stack item, so two abilities reading one list stay independent at run
  * time.
  */
+/**
+ * "Play up to 1 {Baroque Works} type Character card with a cost of 3 or less
+ * from your hand."
+ *
+ * Shared between OP01-087's two halves for the same reason JET_PISTOL is: the
+ * card's [Trigger] reads "Activate this card's [Counter] effect", which points
+ * at the effect rather than restating it.
+ */
+const OFFICER_AGENTS: Instruction[] = [
+  {
+    op: 'select',
+    as: 'recruit',
+    from: {
+      zone: 'hand',
+      owner: 'you',
+      category: ['character'],
+      types: ['Baroque Works'],
+      costMax: 3,
+    },
+    min: 0,
+    max: 1,
+    prompt: 'Play up to 1 {Baroque Works} type Character card with a cost of 3 or less',
+  },
+  { op: 'play', target: { var: 'recruit' } },
+];
 const JET_PISTOL: Instruction[] = [
   {
     op: 'select',
@@ -1813,6 +1839,302 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
           prompt: "Return up to 1 of your opponent's Characters with a cost of 3 or less to hand",
         },
         { op: 'moveCard', target: { var: 'bounced' }, to: { zone: 'hand' } },
+      ],
+    },
+  ],
+/* ------------------------------------------------------------------------
+   * batch 6 — the cards that put other cards on the field
+   *
+   * The largest gap the OP-01 inventory measured, and the one it recommended
+   * second overall. Nothing in the DSL could put a card in the Character area:
+   * `moveCard` moves between zones and `ZoneRef` has no `field` member, which was
+   * the visible half. The other half is that "play this card" is a *routine* —
+   * an `[On Play]` to fire (official Q&A: you must activate it whenever
+   * possible), a summoning-sickness stamp (CR 3-7-4), an orientation (CR 3-7-5),
+   * and a 6th-Character sacrifice the controller has to be *asked* about
+   * (CR 3-7-6-1). The op is `play`, and it shares `enterCharacterArea` with the
+   * `PLAY_CARD` action rather than reimplementing any of it.
+   *
+   * **No cost is paid.** CR 6-5-3-1's "you can pay the cost and play a Character
+   * card" is the Main Phase action; CR 3-7-3 calls the bare placing of a card in
+   * the Character area "playing" it. Card effects use the second sense — and two
+   * of the cards below settle it on their own, because `OP01-014`'s `[On Block]`
+   * and `ST02-017`'s `[Trigger]` both fire on the *opponent's* turn, when the
+   * defender's cost area is empty. See `rules.playFromEffectPaysCost`.
+   *
+   * Six of these are the whole text of their card: "[Trigger] Play this card."
+   * They are the cheapest cards in the set to write and were the most expensive
+   * to reach.
+   * --------------------------------------------------------------------- */
+
+  // ST02-005 Killer
+  // "[On Play] K.O. up to 1 of your opponent's rested Characters with a cost of
+  //  3 or less."
+  // "[Trigger] Play this card."
+  //
+  // Withheld since the starter inventory with `ST02-017`, for exactly this gap:
+  // the `[On Play]` half always fitted and the `[Trigger]` half did not, and a
+  // card whose printed text is half implemented is worse than one that is
+  // honestly missing.
+  //
+  // The two halves compose in one direction only, and it is the interesting one:
+  // the `[Trigger]` plays this card, which fires its own `[On Play]`. An effect
+  // nesting inside an effect, queued underneath the running one, so the
+  // `[Trigger]` script finishes before the K.O. resolves.
+  'ST02-005': [
+    {
+      id: 'ST02-005-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: {
+            zone: 'field',
+            owner: 'opponent',
+            category: ['character'],
+            orientation: 'rested',
+            costMax: 3,
+          },
+          min: 0,
+          max: 1,
+          prompt: "K.O. up to 1 of your opponent's rested Characters with a cost of 3 or less",
+        },
+        { op: 'ko', target: { var: 'victim' } },
+      ],
+    },
+    {
+      id: 'ST02-005-trigger',
+      trigger: 'trigger',
+      script: [{ op: 'play', target: { self: true } }],
+    },
+  ],
+
+  // ST02-017 Straw Sword
+  // "[Main] Rest up to 1 of your opponent's Characters."
+  // "[Trigger] Play up to 1 {Supernovas} type card with a cost of 2 or less from
+  //  your hand."
+  //
+  // **A scoped narrowing, declared.** The printed text says "card", and the
+  // selector below says Character card. ST-02 holds three {Supernovas} Events at
+  // cost 2 or less, so the word is not idle — but "playing" an Event means
+  // *activating* it (CR 6-5-3-1 lists "play a Character card or Stage card, or
+  // activate an Event card marked with [Main]"), and this `[Trigger]` resolves
+  // inside a Damage Step, where CR 6-5-3-1's Main Phase permission does not
+  // reach. All three of those Events are `[Counter]` or `[Main]`, so none of
+  // them could be activated here anyway: no reachable position tells the two
+  // readings apart.
+  'ST02-017': [
+    {
+      id: 'ST02-017-main',
+      trigger: 'mainEvent',
+      script: [
+        {
+          op: 'select',
+          as: 'target',
+          from: { zone: 'field', owner: 'opponent', category: ['character'] },
+          min: 0,
+          max: 1,
+          prompt: "Rest up to 1 of your opponent's Characters",
+        },
+        { op: 'rest', target: { var: 'target' } },
+      ],
+    },
+    {
+      id: 'ST02-017-trigger',
+      trigger: 'trigger',
+      script: [
+        {
+          op: 'select',
+          as: 'recruit',
+          from: {
+            zone: 'hand',
+            owner: 'you',
+            category: ['character'],
+            types: ['Supernovas'],
+            costMax: 2,
+          },
+          min: 0,
+          max: 1,
+          prompt: 'Play up to 1 {Supernovas} type Character card with a cost of 2 or less',
+        },
+        { op: 'play', target: { var: 'recruit' } },
+      ],
+    },
+  ],
+
+  /* -- the six whose whole text is "[Trigger] Play this card." -------------
+   *
+   * `{ self: true }` is the target, and it names a card that is *in hand*: the
+   * engine adds a damaged life card to the hand and offers its `[Trigger]` from
+   * there. CR 10-1-5-3 has the card "not belong in any area" during its own
+   * `[Trigger]` and be trashed afterwards "unless otherwise specified" — a
+   * different route to the same board, since "play this card" is precisely the
+   * "otherwise specified", and a declined `[Trigger]` leaves the card in hand
+   * under both readings. The divergence is declared in the engine README and is
+   * not observable here.
+   *
+   * `OP01-009` Carrot prints this line in `effectText` rather than `triggerText`,
+   * which is a transcription quirk of the source data and not a rules
+   * difference; the ability is a `trigger` either way.
+   * --------------------------------------------------------------------- */
+
+  'OP01-009': [
+    { id: 'OP01-009-trigger', trigger: 'trigger', script: [{ op: 'play', target: { self: true } }] },
+  ],
+
+  'OP01-037': [
+    { id: 'OP01-037-trigger', trigger: 'trigger', script: [{ op: 'play', target: { self: true } }] },
+  ],
+
+  'OP01-082': [
+    { id: 'OP01-082-trigger', trigger: 'trigger', script: [{ op: 'play', target: { self: true } }] },
+  ],
+
+  'OP01-104': [
+    { id: 'OP01-104-trigger', trigger: 'trigger', script: [{ op: 'play', target: { self: true } }] },
+  ],
+
+  // OP01-071 Jinbe
+  // "[On Play] Place up to 1 Character with a cost of 3 or less at the bottom of
+  //  the owner's deck."
+  // "[Trigger] Play this card."
+  //
+  // "1 Character", not "1 of your opponent's Characters": `owner: 'any'`, and the
+  // controller may bottom-deck their own. `moveCard` sends it to the *owner's*
+  // deck, which is the physical rule and the reason `ZoneRef` carries no owner.
+  //
+  // Played by its own `[Trigger]`, its `[On Play]` fires from the field and can
+  // reach the board it just joined — it costs 4, so it can never bottom-deck
+  // itself.
+  'OP01-071': [
+    {
+      id: 'OP01-071-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'sunk',
+          from: { zone: 'field', owner: 'any', category: ['character'], costMax: 3 },
+          min: 0,
+          max: 1,
+          prompt: "Place up to 1 Character with a cost of 3 or less at the bottom of the owner's deck",
+        },
+        { op: 'moveCard', target: { var: 'sunk' }, to: { zone: 'deck' }, position: 'bottom' },
+      ],
+    },
+    { id: 'OP01-071-trigger', trigger: 'trigger', script: [{ op: 'play', target: { self: true } }] },
+  ],
+
+  // OP01-014 Jinbe
+  // "[Blocker]" — printed keyword.
+  // "[DON!! x1] [On Block] Play up to 1 red Character card with a cost of 2 or
+  //  less from your hand."
+  //
+  // An **auto** effect, so no "you may" is printed and none is written: it must
+  // activate and resolve to the extent possible (CR 8-1-2). The "up to 1" is the
+  // only choice, and choosing nothing is legal (CR 8-4-4-1).
+  //
+  // It fires on the *opponent's* turn, which is what makes the payment question
+  // moot rather than theoretical: a defender who has just blocked has an empty
+  // cost area, so a version of this card that charged 2 DON!! would be a card
+  // that never worked.
+  'OP01-014': [
+    {
+      id: 'OP01-014-onBlock',
+      trigger: 'onBlock',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [
+        {
+          op: 'select',
+          as: 'recruit',
+          from: {
+            zone: 'hand',
+            owner: 'you',
+            category: ['character'],
+            colors: ['red'],
+            costMax: 2,
+          },
+          min: 0,
+          max: 1,
+          prompt: 'Play up to 1 red Character card with a cost of 2 or less from your hand',
+        },
+        { op: 'play', target: { var: 'recruit' } },
+      ],
+    },
+  ],
+
+  // OP01-087 Officer Agents
+  // "[Counter] Play up to 1 {Baroque Works} type Character card with a cost of 3
+  //  or less from your hand."
+  // "[Trigger] Activate this card's [Counter] effect."
+  //
+  // The Jet Pistol pattern: the `[Trigger]` does not restate the effect, it
+  // points at it, so one shared list is the only encoding where the two cannot
+  // drift apart.
+  'OP01-087': [
+    { id: 'OP01-087-counter', trigger: 'counterEvent', script: OFFICER_AGENTS },
+    { id: 'OP01-087-trigger', trigger: 'trigger', script: OFFICER_AGENTS },
+  ],
+// OP01-060 Donquixote Doflamingo (Leader)
+  // "[DON!! x2] [When Attacking] ➀ (You may rest the specified number of DON!!
+  //  cards in your cost area.): Reveal 1 card from the top of your deck. If that
+  //  card is a {The Seven Warlords of the Sea} type Character card with a cost of
+  //  4 or less, you may play that card rested."
+  //
+  // The only card in this batch that plays from somewhere other than the hand,
+  // and the only one that plays a card **rested** — CR 3-7-5 places cards active
+  // "unless otherwise specified", and this is the printed card that specifies
+  // otherwise. It is therefore also the only one whose new Character is not
+  // summoning-sick in any way that matters: it cannot attack this turn either
+  // way (CR 3-7-4), and it arrives already unable to block.
+  //
+  // Three decisions in a row, which is what makes it the most expensive card
+  // here to reach: the optional cost (`optional: true`, CR 8-1-2 — an auto effect
+  // whose "you may" has nowhere else to live), then the reveal, then a second
+  // "you may" on the play itself, which is `confirm` + `varTrue`.
+  //
+  // "If that card is..." is a predicate about a card the script already holds,
+  // which the DSL cannot say. It does not need to: `reveal` moves nothing, so the
+  // card is still on top of the deck and a second `deckTop` selector with
+  // `count: 1` names the same card. The inventory called this out before any of
+  // it was built.
+  'OP01-060': [
+    {
+      id: 'OP01-060-whenAttacking',
+      trigger: 'whenAttacking',
+      optional: true,
+      condition: { kind: 'donAttached', min: 2 },
+      cost: [{ kind: 'restDon', count: 1 }],
+      script: [
+        { op: 'reveal', as: 'top', from: { zone: 'deckTop', owner: 'you', count: 1 } },
+        {
+          op: 'if',
+          cond: {
+            kind: 'countCards',
+            selector: {
+              zone: 'deckTop',
+              owner: 'you',
+              count: 1,
+              category: ['character'],
+              types: ['The Seven Warlords of the Sea'],
+              costMax: 4,
+            },
+            min: 1,
+          },
+          then: [
+            {
+              op: 'confirm',
+              as: 'takeIt',
+              prompt: 'Play the revealed {The Seven Warlords of the Sea} Character rested?',
+            },
+            {
+              op: 'if',
+              cond: { kind: 'varTrue', name: 'takeIt' },
+              then: [{ op: 'play', target: { var: 'top' }, rested: true }],
+            },
+          ],
+        },
       ],
     },
   ],

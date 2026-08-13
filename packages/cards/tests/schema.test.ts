@@ -80,12 +80,14 @@ describe('the normalized set', () => {
     // script attached to a card nobody meant to touch.
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
-      // OP-01 pile A, complete; the three pile-C cards a chosen payment
-      // freed; and the starter set.
+      // OP-01 pile A, complete; the eleven pile-C cards a chosen payment and
+      // putting cards into play freed; and the starter set.
       'OP01-001',
       'OP01-003',
       'OP01-006',
       'OP01-007',
+      'OP01-009',
+      'OP01-014',
       'OP01-017',
       'OP01-020',
       'OP01-022',
@@ -98,6 +100,7 @@ describe('the normalized set', () => {
       'OP01-033',
       'OP01-034',
       'OP01-035',
+      'OP01-037',
       'OP01-039',
       'OP01-048',
       'OP01-052',
@@ -106,17 +109,22 @@ describe('the normalized set', () => {
       'OP01-057',
       'OP01-058',
       'OP01-059',
+      'OP01-060',
       'OP01-064',
       'OP01-068',
       'OP01-070',
+      'OP01-071',
       'OP01-078',
       'OP01-079',
       'OP01-080',
+      'OP01-082',
       'OP01-086',
+      'OP01-087',
       'OP01-089',
       'OP01-094',
       'OP01-096',
       'OP01-097',
+      'OP01-104',
       'OP01-108',
       'OP01-111',
       'OP01-117',
@@ -131,11 +139,13 @@ describe('the normalized set', () => {
       'ST01-017',
       'ST02-001',
       'ST02-003',
+      'ST02-005',
       'ST02-008',
       'ST02-009',
       'ST02-013',
       'ST02-015',
       'ST02-016',
+      'ST02-017',
     ]);
   });
 });

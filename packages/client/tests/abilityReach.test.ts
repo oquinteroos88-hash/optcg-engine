@@ -100,12 +100,16 @@ const FIRING_ABILITIES = [
   'ST01-015-trigger',
   'ST01-017-main',
   'ST02-001-main',
+  'ST02-005-onPlay',
+  'ST02-005-trigger',
   'ST02-008-whenAttacking',
   'ST02-009-onPlay',
   'ST02-013-endOfTurn',
   'ST02-015-counter',
   'ST02-015-trigger',
   'ST02-016-counter',
+  'ST02-017-main',
+  'ST02-017-trigger',
 ] as const;
 
 interface Firing {
@@ -157,7 +161,12 @@ describe('every scripted ability is reachable through the UI', () => {
       // Activated Main abilities: the contextual menu is the only way in.
       ACTIVATE_ABILITY: ['ST01-001-main', 'ST01-007-main', 'ST01-017-main'],
       // Playing the card is what fires it — [On Play], and the Event's main half.
-      PLAY_CARD: ['ST01-011-onPlay', 'ST01-015-main', 'ST02-009-onPlay'],
+      PLAY_CARD: [
+        'ST01-011-onPlay',
+        'ST01-015-main',
+        'ST02-009-onPlay',
+        'ST02-017-main',
+      ],
       // Declaring the attack fires [When Attacking].
       DECLARE_ATTACK: ['ST01-005-whenAttacking', 'ST02-008-whenAttacking'],
       // [Counter] Events, the action PLAY_COUNTER cannot express.
@@ -177,11 +186,19 @@ describe('every scripted ability is reachable through the UI', () => {
       // the ST-02 Leader is the answer to its own payment, not the activation
       // that started it, and the UI has to publish a `pendingChoice` for a cost
       // and not only for a script.
+      // Four of these are here because the *answer* is what fires them, not the
+      // move that opened the question. ST02-001's cost asks which card pays;
+      // ST02-005 and ST02-017 are life [Trigger]s, whose opt-in is an answer —
+      // and ST02-005-onPlay is here because the card its own [Trigger] played
+      // announces itself on that same answer, one effect deep.
       ANSWER_CHOICE: [
         'ST01-014-trigger',
         'ST01-015-trigger',
         'ST02-001-main',
+        'ST02-005-onPlay',
+        'ST02-005-trigger',
         'ST02-015-trigger',
+        'ST02-017-trigger',
       ],
     });
   });

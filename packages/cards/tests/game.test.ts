@@ -164,7 +164,7 @@ describe('a real game, ST-01 against ST-02', () => {
     // the cards: the driver chooses by a hash of each action's content rather
     // than by its index into `legalActions`, so adding a card does not re-run
     // this search. Changing the policy does, and this was that change.
-    const SEEDS = [121, 292, 16, 320];
+    const SEEDS = [186, 39, 1, 41, 99];
     const fired = new Set<string>();
     const manifested = new Set<string>();
     for (const seed of SEEDS) {
@@ -188,12 +188,16 @@ describe('a real game, ST-01 against ST-02', () => {
       'ST01-015-trigger',
       'ST01-017-main',
       'ST02-001-main',
+      'ST02-005-onPlay',
+      'ST02-005-trigger',
       'ST02-008-whenAttacking',
       'ST02-009-onPlay',
       'ST02-013-endOfTurn',
       'ST02-015-counter',
       'ST02-015-trigger',
       'ST02-016-counter',
+      'ST02-017-main',
+      'ST02-017-trigger',
     ]);
     // The three self-targeting statics have no event to fire; they are affirmed
     // by having been read off the board while in effect during a real game.

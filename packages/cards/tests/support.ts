@@ -6,6 +6,7 @@ import { registerEnglishCards, ST01_DECK, ST02_DECK, toEngineDecklist } from '..
 import {
   OP01_BP_CROCODILE,
   OP01_BP_EVERYTHING,
+  OP01_B_DOFLAMINGO,
   OP01_BP_KAIDO,
   OP01_G_ODEN,
   OP01_RG_EVERYTHING,
@@ -71,6 +72,21 @@ export const OP01_ZORO_DECKS = {
 };
 
 const OP01_ODEN_DECK = toEngineDecklist(OP01_G_ODEN);
+const OP01_DOFFY_DECK = toEngineDecklist(OP01_B_DOFLAMINGO);
+
+/**
+ * Mono-blue, Doflamingo-led. The only deck that can reach OP01-060's ability,
+ * and the only place a card is played from the *deck* rather than the hand.
+ */
+export function op01DoflamingoScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_DOFFY_DECK, p2: OP01_DOFFY_DECK } });
+}
+
+/** Doflamingo against Crocodile, for the reveal-and-play manifestation. */
+export const OP01_DOFFY_DECKS = {
+  p1: OP01_DOFFY_DECK,
+  p2: toEngineDecklist(OP01_BP_CROCODILE),
+};
 
 /**
  * Mono-green, Oden-led. The only deck that can reach `OP01-031`'s activated

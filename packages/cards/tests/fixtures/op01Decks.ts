@@ -86,14 +86,15 @@ export const OP01_RG_LUFFY: Decklist = {
   cards: [
     ...BATCH_1,
     { cardId: 'OP01-026', qty: 3 }, // Red Hawk — [Counter] boost + K.O., [Trigger] −10000
-    { cardId: 'OP01-027', qty: 2 }, // Round Table — [Main] −10000
+    { cardId: 'OP01-027', qty: 1 }, // Round Table — [Main] −10000
     { cardId: 'OP01-028', qty: 3 }, // Green Star Rafflesia — [Counter] and [Trigger], one list
     { cardId: 'OP01-029', qty: 3 }, // Radical Beam!! — [Counter] boost + life gate, [Trigger] +1000
+    { cardId: 'OP01-009', qty: 3 }, // Carrot — [Trigger] Play this card
+    { cardId: 'OP01-014', qty: 2 }, // Jinbe — [Blocker], [On Block] play a red 2-drop
     { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-036', qty: 1 }, // Otsuru — vanilla, cost 1, 3000
-    { cardId: 'OP01-053', qty: 2 }, // Wire — vanilla, cost 2, 4000
     { cardId: 'OP01-020', qty: 2 }, // Hyogoro — [Activate: Main] rest itself, +2000
-    { cardId: 'OP01-007', qty: 4 }, // Caribou — [On K.O.] K.O. up to 1 with 4000 or less
+    { cardId: 'OP01-007', qty: 2 }, // Caribou — [On K.O.] K.O. up to 1 with 4000 or less
   ],
 };
 
@@ -165,16 +166,19 @@ export const OP01_RG_EVERYTHING: Decklist = {
     { cardId: 'OP01-048', qty: 2 },
     { cardId: 'OP01-052', qty: 2 },
     { cardId: 'OP01-054', qty: 2 },
-    { cardId: 'OP01-056', qty: 2 },
+    { cardId: 'OP01-056', qty: 1 },
     { cardId: 'OP01-057', qty: 2 },
     { cardId: 'OP01-058', qty: 2 },
+    { cardId: 'OP01-009', qty: 1 }, // Carrot — [Trigger] Play this card
+    { cardId: 'OP01-014', qty: 1 }, // Jinbe — [Blocker], [On Block] play a red 2-drop
     // And the inert bodies the positions are built out of. Every one of these
     // is named by a table case somewhere: dropping one silently breaks a test
     // several files away with "no OP01-0xx left in the deck".
     { cardId: 'OP01-010', qty: 3 }, // Komachiyo — vanilla, cost 1, 3000
     { cardId: 'OP01-012', qty: 2 }, // Sai — vanilla, cost 2, 4000
-    { cardId: 'OP01-053', qty: 2 }, // Wire — vanilla, cost 2, 4000
-    { cardId: 'OP01-025', qty: 2 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+    { cardId: 'OP01-053', qty: 1 }, // Wire — vanilla, cost 2, 4000
+    { cardId: 'OP01-025', qty: 1 }, // Roronoa Zoro — [Rush] only, cost 3, 5000
+    { cardId: 'OP01-018', qty: 1 }, // Hajrudin — vanilla, cost 4, 6000
     { cardId: 'OP01-036', qty: 1 }, // Otsuru — vanilla, cost 1, 3000
   ],
 };
@@ -241,11 +245,16 @@ export const OP01_G_ODEN: Decklist = {
   leader: 'OP01-031',
   cards: [
     { cardId: 'OP01-036', qty: 4 }, // Otsuru — {Land of Wano}, vanilla, cost 1
-    // Wire and not Kawamatsu, who is the pool's other {Land of Wano} 2-drop:
-    // Kawamatsu prints "[Trigger] Play this card", and a fixture whose filler
-    // has unwritten text is a fixture that quietly measures less than it says.
-    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2, 4000
-    { cardId: 'OP01-043', qty: 4 }, // Shinobu — {Land of Wano}, vanilla, cost 3
+    // Kawamatsu, who batch 5 could not use: his whole printed text is
+    // "[Trigger] Play this card", and a fixture whose filler has unwritten text
+    // measures less than it says. Batch 6 wrote it, so he is back and he is no
+    // longer filler.
+    { cardId: 'OP01-037', qty: 4 }, // Kawamatsu — [Trigger] Play this card
+    { cardId: 'OP01-043', qty: 2 }, // Shinobu — {Land of Wano}, vanilla, cost 3
+    // Two Wire, and they are load-bearing rather than filler: the table cases
+    // for OP01-031 and OP01-059 need a green card that is *not* {Land of Wano},
+    // to show the cost filter refusing one.
+    { cardId: 'OP01-053', qty: 2 }, // Wire — {Kid Pirates}, vanilla, cost 2
     { cardId: 'OP01-048', qty: 4 }, // Nekomamushi — [On Play] rest
     { cardId: 'OP01-033', qty: 4 }, // Izo — [On Play] rest
     { cardId: 'OP01-034', qty: 4 }, // Inuarashi — [When Attacking] refresh DON!!
@@ -296,7 +305,10 @@ const BATCH_3_BP = [
   { cardId: 'OP01-068', qty: 2 }, // Gecko Moria — static [Double Attack]
   { cardId: 'OP01-070', qty: 2 }, // Dracule Mihawk — [On Play] bottom-deck
   { cardId: 'OP01-078', qty: 2 }, // Boa Hancock — [When Attacking]/[On Block] draw
-  { cardId: 'OP01-079', qty: 2 }, // Ms. All Sunday — [On K.O.] recover an Event
+  { cardId: 'OP01-079', qty: 4 }, // Ms. All Sunday — [On K.O.] recover an Event
+  //                                 four, not two: OP01-087 plays a {Baroque
+  //                                 Works} 3-drop, so a staged position needs
+  //                                 one on the board and one still in hand
   { cardId: 'OP01-080', qty: 2 }, // Miss Doublefinger — [On K.O.] draw
   { cardId: 'OP01-086', qty: 2 }, // Overheat — [Counter] and [Trigger] bounce
   { cardId: 'OP01-089', qty: 2 }, // Crescent Cutlass — [Counter] bounce
@@ -307,6 +319,10 @@ const BATCH_3_BP = [
   { cardId: 'OP01-111', qty: 2 }, // Black Maria — [On Block] +1000
   { cardId: 'OP01-117', qty: 2 }, // Sheep's Horn — [Main] rest
   { cardId: 'OP01-064', qty: 2 }, // Alvida — [When Attacking] discard, bounce
+  { cardId: 'OP01-071', qty: 2 }, // Jinbe — [On Play] bottom-deck, [Trigger] play self
+  { cardId: 'OP01-082', qty: 2 }, // Monet — [Trigger] Play this card
+  { cardId: 'OP01-087', qty: 2 }, // Officer Agents — [Counter]/[Trigger] play a Baroque Works
+  { cardId: 'OP01-104', qty: 2 }, // Speed — [Trigger] Play this card
 ] as const;
 
 /**
@@ -333,11 +349,12 @@ export const OP01_BP_CROCODILE: Decklist = {
     { cardId: 'OP01-086', qty: 4 },
     { cardId: 'OP01-089', qty: 4 },
     { cardId: 'OP01-064', qty: 4 }, // Alvida — [When Attacking] discard, bounce
-    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-082', qty: 4 }, // Monet — [Trigger] Play this card
+    { cardId: 'OP01-087', qty: 2 }, // Officer Agents — [Counter]/[Trigger] play a Baroque Works
+    { cardId: 'OP01-076', qty: 2 }, // Bellamy — vanilla, cost 2
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
     { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
-    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
   ],
 };
 
@@ -364,9 +381,9 @@ export const OP01_BP_KAIDO: Decklist = {
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
     { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
-    { cardId: 'OP01-107', qty: 4 }, // Babanuki — vanilla, cost 5
+    { cardId: 'OP01-107', qty: 2 }, // Babanuki — vanilla, cost 5
+    { cardId: 'OP01-104', qty: 4 }, // Speed — [Trigger] Play this card
     { cardId: 'OP01-110', qty: 2 }, // Fukurokuju — vanilla, cost 6
-    { cardId: 'OP01-092', qty: 2 }, // Urashima — vanilla, cost 7
     // Blue, and legal under a blue/purple Leader. Present so the type-gated
     // abilities of OP01-079 and OP01-089 can be tested where the gate FAILS —
     // Kaido carries neither {Baroque Works} nor {The Seven Warlords of the Sea}.
@@ -390,12 +407,49 @@ export const OP01_BP_EVERYTHING: Decklist = {
   leader: 'OP01-062',
   cards: [
     ...BATCH_3_BP,
+    { cardId: 'OP01-076', qty: 2 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-081', qty: 2 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-100', qty: 2 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-066', qty: 2 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-065', qty: 2 }, // Vergo — vanilla, cost 5
+    { cardId: 'OP01-103', qty: 2 }, // Scratchmen Apoo — vanilla, cost 4
+  ],
+};
+
+/**
+ * Leader `OP01-060` Donquixote Doflamingo, mono-blue.
+ *
+ * The third fixture built around a Leader's own ability and the first built
+ * around what that ability *reveals*: Doflamingo turns the top card of the deck
+ * over and may play it rested if it is a {The Seven Warlords of the Sea}
+ * Character costing 4 or less. Two written cards in OP-01's blue pool answer
+ * that description — `OP01-068` Gecko Moria and `OP01-078` Boa Hancock — so both
+ * sit at 4 copies, 8 of the 50, which is what makes the reveal hit often enough
+ * for a random game to walk the branch.
+ *
+ * Mono-blue because Doflamingo is: `OP01-073` is the pool's third {Seven
+ * Warlords} 4-drop and stays out, because its `[On Play]` needs `orderCards`
+ * and filler with unwritten text measures less than it says.
+ */
+export const OP01_B_DOFLAMINGO: Decklist = {
+  id: 'OP01-B-DOFFY',
+  name: 'OP-01 mono-blue (test fixture, Doflamingo)',
+  packId: '569101',
+  leader: 'OP01-060',
+  cards: [
+    { cardId: 'OP01-068', qty: 4 }, // Gecko Moria — {Seven Warlords}, cost 4
+    { cardId: 'OP01-078', qty: 4 }, // Boa Hancock — {Seven Warlords}, cost 4
+    { cardId: 'OP01-064', qty: 4 }, // Alvida — [When Attacking] discard, bounce
+    { cardId: 'OP01-071', qty: 4 }, // Jinbe — [On Play] bottom-deck, [Trigger] play self
+    { cardId: 'OP01-082', qty: 4 }, // Monet — [Trigger] Play this card
+    { cardId: 'OP01-087', qty: 4 }, // Officer Agents — [Counter]/[Trigger] play
+    { cardId: 'OP01-079', qty: 4 }, // Ms. All Sunday — [On K.O.] recover an Event
+    { cardId: 'OP01-080', qty: 4 }, // Miss Doublefinger — [On K.O.] draw
+    { cardId: 'OP01-086', qty: 4 }, // Overheat — [Counter] and [Trigger] bounce
+    { cardId: 'OP01-089', qty: 2 }, // Crescent Cutlass — [Counter] bounce
     { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
     { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
-    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
     { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
-    { cardId: 'OP01-065', qty: 2 }, // Vergo — vanilla, cost 5
-    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
   ],
 };
 
@@ -406,6 +460,7 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_G_ODEN,
   OP01_RG_EVERYTHING,
   OP01_BP_CROCODILE,
+  OP01_B_DOFLAMINGO,
   OP01_BP_KAIDO,
   OP01_BP_EVERYTHING,
 ]);

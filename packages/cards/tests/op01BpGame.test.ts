@@ -223,9 +223,14 @@ describe('a real game of OP-01 blue/purple', () => {
     // Re-covered after `OP01_BP_CROCODILE` gained Mr.3: seed 47 now reaches all
     // four on its own, and the rest are kept for breadth rather than need.
     // `OP01-084-whenAttacking` is the rare one at 25 games of 300.
-    const DOFFY_SEEDS = [47, 18, 88, 25, 9];
+    // Two more ids to cover since the partition shipped: `OP01-073` and
+    // `OP01-077` are the only cards in this deck that ask it, and they fire in
+    // 87 and 142 games of 299. Seed 47 still carries the four above.
+    const DOFFY_SEEDS = [47, 18, 88, 25, 9, 27, 12];
     const fired = new Set<string>();
     let restedArrivals = 0;
+    let partitionsAsked = 0;
+    let partitionsPlaced = 0;
     for (const seed of DOFFY_SEEDS) {
       let state = createGame({ seed, decks: OP01_DOFFY_DECKS, firstPlayer: 'p1' });
       for (let step = 0; step < ACTIONS; step += 1) {
@@ -238,6 +243,10 @@ describe('a real game of OP-01 blue/purple', () => {
         }
         for (const event of result.events) {
           if (event.type === 'abilityTriggered') fired.add(event.abilityId);
+          if (event.type === 'choiceOpened' && event.kind === 'partitionCards') {
+            partitionsAsked += 1;
+          }
+          if (event.type === 'deckPartitioned') partitionsPlaced += 1;
         }
         state = result.state;
         for (const id of state.players.p1.characters) {
@@ -256,6 +265,14 @@ describe('a real game of OP-01 blue/purple', () => {
     expect(fired.has('OP01-071-trigger')).toBe(true);
     expect(fired.has('OP01-071-onPlay')).toBe(true);
     expect(fired.has('OP01-084-whenAttacking')).toBe(true);
+    // The top-or-bottom split, in a game nobody staged. Both halves of the
+    // claim: the ability resolved, and the engine really stopped to ask —
+    // 191 games of 299 reach the question, and none of them reaches the
+    // trivial empty-window branch, because a 50-card deck is never empty here.
+    expect(fired.has('OP01-073-onPlay')).toBe(true);
+    expect(fired.has('OP01-077-onPlay')).toBe(true);
+    expect(partitionsAsked).toBeGreaterThan(0);
+    expect(partitionsPlaced).toBeGreaterThan(0);
     // And at least one of those arrivals really came down sideways.
     expect(restedArrivals).toBeGreaterThan(0);
   });

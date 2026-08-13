@@ -450,6 +450,34 @@ export function answerFor(
      */
     case 'orderCards':
       return { kind: 'order', order: rankCandidates(pending.candidates, seed, decision) };
+    /**
+     * The same ranked list, cut into two sides by each card's **own** key.
+     *
+     * The perturbation property has to survive one more derivation here, and the
+     * two obvious ways of splitting break it. Cutting the ranked list at a
+     * hashed index makes every card's side depend on the list's length; sending
+     * alternate positions to alternate ends does the same. So the side comes
+     * from a second, independent slice of the card's own hash — the same trick
+     * `cardinalityFor` uses to keep "how many" from correlating with "which" —
+     * and a candidate added to the list changes nobody else's side.
+     *
+     * Order within each side is the ranked order restricted to that side, which
+     * is a filter and therefore order-preserving: relative positions of the
+     * cards that stay together are exactly what they were.
+     */
+    case 'partitionCards': {
+      const ranked = rankCandidates(pending.candidates, seed, decision);
+      const top: InstanceId[] = [];
+      const bottom: InstanceId[] = [];
+      for (const id of ranked) {
+        if ((scoreFor(seed, decision, `#side|${id}`) >>> 8) % 2 === 1) {
+          top.push(id);
+        } else {
+          bottom.push(id);
+        }
+      }
+      return { kind: 'partition', top, bottom };
+    }
   }
 }
 

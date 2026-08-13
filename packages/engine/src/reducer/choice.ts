@@ -68,6 +68,30 @@ export function validateAnswerChoice(state: GameState, action: AnswerChoiceActio
       return answer.kind === 'order'
         ? cardListReason(pending, answer.order)
         : REASONS.choiceKindMismatch;
+    /**
+     * A partition, checked by the same three properties over **both sides at
+     * once** — and that is the whole of the extra work.
+     *
+     * Concatenating the two lists and running the ordering's own check is not a
+     * shortcut, it is the argument: right total *length*, every id *from* the
+     * candidates, and no id *twice across either side* force the concatenation
+     * to be exactly the candidate multiset. From there each of the four things
+     * that could go wrong is already covered —
+     *
+     * - a card in **both** sides is a duplicate (`choiceDuplicateSelection`);
+     * - a card in **neither** side makes the total short (`choiceCardinality`);
+     * - a **foreign** id is not a candidate (`choiceCandidateUnknown`);
+     * - a card **missing** is the pigeonhole again: n distinct members drawn
+     *   from a set of n is that set.
+     *
+     * So "every card assigned exactly once" needs no reason code of its own, for
+     * the reason the ordering's missing-card case needed none: a code that can
+     * never be returned is a code that lies about the contract.
+     */
+    case 'partitionCards':
+      return answer.kind === 'partition'
+        ? cardListReason(pending, [...answer.top, ...answer.bottom])
+        : REASONS.choiceKindMismatch;
   }
 }
 

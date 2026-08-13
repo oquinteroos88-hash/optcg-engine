@@ -138,6 +138,32 @@ const MARCHOO: Instruction[] = [
   { op: 'addDon', count: 1, orientation: 'active' },
 ];
 
+/**
+ * "Look at N cards from the top of your deck and place them at the top or
+ * bottom of the deck in any order" — the whole of `OP01-073` and `OP01-077`,
+ * and the tail of `OP01-088`.
+ *
+ * Two instructions, and the shorter of the two families this printed sentence
+ * covers. `lookKeepBury` takes some cards out of the window first, so it needs
+ * `minus` to name what is left; here **nothing is taken**, so the window itself
+ * is the thing placed and the `Ref` is the variable `lookAt` recorded.
+ *
+ * It is still `lookAt` and not a bare `deckTop` selector, and the reason is PR
+ * #32's: the cards are placed by the ids that were *looked at*, never by
+ * re-reading the top of the deck. The two answers agree today and would stop
+ * agreeing the first time a script touched the deck in between.
+ */
+function lookAndSplit(count: number): Instruction[] {
+  return [
+    { op: 'lookAt', as: 'looked', count },
+    {
+      op: 'orderToDeckEnds',
+      cards: { var: 'looked' },
+      prompt: 'Place each card on the top or bottom of your deck, first card drawn first',
+    },
+  ];
+}
+
 /** ST02-007, OP01-041, OP01-030 and OP01-084, one sentence apart. */
 const SABAODY: Instruction[] = lookKeepBury(
   5,
@@ -3000,4 +3026,34 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
       grants: { power: 1000 },
     },
   ],
+
+  /* ------------------------------------------------------------------------
+   * The top-or-bottom partition — the campaign's last capability.
+   *
+   * Two cards, and they are the same sentence twice: "Look at 5 cards from the
+   * top of your deck and place them at the top or bottom of the deck in any
+   * order." Nothing is taken out of the window, so neither needs `minus`.
+   *
+   * The third OP-01 card with this text, `OP01-088` Desert Spada, is **not**
+   * here. Its `[Counter]` half is expressible now; its `[Trigger]` reads "Draw 2
+   * cards and trash 1 card from your hand", and `op: 'discard'` still takes from
+   * the front of the hand rather than asking — the instruction half of the
+   * deterministic-discard divergence, which is still open. A card whose printed
+   * text is half-implemented is worse than one honestly absent, so it waits.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-073 Donquixote Doflamingo
+  // "[Blocker]" — printed keyword, applied from CardDefinition.keywords.
+  // "[On Play] Look at 5 cards from the top of your deck and place them at the
+  //  top or bottom of the deck in any order."
+  'OP01-073': [{ id: 'OP01-073-onPlay', trigger: 'onPlay', script: lookAndSplit(5) }],
+
+  // OP01-077 Perona
+  // "[On Play] Look at 5 cards from the top of your deck and place them at the
+  //  top or bottom of the deck in any order."
+  //
+  // The same script with no keyword beside it, which makes Perona the cleanest
+  // witness the set has for this mechanism: everything the card does is the
+  // partition.
+  'OP01-077': [{ id: 'OP01-077-onPlay', trigger: 'onPlay', script: lookAndSplit(5) }],
 });

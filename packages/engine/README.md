@@ -320,9 +320,9 @@ never be returned is a code that lies about the contract. The length premise is
 `min === max === candidates.length`, which the op opens and `checkEffectShape`
 asserts rather than leaving the validator to hope for.
 
-### The three choice kinds, and the one that came back
+### The four choice kinds, and the two that came back
 
-`PendingChoice['kind']` has four members and the engine produces three.
+`PendingChoice['kind']` has five members and the engine produces four.
 
 Phase 2A shipped with `orderCards` in the type and no op able to open one; it
 was deleted from the instruction set with a note saying it would return "with
@@ -345,6 +345,24 @@ Two problems, and only the first is the choice:
   after the take, the untaken cards really are the top of the deck — and that
   would be quietly wrong the first time a script touched the deck in between.
 
+**And `partitionCards` is the second one that came back**, for the same reason
+and by the same argument. `orderCards` shipped as a type with no op; the
+top-or-bottom split shipped as a *note* saying the phrase "place them back in
+any order" covered two mechanisms and only one was a permutation. PR #36 built
+the other: `orderToDeckEnds` opens `partitionCards`, and the answer is
+`{ kind: 'partition', top, bottom }` — a fifth `ChoiceAnswer` member rather than
+`order` with a destination flag, because a shared member would let a permutation
+answer a partition and back.
+
+Its validation is the ordering's three properties run over **both sides at
+once**, and the concatenation is the argument rather than a shortcut: a card in
+both sides is a duplicate, a card in neither makes the total short, a foreign id
+is unknown, and a missing card is the pigeonhole again. No fourth reason code.
+
+One clause of its invariant differs from the ordering's, and it is the whole
+difference between the two questions: **an ordering of one card is placed
+without asking, a partition of one must ask.** One permutation, two ends.
+
 `selectOption` remains unproduced: no op writes one, no printed card asks for
 one, and `packages/client/tests/choiceShapes.test.ts` measures the claim rather
 than asserting it in a comment.
@@ -359,6 +377,7 @@ than asserting it in a comment.
 | May the player take nothing? | Yes, and may decline even when a card qualifies. | CR 8-4-4-1, 8-4-4-2 |
 | Shorter deck than the window? | Look at what is there; an empty deck is a no-op. | CR 8-4-4-1 |
 | Which end of the answer is deepest? | The last. `order[0]` is drawn first. | CR 3-2-3 |
+| And with **two** ends to fill? | Both lists read as draw order: `top[0]` is the very next card drawn, `bottom.at(-1)` the deepest in the game. | CR 3-2-3, applied to the other end |
 
 The last row is the one two implementers would resolve opposite ways, so it is
 derived rather than picked: CR 3-2-3 moves multiple deck cards "one by one", and
@@ -368,6 +387,14 @@ the player chooses the order, so either mapping is reachable by a player who
 knows which it is. What a flag would protect is a client that guessed, and the
 fix for that is saying so: the overlay's own line is "tap them in the order you
 will draw them".
+
+The two-ended row is the same question asked once more, and it is sharper: a
+literal reading of "one by one" onto the **top** would leave the last card placed
+on top, which inverts the top list relative to the bottom one. Reading both
+sides the same way is a decision, and it is made here rather than in each
+client — `placeAtDeckEnds` states the mapping in one loop so the two cannot
+drift, and `partitionCards.test.ts` pins it by **drawing afterwards** rather than
+by reading deck indices, which would have passed against either reading.
 
 **Looking is private and this engine does not model that.** CR 11-3-1 makes the
 looked-at cards knowledge of the looker alone; `cardsLookedAt` carries the ids
@@ -1157,6 +1184,7 @@ marks are never reached**:
 | `ability.costLostBeforeResolution` | The defensive re-check when an earlier effect in a chain spends the resources a queued ability needed. Pinned by `staleTargets.test.ts` with a hand-queued stack item. |
 | `battle.endedEarly` | Needs an effect that removes a battle participant *during* the battle, and no ABIL card does — the set was cut before any card could. `battleVanished.test.ts` registers its own cards for it, and it fires in ordinary play elsewhere: `packages/cards` reaches it in 2 of 300 OP-01 games, on `OP01-017` Nico Robin K.O.ing the Character she is attacking. Dead in *this* sweep, not in the repo. |
 | `choice.orderTrivial` | An ordering with one card or none, which needs a deck down to its last two cards while the card that looks at it is still on the board. Games end on deck-out before that. `orderCards.test.ts` builds both positions directly. |
+| `choice.partitionTrivial` | The same position one card narrower — a partition with **nothing** to place, since one card still gets asked. 3 hits in 1500 ability games, against the ordering shortcut's 12. Both are built directly in their own suites. |
 | `op.lookAtNothing` | Looking at an empty deck. Same reason, one step further: a player with no deck has already lost at the next rule processing (CR 9-2-1-2). |
 
 `battle.blocked` was dead in Phase 0 and is now reached 294 times: the ABIL set
@@ -1402,6 +1430,16 @@ have no abilities.
 
 **Perfect information.** The log and state are fully visible; `cardDrawn` carries
 the drawn instance id. Per-player hidden-information views are out of scope.
+
+**One event in the log is public in *shape* and private in *contents*, which is
+a case the debt did not have before.** `deckPartitioned` reports how many cards
+went to each end of the deck and which ones. At a real table the opponent sees
+the counts and not the faces — a player putting three cards on top and two on the
+bottom leaks the split by doing it. So a per-player view has to **redact this
+event down to its two lengths** rather than drop it, where every other private
+event (`cardsLookedAt`, `cardDrawn`) can simply be withheld. The client already
+renders it that way — counts only — which is the same trade `cardsLookedAt`
+makes, and it is the shape a real hidden-information layer should inherit.
 
 ## Out of scope for Phase 2A
 

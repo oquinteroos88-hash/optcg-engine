@@ -24,26 +24,36 @@ export function ChoiceOverlay(): ReactElement | null {
     return null;
   }
 
-  const ordering = view.kind === 'orderCards';
+  const partition = view.kind === 'partitionCards';
+  // A partition is an ordering plus a side, so everything the ordering mode does
+  // — click in draw order, show the position — it does too.
+  const ordering = view.kind === 'orderCards' || partition;
 
   // An ordering is a permutation, so its cardinality line is not about *how
   // many* — it is about which end of the list comes back first. The engine puts
   // the first card of the answer nearest the top of the deck, and a player who
   // has to work that out from a count is a player guessing.
+  //
+  // The partition says the same thing twice, because it is true of both sides:
+  // each list reads as draw order, and the only extra decision is which end.
   const cardinality =
     view.kind === 'yesNo'
       ? null
-      : ordering
-        ? 'Tocá las cartas en el orden en que las vas a robar: la primera queda arriba de todo'
-        : view.min === view.max
-          ? `Elegí exactamente ${view.min}`
-          : view.min === 0
-            ? `Elegí hasta ${view.max} (podés no elegir ninguna)`
-            : `Elegí entre ${view.min} y ${view.max}`;
+      : partition
+        ? 'Tocá las cartas en el orden en que las vas a robar y elegí el extremo de cada una: dentro de cada lado, la primera se roba antes'
+        : ordering
+          ? 'Tocá las cartas en el orden en que las vas a robar: la primera queda arriba de todo'
+          : view.min === view.max
+            ? `Elegí exactamente ${view.min}`
+            : view.min === 0
+              ? `Elegí hasta ${view.max} (podés no elegir ninguna)`
+              : `Elegí entre ${view.min} y ${view.max}`;
 
-  const progress = ordering
-    ? `${view.selected.length} de ${view.candidates.length} ordenadas`
-    : `seleccionadas ${view.selected.length}`;
+  const progress = partition
+    ? `${view.selected.length} de ${view.candidates.length} ordenadas — ${view.toTop.length} al tope, ${view.selected.length - view.toTop.filter((id) => view.selected.includes(id)).length} al fondo`
+    : ordering
+      ? `${view.selected.length} de ${view.candidates.length} ordenadas`
+      : `seleccionadas ${view.selected.length}`;
 
   return (
     <div className={styles.overlay}>
@@ -103,6 +113,7 @@ export function ChoiceOverlay(): ReactElement | null {
                   return <CardTile key={id} id={id} zone="field" mine />;
                 }
                 const at = view.selected.indexOf(id);
+                const onTop = view.toTop.includes(id);
                 return (
                   <span
                     key={id}
@@ -113,6 +124,25 @@ export function ChoiceOverlay(): ReactElement | null {
                       {at === -1 ? '–' : at + 1}
                     </span>
                     <CardTile id={id} zone="field" mine />
+                    {/* The side toggle, and it is a real button rather than a
+                        second meaning for the tile click: the tile already means
+                        "put this next in the order", and a control that changed
+                        meaning depending on where you hit the card would be the
+                        one place in this UI a player could not predict. It reads
+                        its own state, so a screen reader gets the side without
+                        the colour. */}
+                    {!partition ? null : (
+                      <button
+                        type="button"
+                        className={styles.side}
+                        data-top={onTop}
+                        aria-pressed={onTop}
+                        aria-label={onTop ? 'al tope del mazo' : 'al fondo del mazo'}
+                        onClick={() => uiEvent({ kind: 'toggleChoiceSide', instanceId: id })}
+                      >
+                        {onTop ? 'Tope' : 'Fondo'}
+                      </button>
+                    )}
                   </span>
                 );
               })}

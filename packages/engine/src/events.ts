@@ -69,7 +69,7 @@ export type GameEvent =
       type: 'choiceOpened';
       player: PlayerId;
       choiceId: string;
-      kind: 'selectCards' | 'yesNo' | 'selectOption' | 'orderCards';
+      kind: 'selectCards' | 'yesNo' | 'selectOption' | 'orderCards' | 'partitionCards';
       prompt: string;
     }
   | { type: 'choiceAnswered'; player: PlayerId; choiceId: string }
@@ -107,6 +107,27 @@ export type GameEvent =
   | { type: 'cardsLookedAt'; player: PlayerId; instanceIds: InstanceId[] }
   /** Placed at the bottom of the deck in this order, first card shallowest. */
   | { type: 'deckOrdered'; player: PlayerId; instanceIds: InstanceId[] }
+  /**
+   * Cards split between the two ends of the deck, each side in draw order.
+   *
+   * A separate event from `deckOrdered` rather than a `top` field on it, for the
+   * reason `partitionCards` is a separate choice kind: a reader that had to
+   * check whether the field was present would be a reader deciding which of two
+   * different things happened, and the client's log line for the two is not the
+   * same sentence.
+   *
+   * **This event is where the hidden-information debt gets a new case**, and it
+   * is worth naming because it is not the usual one. The engine's log is
+   * perfect-information by design, so the *ids* being here is the declared
+   * divergence it has always been. What is new is that **how many went to each
+   * end is information a real table would leak anyway** — an opponent watching
+   * a player put three cards on top and two on the bottom knows the counts
+   * without knowing the cards. So a per-player view built later has to redact
+   * `top` and `bottom` down to their lengths rather than dropping the event: it
+   * is the first event in the log whose *shape* is public while its contents are
+   * private. See the README's hidden-information section.
+   */
+  | { type: 'deckPartitioned'; player: PlayerId; top: InstanceId[]; bottom: InstanceId[] }
   | { type: 'donReturnedToDeck'; player: PlayerId; count: number }
   /**
    * DON!! moved from the DON!! deck into the cost area by a card effect.

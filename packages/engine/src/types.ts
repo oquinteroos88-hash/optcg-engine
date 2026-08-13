@@ -359,7 +359,7 @@ export interface StackItem {
 export interface PendingChoice {
   id: string;
   player: PlayerId;
-  kind: 'selectCards' | 'yesNo' | 'selectOption' | 'orderCards';
+  kind: 'selectCards' | 'yesNo' | 'selectOption' | 'orderCards' | 'partitionCards';
   prompt: string;
   candidates: InstanceId[];
   min: number;
@@ -393,13 +393,15 @@ export interface PendingChoice {
    * the cards to place are `PendingChoice.candidates`, and validation
    * guarantees the answer is exactly that multiset, so the placement reads the
    * answer alone and re-resolves nothing.
+   *
    */
   sink:
     | { kind: 'var'; name: string }
     | { kind: 'optIn' }
     | { kind: 'cost' }
     | { kind: 'play'; entering: InstanceId; rested: boolean }
-    | { kind: 'orderToBottom' };
+    | { kind: 'orderToBottom' }
+    | { kind: 'orderToDeckEnds' };
 }
 
 /**
@@ -437,7 +439,30 @@ export type ChoiceAnswer =
    * silently acceptable for an ordering question, and `choiceKindMismatch`
    * would stop meaning anything.
    */
-  | { kind: 'order'; order: InstanceId[] };
+  | { kind: 'order'; order: InstanceId[] }
+  /**
+   * A **partition** of `PendingChoice.candidates` between the two ends of the
+   * deck, each side ordered — "place them at the top **or** bottom of the deck
+   * in any order".
+   *
+   * A fifth member rather than `order` with an optional destination field, and
+   * the rule that decides it is the one `order` itself was split out under: two
+   * answers that mean different things do not share a member, or a permutation
+   * becomes an acceptable reply to a partition and back. With one member and a
+   * flag, an answer that named a destination for a plain `orderCards` question
+   * would validate; `choiceKindMismatch` would stop meaning anything, which is
+   * exactly the argument that kept `cards` and `order` apart.
+   *
+   * **Both lists read as draw order**, which is the whole of the mapping and is
+   * stated once here so the two sides cannot drift: `top[0]` is the card its
+   * owner draws first of all, `top.at(-1)` the last of the top group; then
+   * whatever the deck already held; then `bottom[0]` down to `bottom.at(-1)`
+   * deepest. See `placeAtDeckEnds` for the CR 3-2-3 reading that gets there.
+   *
+   * Either side may be empty — "all five to the bottom" is a legal answer to a
+   * top-or-bottom question, and so is all five to the top.
+   */
+  | { kind: 'partition'; top: InstanceId[]; bottom: InstanceId[] };
 
 export interface Decklist {
   leader: CardId;

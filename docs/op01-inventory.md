@@ -143,10 +143,11 @@ Three of the 38 in pile A need **no `Ability` at all**: `OP01-025` Zoro,
 keyword reminder, and printed keywords are already a rule in the engine carried
 on `CardDefinition.keywords`.
 
-**Playable today — 82 of 121, up from 19.** Counted from
-`packages/cards/src/abilities.ts` rather than estimated: 64 cards with a script,
-2 keyword-only and 16 vanilla. The `Playable today` column moved as the batches
-landed:
+**Playable today — 86 of 121, up from 19.** Counted from
+`packages/cards/src/abilities.ts` rather than estimated: 66 cards with a script,
+2 keyword-only, 16 vanilla, and the two whose only unwritten lines are
+deck-construction rules rather than in-game effects (`OP01-075`, `OP01-121`).
+The `Playable today` column moved as the batches landed:
 
 - **16 vanilla + 3 keyword-only = 19** needed nothing written, and that is the
   number this document opened with.
@@ -164,13 +165,40 @@ landed:
   (`[On K.O.]`) and `-039` (`[On Block]`): the residue batch 3 cut for size.
 - **Pile A is complete — 38 of 38 playable**, 35 written and 3 that need no
   `Ability` at all.
-- **39 of 121 still need something the DSL cannot say**, and those are what the
+- **35 of 121 still need something the DSL cannot say**, and those are what the
   gap table below is about. It read 66 when this list was written; batches 5
-  through 10 and PRs #29 through #35 are the difference.
+  through 10 and PRs #29 through #36 are the difference.
 - **The starter decks finished first, at 33 of 34.** OP-01 is the larger and
   slower half of the same campaign, and what is left here has the same shape the
   starters' tail had — one-card capabilities, and the standing advice not to
   follow the ranking past its top three.
+
+## The campaign is closed
+
+**Every capability this document ranked as worth building has been built.** What
+remains is not a queue: it is a set of **declared rows**, each with a name, a
+size and a reason it is not being built.
+
+| Card | What it still wants | Why it is declared, not queued |
+| --- | --- | --- |
+| `OP01-024` | filter by attribute (`＜Strike＞`) | 1 card in OP-01 |
+| `OP01-099` | reference a card by **name** | 1 card in OP-01 |
+| `OP01-051` | negation in `Condition`, plus two more | three walls on one card |
+| `OP01-088` | a **player-chosen discard instruction** | the last open half of the deterministic-discard divergence; its partition half shipped in PR #36 |
+| `OP06-002` | layered evaluation for a static's own gate | priced and declined — see `docs/trigger-reachability.md` |
+| — | the three DON!! mechanics no sample could see | sized in `docs/starter-card-inventory.md`; no OP-01 card prints them |
+
+The rest of the 35 are the long tail this document warned about from the start:
+"after those three the freed column reads 6, 5, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1,
+0, 0, 0, 0, 0, 0. There is no fourth item worth a plan." That is still the
+finding, and it is now the finding with the plan finished rather than the plan
+proposed.
+
+**Two numbers to carry forward.** OP-01 stands at **86 of 121 playable** — 66
+with a script, 2 keyword-only, 16 vanilla, plus `OP01-075` and `OP01-121`, whose
+only unwritten lines are deck-construction rules rather than in-game effects (the
+two exceptions this document already made). The starters stand at **33 of 34**,
+with `ST02-010` Basil Hawkins declared by PR #35's ruling.
 
 `OP01-121` Yamato is counted as playable because its printed
 `[Double Attack]`/`[Banish]` already work and its one line of text has no
@@ -527,7 +555,7 @@ an upper bound.
 | --- | --- | --- | --- | --- |
 | 1 | ~~**Put a card into play**~~ — **bought** (batch 6); hand, deck top, active or rested | 19 | ~~**8**~~ **done** | 379 |
 | 2 | ~~**A payment whose card the player picks**~~ — the **cost** half is **bought** (batch 5, 3 freed); the **instruction** half, "your opponent trashes 1 card from their hand", is open | 12 | **6** → **3** | 292 |
-| 3 | ~~**`orderCards`, and naming "the rest"**~~ — **bought** (batch 9) for the *permutation* half; the row bundled two shapes and only one of them is a permutation — see below | 9 | **5** → **4 built, 2 deferred** | 226 |
+| 3 | ~~**`orderCards`, and naming "the rest"**~~ — **closed.** Batch 9 bought the permutation, **PR #36** the top-or-bottom partition; the row bundled two shapes and both are now built | 9 | **5** → **6 built, 1 left** (`OP01-088`, on its other wall) | 226 |
 | 4 | ~~**Add DON!! from the DON!! deck**~~ — **bought** (batch 10). Touched was right; **freed was 8, not 5** — all three exclusions had expired | 8 | **5** → **8, done** | 141 |
 | 5 | **Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]" | 14 | **3** | 399 |
 | 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
@@ -761,6 +789,31 @@ Two rows moved the other way and both were stale rather than wrong when written.
 `OP01-116` was listed under two gaps; put-into-play from the deck closed in
 batch 6, so this batch was its second half. And `ST02-007` Bonney needed three
 things, of which `restSelf` arrived in PR #15.
+
+**The split is built, as of PR #36, and it closed this row.** `orderToDeckEnds`
+is `orderToBottom`'s sibling and `partitionCards` is `orderCards`', which is the
+shape this section predicted and the reason it predicted it: two answers that
+mean different things do not share a member, or a permutation becomes an
+acceptable reply to a partition. `OP01-073` and `OP01-077` are written; the
+freed column reads **2 of 3**, because `OP01-088` is still blocked on the second
+of the two walls this section named — a player-chosen discard on its `[Trigger]`,
+which is the instruction half of the deterministic-discard divergence and is
+still open.
+
+The build re-probed the row a third time and the phrase turned out to be wider
+than either reading here. "Top or bottom" matches **100** cards, of which only
+**35** are the deck partition; **58** are the *Life area* — "add 1 card from the
+top or bottom of your Life cards to your hand", which is a choice between two
+named cards and not a partition at all — and 7 more place a Character into Life
+at one end. Inside the 35, **27** print an explicit "in any order" and **8** have
+a window of exactly one card, where there is nothing to order and the clause is
+simply left off. Those 8 are the *same* mechanism with a trivial side of the
+question, not a third one: one card has one permutation and two ends, which is
+why a partition of one is still asked and an ordering of one is not.
+
+So the counting rule below gets its fourth instance and its clearest: **one
+phrase, three areas, and the number that mattered was neither the phrase's nor
+the row's.**
 
 **The counting rule this justifies:** a gap row is a claim about a *mechanism*,
 and a row that names an English phrase instead can bundle two. "Place them back
@@ -1242,11 +1295,11 @@ have been added to it as batches land:
 | OP01-070 | Dracule Mihawk | char | **A** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 7} → `moveCard {deck}, position 'bottom'` |
 | OP01-071 | Jinbe | char | **C** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 3} → `moveCard deck bottom`. `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-072 | Smiley | char | **C** | a scaling grant — "+1000 for every card in your hand". `grants.power` is a constant |
-| OP01-073 | Donquixote Doflamingo | char | **C** | the top-**or**-bottom form, which is a *partition plus an order* and not a permutation — a different choice shape, still open. `[Blocker]` is printed |
+| OP01-073 | Donquixote Doflamingo | char | ~~**C**~~ ✅ | **written — PR #36.** The top-**or**-bottom form: a partition plus an order, and its own `PendingChoice` kind. `[Blocker]` is printed |
 | OP01-074 | Bartholomew Kuma | char | **C** | put-into-play **and** a name reference |
 | OP01-075 | Pacifista | char | **A** | `[Blocker]` reminder only. Its deckbuilding line belongs to `validateDecklist` — see the deck-construction note |
 | OP01-076 | Bellamy | char | vanilla | — |
-| OP01-077 | Perona | char | **C** | top-or-bottom form, and nothing else. The other half of the shape batch 9 did not build |
+| OP01-077 | Perona | char | ~~**C**~~ ✅ | **written — PR #36.** Top-or-bottom and nothing else, which makes it the cleanest witness the set has for the mechanism |
 | OP01-078 | Boa Hancock | char | **A** ✅ | two abilities (`whenAttacking`, `onBlock`) sharing one script; cond `and(donAttached 1, countCards {hand, you} max 5)` → `draw` |
 | OP01-079 | Ms. All Sunday | char | **A** ✅ | `onKO`, cond `countCards {field, you, leader, types ['Baroque Works']} min 1`; select 0–1 {trash, you, event} → `moveCard {hand}` |
 | OP01-080 | Miss Doublefinger(Zala) | char | **A** ✅ | `onKO` → `draw you 1` |
@@ -1257,7 +1310,7 @@ have been added to it as batches land:
 | OP01-085 | Mr.3(Galdino) | char | ~~**C**~~ ✅ | **written — PR #35.** Two walls: batch 8 took the prohibition, PR #35 took the duration |
 | OP01-086 | Overheat | event | **A** ✅ | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
 | OP01-087 | Officer Agents | event | **C** ✅ | `counterEvent` and `trigger` on one shared list; select 0–1 {hand, you, character, types Baroque Works, costMax 3} → `play`. Freed by batch 6 |
-| OP01-088 | Desert Spada | event | **C** | `orderCards` on the `[Counter]` half **and** a player-chosen discard on the `[Trigger]` half |
+| OP01-088 | Desert Spada | event | **C** | ~~the partition on the `[Counter]` half~~ (PR #36) **and** a player-chosen discard on the `[Trigger]` half, which is the wall still standing |
 | OP01-089 | Crescent Cutlass | event | **A** ✅ | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
 | OP01-090 | Baroque Works | event | **C** | ~~`orderCards` + "the rest"~~ — built; still blocked by "other than [Baroque Works]" (gap 5) |
 | OP01-091 | King (L) | leader | **C** | a condition on how many DON!! you have on the field. Everything else is a `static` with a selector `affects` |

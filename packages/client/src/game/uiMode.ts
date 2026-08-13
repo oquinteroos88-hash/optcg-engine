@@ -36,6 +36,21 @@ export type UiMode =
       choiceId: string;
       /** Selection so far, in click order. Always a subset of `candidates`. */
       selected: readonly InstanceId[];
+      /**
+       * Candidates the player has flipped to the **top** of the deck.
+       * `partitionCards` only; empty and inert for every other kind.
+       *
+       * A set rather than a second ordered list, because the order is already
+       * in `selected` and having it twice is having it in two states. The
+       * answer is `selected` filtered by membership here, which keeps one
+       * sequence and one question — *which side* — apart from each other.
+       *
+       * The default side is the bottom. It is the burying end, it is where the
+       * only other placement op in the game puts things, and a player who
+       * confirms without touching a toggle gets the answer they would have got
+       * from `orderToBottom`.
+       */
+      toTop: readonly InstanceId[];
     };
 
 export type UiEvent =
@@ -48,6 +63,8 @@ export type UiEvent =
   | { kind: 'chooseMenuOption'; index: number }
   /** Toggles one candidate of the open choice on or off. */
   | { kind: 'toggleChoiceCandidate'; instanceId: InstanceId }
+  /** Flips one candidate between the top and the bottom of the deck. */
+  | { kind: 'toggleChoiceSide'; instanceId: InstanceId }
   /** Submits the current selection (`selectCards`) — legal only within min/max. */
   | { kind: 'confirmChoice' }
   /** Submits a `yesNo` choice. */
@@ -176,7 +193,7 @@ function clickCard(
 }
 
 function answeringChoiceFor(aff: Affordances, choiceId: string): UiMode {
-  return { kind: 'answeringChoice', owner: aff.whoActs, choiceId, selected: [] };
+  return { kind: 'answeringChoice', owner: aff.whoActs, choiceId, selected: [], toTop: [] };
 }
 
 /**
@@ -307,6 +324,24 @@ function reduceAnsweringChoice(
       }
       return { mode: { ...mode, selected } };
     }
+    case 'toggleChoiceSide': {
+      // The one event that belongs to a single choice kind. It is inert
+      // everywhere else rather than absent, because the alternative is a mode
+      // that has to know which events it is allowed to receive — and the whole
+      // point of this reducer is that the components do not.
+      if (choice.kind !== 'partitionCards' || !choice.candidates.includes(ev.instanceId)) {
+        return { mode };
+      }
+      const onTop = mode.toTop.includes(ev.instanceId);
+      return {
+        mode: {
+          ...mode,
+          toTop: onTop
+            ? mode.toTop.filter((id) => id !== ev.instanceId)
+            : [...mode.toTop, ev.instanceId],
+        },
+      };
+    }
     case 'confirmChoice': {
       if (choice.kind === 'yesNo') {
         return { mode };
@@ -325,10 +360,20 @@ function reduceAnsweringChoice(
           // The cardinality gate above is what makes it a permutation: the
           // engine opens an ordering with min === max === candidates.length, so
           // a partial sequence never becomes an intent.
+          // A partition answers with two sequences cut out of the one the
+          // player clicked. `selected` is the order — filtering it by side is
+          // order-preserving, so each side comes out in the order the cards
+          // were clicked, which is what the overlay's numbers showed.
           answer:
-            choice.kind === 'orderCards'
-              ? { kind: 'order', order: [...mode.selected] }
-              : { kind: 'cards', selected: [...mode.selected] },
+            choice.kind === 'partitionCards'
+              ? {
+                  kind: 'partition',
+                  top: mode.selected.filter((id) => mode.toTop.includes(id)),
+                  bottom: mode.selected.filter((id) => !mode.toTop.includes(id)),
+                }
+              : choice.kind === 'orderCards'
+                ? { kind: 'order', order: [...mode.selected] }
+                : { kind: 'cards', selected: [...mode.selected] },
         },
       };
     }
@@ -356,6 +401,9 @@ function reduceAnsweringChoice(
 // be added without TypeScript demanding a branch here.
 function reduceIdle(mode: UiMode, ev: BoardEvent, aff: Affordances): UiModeResult {
   switch (ev.kind) {
+    // Only meaningful while a partition is open, which is never in idle.
+    case 'toggleChoiceSide':
+      return { mode };
     // A card leaves your hand for good the moment it is played, and a hand is
     // a row of small overlapping tiles you are dragging a pointer across. One
     // click was enough to commit, which made a misplay a hand-tremor away —
@@ -397,9 +445,14 @@ export function ensureModeValid(mode: UiMode, state: GameState): UiMode {
       mode.owner === state.priority &&
       mode.choiceId === aff.pendingChoice.id
     ) {
-      // Keep the selection, minus anything that stopped being a candidate.
+      // Keep the selection, minus anything that stopped being a candidate — and
+      // the side flags with it, or a card that left the choice could come back
+      // to a different one still marked for the top.
       const selected = mode.selected.filter((id) => aff.pendingChoice?.candidates.includes(id));
-      return selected.length === mode.selected.length ? mode : { ...mode, selected };
+      const toTop = mode.toTop.filter((id) => aff.pendingChoice?.candidates.includes(id));
+      return selected.length === mode.selected.length && toTop.length === mode.toTop.length
+        ? mode
+        : { ...mode, selected, toTop };
     }
     return answeringChoiceFor(aff, aff.pendingChoice.id);
   }

@@ -522,9 +522,12 @@ export const OP01_BP_EVERYTHING: Decklist = {
  * sit at 4 copies, 8 of the 50, which is what makes the reveal hit often enough
  * for a random game to walk the branch.
  *
- * Mono-blue because Doflamingo is: `OP01-073` is the pool's third {Seven
- * Warlords} 4-drop and stays out, because its `[On Play]` needs `orderCards`
- * and filler with unwritten text measures less than it says.
+ * Mono-blue because Doflamingo is. `OP01-073` — the pool's third {Seven
+ * Warlords} 4-drop — used to stay out of it, because its `[On Play]` needed the
+ * top-or-bottom split and filler with unwritten text measures less than it
+ * says. That is no longer true: the split is built, so `OP01-073` and
+ * `OP01-077` are in the list below and are the only two cards in this deck that
+ * ask the partition question.
  */
 export const OP01_B_DOFLAMINGO: Decklist = {
   id: 'OP01-B-DOFFY',
@@ -543,8 +546,15 @@ export const OP01_B_DOFLAMINGO: Decklist = {
     { cardId: 'OP01-086', qty: 4 }, // Overheat — [Counter] and [Trigger] bounce
     { cardId: 'OP01-089', qty: 2 }, // Crescent Cutlass — [Counter] bounce
     { cardId: 'OP01-076', qty: 2 }, // Bellamy — vanilla, cost 2
-    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
-    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-081', qty: 2 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-066', qty: 2 }, // Krieg — vanilla, cost 4
+    // The top-or-bottom partition, and this is where the pair belongs: both are
+    // mono-blue, and the comment above about `OP01-073` staying out was true for
+    // exactly as long as the split was unbuilt. Two copies apiece, paid for by
+    // the two vanilla lines above dropping from four — the deck is 50 either
+    // way, and a staged position needs only one of each filler.
+    { cardId: 'OP01-073', qty: 2 }, // Doflamingo — [Blocker] + look 5, split
+    { cardId: 'OP01-077', qty: 2 }, // Perona — cost 1, look 5, split
     // Batch 9's blue card. It searches {Baroque Works} *Events*, and this deck
     // holds six of them between OP01-087 and OP01-089.
     { cardId: 'OP01-084', qty: 2 }, // Mr.2.Bon.Kurei — look 5, keep 1, bury the rest

@@ -808,6 +808,7 @@ function execute(
     case 'confirm':
     case 'play':
     case 'orderToBottom':
+    case 'orderToDeckEnds':
     case 'if':
     case 'forEach':
       throw new Error(`Engine bug: ${instruction.op} is control flow, not a mutation`);
@@ -1019,6 +1020,84 @@ function placeAtBottom(
 }
 
 /**
+ * Places a partition at the two ends of the deck.
+ *
+ * **One loop and one sentence, because the mapping is the answer's whole
+ * meaning and the two sides must not drift apart.** Both lists read as *draw
+ * order*: `top[0]` ends up the very next card its owner draws, `top.at(-1)` the
+ * last of the top group, then whatever the deck already held, then `bottom[0]`
+ * down to `bottom.at(-1)` deepest in the game.
+ *
+ * The bottom half is `placeAtBottom`'s rule unchanged — CR 3-2-3, cards moved
+ * "one by one", last placed deepest — and the top half is that rule applied to
+ * the other end, which is where the ambiguity lives. Placing one by one *onto*
+ * the top would leave the **last** card placed on top, so a literal reading of
+ * the procedure inverts the top list relative to the bottom one. It is not
+ * inverted here, because "in any order" hands the player the sequence they
+ * place in: the answer names the arrangement they want and the engine reaches
+ * it. Reading the two sides the same way is what stops a client from having to
+ * remember which list runs backwards.
+ *
+ * Cards no longer in the deck are skipped rather than chased, exactly as the
+ * bottom-only placement does — rule 1 of the interpreter.
+ */
+function placeAtDeckEnds(
+  draft: GameState,
+  top: readonly InstanceId[],
+  bottom: readonly InstanceId[],
+  events: GameEvent[],
+): void {
+  const placed: InstanceId[] = [];
+  const stillInDeck = (id: InstanceId): boolean => {
+    const card = draft.cards[id];
+    return card !== undefined && draft.players[card.owner].deck.includes(id);
+  };
+
+  // Bottom first, so that the top group's final indices are not disturbed by
+  // cards leaving the middle of the deck afterwards. Either order produces the
+  // same deck; doing it this way means the top insert is a single splice at 0.
+  for (const id of bottom) {
+    if (!stillInDeck(id)) {
+      mark('op.targetGone');
+      continue;
+    }
+    const deck = draft.players[mustGetCard(draft, id).owner].deck;
+    deck.splice(deck.indexOf(id), 1);
+    deck.push(id);
+    placed.push(id);
+  }
+
+  const goingUp: InstanceId[] = [];
+  for (const id of top) {
+    if (!stillInDeck(id)) {
+      mark('op.targetGone');
+      continue;
+    }
+    const deck = draft.players[mustGetCard(draft, id).owner].deck;
+    deck.splice(deck.indexOf(id), 1);
+    goingUp.push(id);
+  }
+  // Re-inserted in one go at index 0, in the order given: `goingUp[0]` becomes
+  // `deck[0]`, which is the next card drawn.
+  const first = goingUp[0];
+  if (first !== undefined) {
+    draft.players[mustGetCard(draft, first).owner].deck.unshift(...goingUp);
+  }
+
+  const anyCard = first ?? placed[0];
+  if (anyCard === undefined) {
+    return;
+  }
+  mark('op.orderToDeckEnds');
+  emit(draft, events, {
+    type: 'deckPartitioned',
+    player: mustGetCard(draft, anyCard).owner,
+    top: goingUp,
+    bottom: placed,
+  });
+}
+
+/**
  * Runs an `orderToBottom`, returning true when it stopped to ask.
  *
  * The candidates are filtered to cards still in a deck, which is what keeps
@@ -1060,11 +1139,58 @@ function orderInstruction(
   return true;
 }
 
+/**
+ * Runs an `orderToDeckEnds`, returning true when it stopped to ask.
+ *
+ * `orderInstruction`'s sibling with **one deliberate difference**: the floor is
+ * zero, not one. An ordering of a single card has one possible answer and is
+ * placed on the spot; a partition of a single card has one possible *order* and
+ * two possible *ends*, so the question is real and gets asked. Only an empty
+ * window is silent, and it places nothing because there is nothing to place.
+ *
+ * The candidate filter is the same and for the same reason — cards still in a
+ * deck — which keeps `checkEffectShape`'s "offers a candidate it cannot place"
+ * honest, and inherits the short-deck behaviour PR #32 already settled: `lookAt`
+ * on a four-card deck records four cards, so this is asked about four. No
+ * special case, because a short deck was never a special case.
+ */
+function partitionInstruction(
+  draft: GameState,
+  item: StackItem,
+  instruction: Instruction & { op: 'orderToDeckEnds' },
+  events: GameEvent[],
+): boolean {
+  const candidates = targets(draft, item, instruction.cards).filter((id) => {
+    const card = draft.cards[id];
+    return card !== undefined && draft.players[card.owner].deck.includes(id);
+  });
+  if (candidates.length === 0) {
+    mark('choice.partitionTrivial');
+    return false;
+  }
+  openChoice(draft, events, {
+    player: item.controller,
+    kind: 'partitionCards',
+    prompt: instruction.prompt,
+    candidates,
+    // Every candidate must be placed somewhere, so the pair is the candidate
+    // count exactly as an ordering's is — `validateAnswerChoice` leans on it to
+    // turn three cheap properties into "exactly this multiset", and
+    // `checkEffectShape` asserts it rather than trusting it.
+    min: candidates.length,
+    max: candidates.length,
+    sink: { kind: 'orderToDeckEnds' },
+  });
+  return true;
+}
+
 /** Opens the choice a suspending instruction needs, or resolves it trivially. */
 function suspend(
   draft: GameState,
   item: StackItem,
-  instruction: Instruction & { op: 'select' | 'confirm' | 'play' | 'orderToBottom' },
+  instruction: Instruction & {
+    op: 'select' | 'confirm' | 'play' | 'orderToBottom' | 'orderToDeckEnds';
+  },
   events: GameEvent[],
 ): boolean {
   if (instruction.op === 'play') {
@@ -1072,6 +1198,9 @@ function suspend(
   }
   if (instruction.op === 'orderToBottom') {
     return orderInstruction(draft, item, instruction, events);
+  }
+  if (instruction.op === 'orderToDeckEnds') {
+    return partitionInstruction(draft, item, instruction, events);
   }
   if (instruction.op === 'confirm') {
     openChoice(draft, events, {
@@ -1210,7 +1339,8 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
     instruction.op === 'select' ||
     instruction.op === 'confirm' ||
     instruction.op === 'play' ||
-    instruction.op === 'orderToBottom'
+    instruction.op === 'orderToBottom' ||
+    instruction.op === 'orderToDeckEnds'
   ) {
     if (suspend(draft, item, instruction, events)) {
       return;
@@ -1445,6 +1575,22 @@ export function applyAnswer(
       throw new Error('Engine bug: answered an ordering with no open frame');
     }
     orderFrame.index += 1;
+    return;
+  }
+
+  if (pending.sink.kind === 'orderToDeckEnds') {
+    if (answer.kind !== 'partition') {
+      throw new Error('Engine bug: a partition answered with a non-partition answer');
+    }
+    // Same contract as the ordering above, one step wider: validation proved the
+    // two sides together are exactly `pending.candidates`, so the answer is the
+    // placement and no `Ref` is read a second time.
+    placeAtDeckEnds(draft, answer.top, answer.bottom, events);
+    const partitionFrame = item.cursor[item.cursor.length - 1];
+    if (partitionFrame === undefined) {
+      throw new Error('Engine bug: answered a partition with no open frame');
+    }
+    partitionFrame.index += 1;
     return;
   }
 

@@ -14,11 +14,12 @@ import {
 import { finishTurn } from '../reducer/turn.js';
 import { getAbilities } from '../registry.js';
 import { getCardDef } from '../registry.js';
-import { getOpponent, getPower, isOnField } from '../selectors.js';
+import { EFFECTIVE, getOpponent, isOnField } from '../selectors.js';
 import type {
   ChoiceAnswer,
   GameState,
   InstanceId,
+  LegalityRule,
   Orientation,
   PathStep,
   PendingChoice,
@@ -293,7 +294,7 @@ function playerOf(item: StackItem, ref: PlayerRef): PlayerId {
 }
 
 function targets(state: GameState, item: StackItem, ref: Ref): InstanceId[] {
-  return resolveRef(state, ctxOf(item), ref, getPower);
+  return resolveRef(state, ctxOf(item), ref, EFFECTIVE);
 }
 
 function draw(draft: GameState, player: PlayerId, count: number, events: GameEvent[]): void {
@@ -360,6 +361,80 @@ function addModifier(
     source: item.source,
   });
   emit(draft, events, { type: 'keywordGranted', target, keyword: grant.keyword, duration });
+}
+
+/**
+ * Writes the timed legality rules one `setLegality` instruction calls for.
+ *
+ * One rule per named card when the subject is a `Ref`, exactly as `addPower`
+ * writes one modifier per target; one rule for the whole side when the subject
+ * is a player. The two forms are the two the printed cards need and there is no
+ * third: a card either widens what one specific card may do, or narrows what a
+ * whole side may do.
+ *
+ * Rule 1 of the interpreter, twice over. A `whileAttacker` that names nothing —
+ * ST01-016's "up to 1" answered with nothing — writes no rule, because a
+ * prohibition waiting on a card that was never chosen is a prohibition that can
+ * never apply, and the state should not carry it around until the turn ends. A
+ * subject `Ref` that names nothing writes nothing for the same reason.
+ */
+function setLegality(
+  draft: GameState,
+  item: StackItem,
+  instruction: Instruction & { op: 'setLegality' },
+  events: GameEvent[],
+): void {
+  // Same guard `addModifier` carries, same reason: an endOfBattle lifetime with
+  // no battle open is a lifetime of zero, and writing it would leave the state
+  // describing a battle that is not happening.
+  if (instruction.duration === 'endOfBattle' && draft.battle === null) {
+    mark('op.setLegalityNoSubject');
+    return;
+  }
+  let whileAttacker: InstanceId | undefined;
+  if (instruction.whileAttacker !== undefined) {
+    whileAttacker = targets(draft, item, instruction.whileAttacker)[0];
+    if (whileAttacker === undefined) {
+      mark('op.setLegalityNoSubject');
+      return;
+    }
+  }
+  const subjects: LegalityRule['subject'][] =
+    'cards' in instruction.subject
+      ? targets(draft, item, instruction.subject.cards).map((id) => ({ is: id }))
+      : [
+          instruction.subject.match === undefined
+            ? { player: playerOf(item, instruction.subject.player) }
+            : {
+                player: playerOf(item, instruction.subject.player),
+                match: instruction.subject.match,
+              },
+        ];
+  if (subjects.length === 0) {
+    mark('op.setLegalityNoSubject');
+    return;
+  }
+  for (const subject of subjects) {
+    mark('op.setLegality');
+    draft.legality.push({
+      // log.length grows monotonically and the emit below moves it, so ids are
+      // unique across the game — the same scheme `addModifier` uses.
+      id: `leg-${draft.log.length}`,
+      source: item.source,
+      duration: instruction.duration,
+      effect: instruction.effect,
+      subject,
+      clause: instruction.clause,
+      ...(whileAttacker === undefined ? {} : { whileAttacker }),
+    });
+    emit(draft, events, {
+      type: 'legalitySet',
+      source: item.source,
+      effect: instruction.effect,
+      question: instruction.clause.question,
+      duration: instruction.duration,
+    });
+  }
 }
 
 function moveCard(
@@ -599,8 +674,12 @@ function execute(
       );
       return;
     }
+    case 'setLegality': {
+      setLegality(draft, item, instruction, events);
+      return;
+    }
     case 'reveal': {
-      const revealed = resolveSelector(draft, ctxOf(item), instruction.from, getPower);
+      const revealed = resolveSelector(draft, ctxOf(item), instruction.from, EFFECTIVE);
       item.vars[instruction.as] = revealed;
       mark('op.reveal');
       emit(draft, events, {
@@ -633,7 +712,7 @@ function pushControlFrame(
   at: number,
 ): void {
   if (instruction.op === 'if') {
-    const taken = evalCondition(draft, ctxOf(item), instruction.cond, getPower);
+    const taken = evalCondition(draft, ctxOf(item), instruction.cond, EFFECTIVE);
     if (taken) {
       mark('op.if');
       item.cursor.push({ path: [...frame.path, { i: at, branch: 'then' }], index: 0, loop: null });
@@ -794,7 +873,7 @@ function suspend(
     });
     return true;
   }
-  const candidates = resolveSelector(draft, ctxOf(item), instruction.from, getPower);
+  const candidates = resolveSelector(draft, ctxOf(item), instruction.from, EFFECTIVE);
   // Rule 3: a mandatory "choose 2" with one candidate takes the one. The
   // requirement shrinks to what exists rather than cancelling the effect.
   const max = Math.min(instruction.max, candidates.length);

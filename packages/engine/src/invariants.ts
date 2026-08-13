@@ -1,3 +1,4 @@
+import { isLegalityRuleLive } from './legality.js';
 import { legalActions } from './legalActions.js';
 import { getOpponent, isOnField } from './selectors.js';
 import type { GameState, InstanceId, PlayerId } from './types.js';
@@ -16,6 +17,7 @@ export function checkInvariants(state: GameState): string[] {
   checkFieldLimits(state, violations);
   checkOffFieldNormalized(state, violations);
   checkModifierShape(state, violations);
+  checkLegalityShape(state, violations);
   checkBattleShape(state, violations);
   checkStateShape(state, violations);
   checkEffectShape(state, violations);
@@ -204,6 +206,33 @@ function checkModifierShape(state: GameState, violations: string[]): void {
       state.battle === null
     ) {
       violations.push(`modifierShape: ${modifier.id} is endOfBattle but no battle is open`);
+    }
+  }
+}
+
+/**
+ * `checkModifierShape`'s twin, clause for clause, because the two arrays have
+ * the same lifetimes and the same ways of going stale.
+ *
+ * The on-field clause is narrower here on purpose: a modifier always targets one
+ * card, so "targets an off-field card" is always a violation. A legality rule
+ * may speak about a *side* — "your opponent cannot activate [Blocker]" names no
+ * card at all — and only the two identity references it can hold are checkable.
+ * Those two are exactly what `dropLegalityNaming` clears (CR 3-1-6), so this is
+ * the assertion that the clearing happens on every route off the field.
+ */
+function checkLegalityShape(state: GameState, violations: string[]): void {
+  const seen = new Set<string>();
+  for (const rule of state.legality) {
+    if (seen.has(rule.id)) {
+      violations.push(`legalityShape: duplicate legality rule id ${rule.id}`);
+    }
+    seen.add(rule.id);
+    if (!isLegalityRuleLive(state, rule)) {
+      violations.push(`legalityShape: ${rule.id} names a card that is not on the field`);
+    }
+    if (state.status === 'playing' && rule.duration === 'endOfBattle' && state.battle === null) {
+      violations.push(`legalityShape: ${rule.id} is endOfBattle but no battle is open`);
     }
   }
 }

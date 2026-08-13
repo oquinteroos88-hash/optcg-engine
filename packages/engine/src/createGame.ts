@@ -119,6 +119,7 @@ export function createGame(opts: {
     cards,
     battle: null,
     modifiers: [],
+    legality: [],
     stack: [],
     pending: null,
     resume: [],

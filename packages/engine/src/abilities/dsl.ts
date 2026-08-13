@@ -99,18 +99,36 @@ export interface CardFilter {
 }
 
 /**
+ * Everything a card can be tested for, without saying *where* to look for it.
+ *
+ * `CardFilter` reads off the definition alone; this adds the three questions
+ * that need the board — power, orientation, keyword — and stops exactly there.
+ * It was split out of `Selector` for a second caller: a legality rule names the
+ * cards it speaks about ("a [Blocker] Character that has 5000 or more power")
+ * and has no zone to name, because the card it is testing is already in hand as
+ * the candidate for an action. A selector is this plus a place to look.
+ *
+ * `keyword` is asked of `hasKeyword`, never of the printed list, for the reason
+ * that function exists: a Character that *gained* `[Blocker]` is a `[Blocker]`
+ * Character, and ST01-016's `[Trigger]` has to see it.
+ */
+export interface CardPredicate extends CardFilter {
+  powerMax?: number;
+  powerMin?: number;
+  orientation?: Orientation;
+  keyword?: Keyword;
+}
+
+/**
  * A filter over cards in one zone. `owner` is relative to the ability's
  * controller.
  *
  * `deckTop` is the only zone where `count` means anything: it takes the first
  * `count` cards of the deck rather than filtering the whole deck.
  */
-export interface Selector extends CardFilter {
+export interface Selector extends CardPredicate {
   zone: 'field' | 'hand' | 'trash' | 'deckTop' | 'life';
   owner: 'you' | 'opponent' | 'any';
-  powerMax?: number;
-  powerMin?: number;
-  orientation?: Orientation;
   excludeSelf?: boolean;
   count?: number;
 }
@@ -145,6 +163,68 @@ export interface ZoneRef {
  * exist.
  */
 export type Audience = { self: true } | { selector: Selector };
+
+/**
+ * Legality, as data.
+ *
+ * The engine's fourth structural hole, and the last one that was still open:
+ * `Modifier` could say two things about a card, `power` and `grantKeyword`, and
+ * **everything that changes what a player may *do* fell outside it** — in
+ * either direction. "Your opponent cannot activate [Blocker]" (ST01-012) and
+ * "this Character can also attack your opponent's active Characters"
+ * (OP01-021) are the same hole seen from its two sides, which is why they are
+ * one mechanism here and not two kept in a mirror.
+ *
+ * Three questions, because the answer has to be visible in three different
+ * buildings and the Comprehensive Rules ask them in three different places:
+ *
+ * - `activateBlocker` — the Block Step. CR 10-1-4-1 defines `[Blocker]` as a
+ *   keyword effect "allowing you to activate it by **resting this card** during
+ *   the Block Step", and CR 7-1-2-1 has the defender "activate the [Blocker]
+ *   effect of their card only once during that battle". So the thing a card
+ *   forbids is that **activation** — the block declaration — and not the
+ *   keyword and not resting as such. The game words the wider restriction
+ *   differently: the official Q&A for "cannot be rested" says those effects
+ *   stop "any actions that require them to be rested, such as attacking or
+ *   activating [Blocker]" *and* stop the card being rested by other effects.
+ *   Two different restrictions, two different printed phrasings, and this is
+ *   the narrow one.
+ * - `attack` — the target set of CR 7-1-1-2, which by rule is "the opponent's
+ *   Leader card or 1 of their **rested** Character cards". The only question
+ *   with two cards in it, so the clause carries the other end of the pair.
+ * - `koInBattle` — the Damage Step. CR 7-1-4-1-2 K.O.s a Character that lost;
+ *   CR 10-2-1-3 says effects reading "cannot be K.O.'d" are valid when the card
+ *   is K.O.'d "by an effect **or** due to the result of a battle", so the
+ *   printed "in battle" is a narrowing the clause has to keep. The unqualified
+ *   form is a wider clause and no card in scope prints it.
+ *
+ * The subject — *whose* cards, and which of them — is deliberately **not** in
+ * the clause. It lives beside it (`LegalityRule.subject` for a written rule,
+ * `Ability.affects` for a continuous one), so the two faces of the mechanism
+ * spell the same clause the same way.
+ */
+export type LegalityQuestion = 'activateBlocker' | 'attack' | 'koInBattle';
+
+export type LegalityClause =
+  | { question: 'activateBlocker' }
+  /** `target` is the *other* card in the pair, never the subject. */
+  | { question: 'attack'; target?: CardPredicate }
+  | { question: 'koInBattle' };
+
+/**
+ * `forbid` narrows, `allow` widens.
+ *
+ * When both speak to the same question the prohibition wins, which is CR 1-3-3:
+ * "If a card's effect requires a player to carry out an action while a
+ * currently active effect prohibits that action, the prohibiting effect always
+ * takes precedence."
+ */
+export type LegalityEffect = 'allow' | 'forbid';
+
+/** How a `setLegality` instruction names the cards its rule speaks about. */
+export type LegalitySubjectSpec =
+  | { player: PlayerRef; match?: CardPredicate }
+  | { cards: Ref };
 
 /**
  * `restSelf` is "rest this card" as the price of its own ability, and it is the
@@ -270,6 +350,33 @@ export type Instruction =
    * state in which a card is half onto the field.
    */
   | { op: 'play'; target: Ref; rested?: boolean }
+  /**
+   * Writes a timed legality rule onto the state — the `addPower` of the fourth
+   * `Modifier` member that never was.
+   *
+   * It is one op rather than a `forbid`/`allow` pair because a card that says
+   * "cannot" and a card that says "can also" are asking the same machinery the
+   * same question in opposite directions, and two ops would be two places to
+   * keep the answer.
+   *
+   * `whileAttacker` is the third of ST01-016's shapes and the one that decides
+   * whether the design is cut right: "your opponent cannot activate [Blocker]
+   * **if that Leader or Character attacks** during this turn" outlives the
+   * battle it was written in, so the rule cannot be a property of a battle. It
+   * is dormant while any other card is attacking and wakes when the named card
+   * declares — including for an attack declared long after the Event resolved.
+   * A `Ref` that names nothing writes no rule at all: an "up to 1" answered
+   * with nothing leaves a prohibition with no card to hang on, and rule 1 of
+   * the interpreter says that is a no-op, not a failure.
+   */
+  | {
+      op: 'setLegality';
+      effect: LegalityEffect;
+      subject: LegalitySubjectSpec;
+      clause: LegalityClause;
+      duration: Duration;
+      whileAttacker?: Ref;
+    }
   // Control flow. Both nest, which is why the cursor is a frame stack.
   | { op: 'if'; cond: Condition; then: Instruction[]; else?: Instruction[] }
   | { op: 'forEach'; in: Ref; do: Instruction[] };
@@ -288,8 +395,23 @@ export interface Ability {
   script: Instruction[];
   /** `static` only: who the continuous effect applies to. */
   affects?: Audience;
-  /** `static` only: what it grants them. */
-  grants?: { power?: number; keyword?: Keyword };
+  /**
+   * `static` only: what it grants them.
+   *
+   * `legality` is the continuous face of the same mechanism `setLegality`
+   * writes, and it carries no subject for the same reason `power` and `keyword`
+   * carry none: `affects` already said who. CR keeps the two apart as well —
+   * 8-1-3-3 has permanent effects "constantly affect gameplay while they are
+   * valid" (OP01-021 Franky, whose `[DON!! x1]` is a condition re-read every
+   * time the question is asked), against 8-1-4-2's continuous effects that last
+   * "for a specified duration" (OP01-112 Page One, the same permission bought
+   * for a turn). Same clause, two lifetimes, one reader.
+   */
+  grants?: {
+    power?: number;
+    keyword?: Keyword;
+    legality?: { effect: LegalityEffect; clause: LegalityClause };
+  };
 }
 
 /**

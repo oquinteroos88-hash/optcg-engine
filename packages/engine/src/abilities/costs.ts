@@ -1,4 +1,4 @@
-import { getActiveCostDon, getPower, isOnField } from '../selectors.js';
+import { EFFECTIVE, getActiveCostDon, isOnField } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId } from '../types.js';
 import type { AbilityContext, Cost } from './dsl.js';
 import { resolveSelector } from './query.js';
@@ -31,7 +31,7 @@ export function discardCandidates(
 ): InstanceId[] {
   // Zone and owner are the cost's own, never the card's to write: "trash N
   // card(s) from *your* hand".
-  return resolveSelector(state, ctx, { ...cost.filter, zone: 'hand', owner: 'you' }, getPower);
+  return resolveSelector(state, ctx, { ...cost.filter, zone: 'hand', owner: 'you' }, EFFECTIVE);
 }
 
 /**

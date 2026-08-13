@@ -2,6 +2,7 @@ import { fieldIds } from '../abilities/query.js';
 import { fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
+import { dropLegalityNaming, expireLegality } from '../legality.js';
 import type { CardInstance, GameState, InstanceId, Orientation, PlayerId } from '../types.js';
 
 /** CR 3-7-6: "Up to 5 Character cards can be placed in the Character area." */
@@ -34,8 +35,17 @@ export function finishGame(
   emit(draft, events, { type: 'gameEnded', winner, endReason });
 }
 
+/**
+ * Everything with an end-of-turn lifetime, expired together.
+ *
+ * The legality half is what makes ST01-016 finish honestly: "your opponent
+ * cannot activate [Blocker] if that Leader or Character attacks during this
+ * turn" ends with the turn whether the named card ever attacked or not, so the
+ * rule cannot be cleared by the attack it was waiting for — only by the clock.
+ */
 export function expireEndOfTurnModifiers(draft: GameState): void {
   draft.modifiers = draft.modifiers.filter((modifier) => modifier.duration !== 'endOfTurn');
+  expireLegality(draft, 'endOfTurn');
 }
 
 // DON!! are fungible: rest the first `cost` active cost-area DON in array order.
@@ -91,6 +101,9 @@ export function detachFromField(draft: GameState, id: InstanceId, events: GameEv
   }
 
   draft.modifiers = draft.modifiers.filter((modifier) => modifier.target !== id);
+  // The same rule one array over: CR 3-1-6 makes the card that comes back a new
+  // card, so nothing said *about this card* survives its exit.
+  dropLegalityNaming(draft, id);
 
   card.orientation = 'active';
   card.attachedDon = [];

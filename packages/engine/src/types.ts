@@ -1,4 +1,10 @@
-import type { Keyword, VarValue } from './abilities/dsl.js';
+import type {
+  CardPredicate,
+  Keyword,
+  LegalityClause,
+  LegalityEffect,
+  VarValue,
+} from './abilities/dsl.js';
 import type { GameEvent } from './events.js';
 
 export type PlayerId = 'p1' | 'p2';
@@ -23,6 +29,21 @@ export interface GameState {
   cards: Record<InstanceId, CardInstance>;
   battle: Battle | null;
   modifiers: Modifier[];
+  /**
+   * Timed rules about what a player may do. `Modifier`'s sibling, not its
+   * fourth member.
+   *
+   * They share everything that makes a grant a grant — an id, a source, one of
+   * the two durations the engine can expire — and differ in the only thing that
+   * decides which array a record belongs in: what a reader has to ask it. Every
+   * `Modifier` answers "what value does this **card** have", which is why every
+   * member has a `target` and why `getPower` and `hasKeyword` can walk the list
+   * card-first. A legality rule answers "may this **action** happen", is scoped
+   * by a question rather than by a card, and is read by different callers at
+   * different sites. Merging them would make `target` nullable for the sake of
+   * entries `getPower` could only ever skip.
+   */
+  legality: LegalityRule[];
   /** Card effects being resolved, LIFO: `stack.at(-1)` runs next. */
   stack: StackItem[];
   /** The question the engine is waiting on, if any. */
@@ -138,6 +159,44 @@ export type Modifier =
       duration: 'endOfBattle' | 'endOfTurn';
       source: InstanceId;
     };
+
+/**
+ * A timed legality rule written onto the state by a `setLegality` instruction.
+ *
+ * The whole record is data — no functions, no closures — for the reason the
+ * whole engine is: a game that suspends mid-effect has to survive
+ * `JSON.parse(JSON.stringify(state))` and come back the same game. A predicate
+ * expressed as a function would be the one thing in here that could not.
+ *
+ * `subject` says which cards the rule speaks about, in the two forms the
+ * printed cards need: a **set** ("your opponent cannot activate a [Blocker]
+ * Character that has 5000 or more power" — a side plus a predicate) or an
+ * **exact card** (OP01-112 Page One buying the permission for itself). The
+ * `match` predicate is read with the effective lens, so a Blocker pushed to
+ * 5000 by somebody else's continuous effect falls under ST01-002's ban and one
+ * that is not, blocks.
+ *
+ * `whileAttacker` gates the rule on the open battle's attacker, and it is the
+ * field that keeps ST01-016 from needing a mechanism of its own: the rule is
+ * written when the Event resolves, sits inert through every other card's
+ * attack, applies to an attack declared by the named card minutes later, and
+ * expires with the turn whether or not that attack ever came.
+ *
+ * A rule is **not** dropped when its `source` leaves the field — ST01-016's
+ * source is an Event sitting in the trash before the rule is ever consulted,
+ * exactly as a Counter's power modifier outlives the card that granted it.
+ */
+export interface LegalityRule {
+  id: string;
+  source: InstanceId;
+  duration: 'endOfBattle' | 'endOfTurn';
+  effect: LegalityEffect;
+  /** Whose cards, and which of them. Absolute sides: `PlayerRef` is resolved. */
+  subject: { player: PlayerId; match?: CardPredicate } | { is: InstanceId };
+  clause: LegalityClause;
+  /** Dormant unless this exact card is the open battle's attacker. */
+  whileAttacker?: InstanceId;
+}
 
 /**
  * One instruction-list being executed, plus where in it we are.

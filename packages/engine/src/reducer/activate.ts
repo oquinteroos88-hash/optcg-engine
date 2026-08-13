@@ -5,7 +5,7 @@ import { enqueue, makeStackItem } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getAbilities } from '../registry.js';
-import { getPower, isOnField } from '../selectors.js';
+import { EFFECTIVE, isOnField } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
 
@@ -46,7 +46,7 @@ export function validateActivateAbility(
   // 8-4-1-1). The without-statics reading belongs to static evaluation only.
   if (
     ability.condition !== undefined &&
-    !evalCondition(state, ctx, ability.condition, getPower)
+    !evalCondition(state, ctx, ability.condition, EFFECTIVE)
   ) {
     return REASONS.abilityConditionUnmet;
   }

@@ -1,6 +1,6 @@
 import { mark } from '../instrument.js';
 import { getAbilities } from '../registry.js';
-import { getPower } from '../selectors.js';
+import { EFFECTIVE } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId, StackItem } from '../types.js';
 import { PLAYER_IDS } from '../types.js';
 import { canPayCosts } from './costs.js';
@@ -108,7 +108,7 @@ function canFire(
   }
   // Conditions read the power a card has now, statics included (CR 2-6-3,
   // 8-4-1-1). The without-statics reading belongs to static evaluation only.
-  if (ability.condition !== undefined && !evalCondition(state, ctx, ability.condition, getPower)) {
+  if (ability.condition !== undefined && !evalCondition(state, ctx, ability.condition, EFFECTIVE)) {
     return false;
   }
   // Costs are checked before the ability fires at all: an ability whose price

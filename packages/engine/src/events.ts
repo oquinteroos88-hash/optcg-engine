@@ -1,4 +1,4 @@
-import type { Keyword } from './abilities/dsl.js';
+import type { Keyword, LegalityEffect, LegalityQuestion } from './abilities/dsl.js';
 import type { CardId, InstanceId, Orientation, PlayerId } from './types.js';
 
 // The log is perfect-information by design (hidden-information views are out of
@@ -25,7 +25,20 @@ export type GameEvent =
   | { type: 'attackDeclared'; player: PlayerId; attacker: InstanceId; target: InstanceId }
   | { type: 'blockDeclared'; player: PlayerId; blocker: InstanceId }
   | { type: 'counterPlayed'; player: PlayerId; instanceId: InstanceId; target: InstanceId; value: number }
-  | { type: 'battleResolved'; attacker: InstanceId; target: InstanceId; outcome: 'ko' | 'lifeDamage' | 'noEffect' }
+  /**
+   * `koPrevented` is the fourth outcome and reports a comparison the attacker
+   * won against a Character that survived it anyway (CR 7-1-4-1-2 plus a card
+   * saying "cannot be K.O.'d in battle"). Deliberately not folded into
+   * `noEffect`, which reports an attack that lost: a client that showed the
+   * same words for both would be describing a Character that shrugged off a hit
+   * and a Character that was never hit in the same breath.
+   */
+  | {
+      type: 'battleResolved';
+      attacker: InstanceId;
+      target: InstanceId;
+      outcome: 'ko' | 'lifeDamage' | 'noEffect' | 'koPrevented';
+    }
   /**
    * The battle ended before the Damage Step because a participant left the
    * field (CR 7-1-1-4 / 7-1-2-3 / 7-1-3-3).
@@ -65,6 +78,21 @@ export type GameEvent =
       type: 'keywordGranted';
       target: InstanceId;
       keyword: Keyword;
+      duration: 'endOfBattle' | 'endOfTurn';
+    }
+  /**
+   * A timed legality rule was written onto the state.
+   *
+   * It names the question and the direction rather than restating the whole
+   * rule, for the reason `powerGranted` names a value and not the selector that
+   * found its target: the log says what changed about the game, and the rule
+   * itself is in the state for anyone who needs its shape.
+   */
+  | {
+      type: 'legalitySet';
+      source: InstanceId;
+      effect: LegalityEffect;
+      question: LegalityQuestion;
       duration: 'endOfBattle' | 'endOfTurn';
     }
   | { type: 'orientationChanged'; instanceId: InstanceId; orientation: Orientation }

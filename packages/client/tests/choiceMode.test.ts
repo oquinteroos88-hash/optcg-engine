@@ -366,3 +366,84 @@ describe('ensureModeValid against a real open choice', () => {
     expect(a.global.canPass).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe('answeringChoice: partitionCards', () => {
+  const partition = selectCards({
+    kind: 'partitionCards',
+    prompt: 'Place each card on the top or bottom of your deck, first card drawn first',
+    candidates: ['a', 'b', 'c'],
+    min: 3,
+    max: 3,
+  });
+
+  it('starts with every candidate on the bottom, which is the confirm-without-touching answer', () => {
+    const a = aff({}, partition);
+    const result = reduceUiMode(answering(['a', 'b', 'c']), { kind: 'confirmChoice' }, a);
+    expect(result.mode).toEqual(IDLE);
+    expect(result.intent).toEqual({
+      type: 'ANSWER_CHOICE',
+      choiceId: 'c1',
+      answer: { kind: 'partition', top: [], bottom: ['a', 'b', 'c'] },
+    });
+  });
+
+  it('flips one card to the top and back', () => {
+    const a = aff({}, partition);
+    const up = reduceUiMode(answering(['a']), { kind: 'toggleChoiceSide', instanceId: 'a' }, a);
+    expect(up.mode).toEqual(answering(['a'], 'c1', ['a']));
+    expect(up.intent).toBeUndefined();
+    const down = reduceUiMode(up.mode, { kind: 'toggleChoiceSide', instanceId: 'a' }, a);
+    expect(down.mode).toEqual(answering(['a'], 'c1', []));
+  });
+
+  it('cuts the click order into two sides, each keeping its order', () => {
+    // The property the answer's shape rests on: `selected` is the sequence, the
+    // side is a filter over it, and a filter preserves relative order. So the
+    // numbers the overlay showed are the order each side comes out in.
+    const a = aff({}, partition);
+    const clicked = answering(['c', 'a', 'b'], 'c1', ['a', 'b']);
+    const result = reduceUiMode(clicked, { kind: 'confirmChoice' }, a);
+    expect(result.intent).toEqual({
+      type: 'ANSWER_CHOICE',
+      choiceId: 'c1',
+      answer: { kind: 'partition', top: ['a', 'b'], bottom: ['c'] },
+    });
+  });
+
+  it('emits nothing until every candidate has a place', () => {
+    // Same gate as the ordering: `min === max === candidates.length`, so a
+    // partial partition never becomes an intent and the engine never sees a
+    // cardinality error from this client.
+    const a = aff({}, partition);
+    const mode = answering(['a', 'b'], 'c1', ['a']);
+    const result = reduceUiMode(mode, { kind: 'confirmChoice' }, a);
+    expect(result.mode).toBe(mode);
+    expect(result.intent).toBeUndefined();
+  });
+
+  it('ignores a side toggle for something that is not a candidate', () => {
+    const a = aff({}, partition);
+    const mode = answering(['a'], 'c1', []);
+    expect(reduceUiMode(mode, { kind: 'toggleChoiceSide', instanceId: 'zz' }, a).mode).toBe(mode);
+  });
+
+  it('ignores a side toggle when the open choice is not a partition', () => {
+    // The event exists for one kind and is inert for the rest, rather than the
+    // mode having to know which events it may receive.
+    const a = aff({}, selectCards({ max: 2 }));
+    const mode = answering(['a']);
+    expect(reduceUiMode(mode, { kind: 'toggleChoiceSide', instanceId: 'a' }, a).mode).toBe(mode);
+  });
+
+  it('cannot be escaped either', () => {
+    const a = aff({}, partition);
+    const mode = answering(['a'], 'c1', ['a']);
+    for (const ev of [{ kind: 'escape' } as const, { kind: 'clickEmpty' } as const]) {
+      const result = reduceUiMode(mode, ev, a);
+      expect(result.mode).toBe(mode);
+      expect(result.intent).toBeUndefined();
+    }
+  });
+});

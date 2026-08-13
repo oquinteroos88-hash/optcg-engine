@@ -908,6 +908,36 @@ export const ABIL_CARDS: CardDefinition[] = [
           },
         ],
       },
+      /**
+       * "[Activate: Main] [Once Per Turn] Look at 3 cards from the top of your
+       * deck and place them at the top or bottom of the deck in any order."
+       *
+       * The partition, on the card that already carries the permutation — so
+       * **one source can open either kind**, which is the shape the two-kinds
+       * property is worth testing on. A card that could only ever ask one of
+       * them would let the two drift apart without anything noticing.
+       *
+       * Three cards rather than five: the whole window is placed here, and a
+       * partition of three has eight side assignments and six orders per side,
+       * which is more than enough to catch a mapping read backwards while still
+       * fitting in a test's head.
+       *
+       * `[Once Per Turn]` for the reason the ability above it has one — a free
+       * repeatable action is what the sweep's action cap catches.
+       */
+      {
+        id: 'ABIL-029-split',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          { op: 'lookAt', as: 'seen', count: 3 },
+          {
+            op: 'orderToDeckEnds',
+            cards: { var: 'seen' },
+            prompt: 'Place each card on the top or bottom of your deck, first card drawn first',
+          },
+        ],
+      },
     ],
   }),
 

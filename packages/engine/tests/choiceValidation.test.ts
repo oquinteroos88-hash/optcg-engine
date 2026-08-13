@@ -68,12 +68,20 @@ function validSelections(pending: PendingChoice, limit: number): InstanceId[][] 
 /**
  * The card-list answer `pending` expects, in the right dialect.
  *
- * `selectCards` and `orderCards` take the same *content* — a list of candidate
- * ids — and different members, because they answer different questions. Every
- * probe below builds its list and then comes through here, so the tests say
- * which rule they are breaking rather than which member they forgot.
+ * `selectCards`, `orderCards` and `partitionCards` take the same *content* — a
+ * list of candidate ids — and three different members, because they answer
+ * three different questions. Every probe below builds its list and then comes
+ * through here, so the tests say which rule they are breaking rather than which
+ * member they forgot.
+ *
+ * The partition is built with everything on the bottom, which is the answer a
+ * player gets by confirming without touching a side toggle — and the one that
+ * makes the two sides of the validation independent of which side is chosen.
  */
 function cardListAnswer(pending: PendingChoice, ids: readonly InstanceId[]): ChoiceAnswer {
+  if (pending.kind === 'partitionCards') {
+    return { kind: 'partition', top: [], bottom: [...ids] };
+  }
   return pending.kind === 'orderCards'
     ? { kind: 'order', order: [...ids] }
     : { kind: 'cards', selected: [...ids] };
@@ -81,8 +89,13 @@ function cardListAnswer(pending: PendingChoice, ids: readonly InstanceId[]): Cho
 
 /** The wrong dialect for this pending, for the kind-mismatch probes. */
 function wrongCardListAnswer(pending: PendingChoice, ids: readonly InstanceId[]): ChoiceAnswer {
+  // A partition answered as an ordering, and an ordering answered as a
+  // partition: the two crossings the fifth member exists to make unspellable.
+  if (pending.kind === 'partitionCards') {
+    return { kind: 'order', order: [...ids] };
+  }
   return pending.kind === 'orderCards'
-    ? { kind: 'cards', selected: [...ids] }
+    ? { kind: 'partition', top: [], bottom: [...ids] }
     : { kind: 'order', order: [...ids] };
 }
 
@@ -113,6 +126,9 @@ describe('answer validation over a corpus of real pendings', () => {
     // Batch 9. The corpus is built from real ABIL games, so this is a claim
     // about the ability deck reaching an ordering, not about the type.
     expect(kinds.has('orderCards')).toBe(true);
+    // And the partition, which is the same claim for the same reason: the ABIL
+    // deck reaches it in ordinary play, not merely in a staged position.
+    expect(kinds.has('partitionCards')).toBe(true);
   });
 
   it('holds the priority invariant on every one of them', () => {

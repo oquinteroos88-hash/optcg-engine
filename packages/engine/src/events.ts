@@ -1,4 +1,4 @@
-import type { Keyword, LegalityEffect, LegalityQuestion } from './abilities/dsl.js';
+import type { Duration, Keyword, LegalityEffect, LegalityQuestion } from './abilities/dsl.js';
 import type { CardId, InstanceId, Orientation, PlayerId } from './types.js';
 
 // The log is perfect-information by design (hidden-information views are out of
@@ -73,12 +73,12 @@ export type GameEvent =
       prompt: string;
     }
   | { type: 'choiceAnswered'; player: PlayerId; choiceId: string }
-  | { type: 'powerGranted'; target: InstanceId; value: number; duration: 'endOfBattle' | 'endOfTurn' }
+  | { type: 'powerGranted'; target: InstanceId; value: number; duration: Duration }
   | {
       type: 'keywordGranted';
       target: InstanceId;
       keyword: Keyword;
-      duration: 'endOfBattle' | 'endOfTurn';
+      duration: Duration;
     }
   /**
    * A timed legality rule was written onto the state.
@@ -93,7 +93,7 @@ export type GameEvent =
       source: InstanceId;
       effect: LegalityEffect;
       question: LegalityQuestion;
-      duration: 'endOfBattle' | 'endOfTurn';
+      duration: Duration;
     }
   | { type: 'orientationChanged'; instanceId: InstanceId; orientation: Orientation }
   | { type: 'cardMoved'; player: PlayerId; instanceId: InstanceId; to: 'hand' | 'deck' | 'trash' | 'life' }

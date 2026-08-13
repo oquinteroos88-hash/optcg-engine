@@ -501,6 +501,8 @@ describe('the opponent activating [Blocker]', () => {
       draft.legality.push({
         id: 'rule-test-blocker',
         source: draft.players.p1.leader,
+        controller: 'p1',
+        writtenOnTurn: draft.turn,
         effect: 'forbid',
         subject: { player: 'p2' },
         clause: { question: 'activateBlocker' },

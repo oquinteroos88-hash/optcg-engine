@@ -22,8 +22,31 @@ import type { InstanceId, Orientation, PlayerId } from '../types.js';
 
 export type Keyword = 'rush' | 'blocker' | 'doubleAttack' | 'banish';
 
-/** Matches `Modifier['duration']`: the two lifetimes the engine can expire. */
-export type Duration = 'endOfBattle' | 'endOfTurn';
+/**
+ * The lifetimes the engine can expire — shared by `Modifier` and `LegalityRule`,
+ * which is why the third member arrived once and served both.
+ *
+ * `endOfOpponentNextTurn` is that third member, and PR #31 is what proved the
+ * union was short one. A prohibition aimed at an opponent's Character with an
+ * `endOfTurn` lifetime **expires before that Character can act** — the turn ends,
+ * the rule dies, and the opponent's turn begins unencumbered. That is why
+ * `OP01-085` prints "until the end of your opponent's next turn" and not "during
+ * this turn": Bandai needed a duration the engine did not have, and 43 cards in
+ * the full set print it.
+ *
+ * It is the only duration that spans a change of turn player, which is what
+ * makes it different in kind rather than in length. The other two are measured
+ * against something the engine is already inside — a battle, a turn — and this
+ * one is measured against **whose** turn ends, so `Modifier` and `LegalityRule`
+ * both had to start recording their controller and the turn they were written
+ * on. CR 6-6-1-2 is the rule it implements, and it splits the End Phase's expiry
+ * step by player for exactly this reason: "(1) Process any continuous effects of
+ * the **turn player** … due to be processed at the end of this turn or at the
+ * end of your turn … (2) Process any continuous effects of the **non-turn
+ * player**". An `endOfOpponentNextTurn` effect is always in clause (2) when it
+ * dies, because it dies on its controller's opponent's turn.
+ */
+export type Duration = 'endOfBattle' | 'endOfTurn' | 'endOfOpponentNextTurn';
 
 /** Resolved against the ability's controller, not the state's active player. */
 export type PlayerRef = 'you' | 'opponent';
@@ -412,6 +435,37 @@ export type Condition =
    * `varTrue` gives for a variable nothing wrote.
    */
   | { kind: 'koCause'; by: PlayerRef | 'battle' }
+  /**
+   * The source's own orientation — "**if this Character is rested**".
+   *
+   * The narrowest thing that answers the question, and narrow on purpose. The
+   * obvious wider shape was a `CardPredicate` aimed at the source, reusing the
+   * whole selector vocabulary at once, and it is the wrong shape twice over. A
+   * predicate can filter on `powerMin` and `keyword`, and **all seven printed
+   * cards in this family are permanent effects** — so a self-predicate asking
+   * about power would be evaluated inside static evaluation, against the
+   * without-statics lens, which is the recursion anchor `getPowerWithoutStatics`
+   * exists to be. The condition would silently answer a different question than
+   * the same predicate asks anywhere else. `orientation` needs no lens at all:
+   * it is read straight off `CardInstance`.
+   *
+   * The vocabulary it reuses is `Selector.orientation`'s, which is the same
+   * `Orientation` and has meant the same thing since Phase 0. What it does not
+   * reuse is the *selector*, because there is no "only me" selector to reuse —
+   * `Selector.excludeSelf` is the exact inverse, and `Audience`'s `{self: true}`
+   * belongs to a static's `affects` and cannot be counted.
+   *
+   * Both orientations are printed, which is why this takes an `Orientation`
+   * rather than being spelled `isRested`: five cards ask "if this Character is
+   * rested" (`ST02-014`, `OP01-051`, `OP04-119`, `OP14-026`, `OP14-027`) and two
+   * ask "if this Character is active" (`OP08-029`, `OP12-024`). A boolean would
+   * have had to be negated by a `not` the DSL does not have.
+   *
+   * Off the field there is nothing to ask, and the answer is `false` rather than
+   * a throw — a card whose orientation is normalized on exit (`detachFromField`
+   * sets it active) would otherwise answer "active" from the trash.
+   */
+  | { kind: 'selfOrientation'; orientation: Orientation }
   | { kind: 'and'; of: Condition[] }
   | { kind: 'or'; of: Condition[] };
 

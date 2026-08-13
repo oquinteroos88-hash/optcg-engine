@@ -220,6 +220,8 @@ export function applyPlayCounter(
     value,
     duration: 'endOfBattle',
     source: action.instanceId,
+    controller: action.player,
+    writtenOnTurn: draft.turn,
   });
   emit(draft, events, {
     type: 'counterPlayed',

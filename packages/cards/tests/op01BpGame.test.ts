@@ -23,7 +23,7 @@ import { OP01_BP_DECKS, OP01_DOFFY_DECKS } from './support.js';
  * turning sideways.
  */
 
-const SEEDS = [249, 23, 134, 197, 1, 22, 92] as const;
+const SEEDS = [230, 67, 4, 23, 15, 21, 128] as const;
 const ACTIONS = 400;
 
 /** Every blue/purple ability a random game of these decks reaches. */
@@ -65,6 +65,10 @@ const BATCH_3_BP_ABILITIES = [
   // Batch 7 — the Leader that has been dealing these games since batch 3 with
   // its printed ability doing nothing. It fires in 183 games of 300.
   'OP01-062-onOwnEvent',
+  // The starter-completion batch. Mr.3 is Crocodile-led here and his gate is a
+  // {Baroque Works} Leader, so the prohibition is live in every game this deck
+  // plays — 123 games of 300, which is why it needed no seed of its own.
+  'OP01-085-onPlay',
 ] as const;
 
 /**
@@ -188,7 +192,11 @@ describe('a real game of OP-01 blue/purple', () => {
     // these two could *not* be reached and said why; the DON!!-holding bias
     // makes them reachable, so the assertion flips rather than disappearing.
     const fired = new Set<string>();
-    for (let seed = 1; seed <= 120; seed += 1) {
+    // 1..150 rather than 1..120: the window is sized to the rarer of the two,
+    // and adding `OP01-085` to this deck moved `OP01-089-counter`'s first
+    // appearance from inside the old window to seed 128. The bound is a
+    // measurement, so it gets re-measured when the deck moves.
+    for (let seed = 1; seed <= 150; seed += 1) {
       for (const id of Object.keys(run(seed).fired)) fired.add(id);
     }
     expect(fired.has('OP01-086-counter')).toBe(true);
@@ -212,7 +220,10 @@ describe('a real game of OP-01 blue/purple', () => {
     // this is the blue deck that holds the {Baroque Works} Events its search is
     // for. Its [DON!! x1] [When Attacking] gate is what makes it rare enough to
     // need a seed of its own.
-    const DOFFY_SEEDS = [42, 1, 18, 88, 25, 9];
+    // Re-covered after `OP01_BP_CROCODILE` gained Mr.3: seed 47 now reaches all
+    // four on its own, and the rest are kept for breadth rather than need.
+    // `OP01-084-whenAttacking` is the rare one at 25 games of 300.
+    const DOFFY_SEEDS = [47, 18, 88, 25, 9];
     const fired = new Set<string>();
     let restedArrivals = 0;
     for (const seed of DOFFY_SEEDS) {

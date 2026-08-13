@@ -2890,4 +2890,114 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
       ],
     },
   ],
+
+  /* ------------------------------------------------------------------------
+   * The starter-completion batch.
+   *
+   * Two cards, and between them they close the last two capability rows either
+   * inventory carried: a duration that outlives the turn it was written in, and
+   * a condition about the source's own orientation. The third card of the batch,
+   * `ST02-010` Basil Hawkins, is **not here** — see the ruling in
+   * `docs/starter-card-inventory.md`.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-085 Mr.3(Galdino)
+  // "[On Play] If your Leader has the {Baroque Works} type, select up to 1 of
+  //  your opponent's Characters with a cost of 4 or less. The selected
+  //  Character cannot attack until the end of your opponent's next turn."
+  //
+  // The card PR #31 could write every part of except the clock. Its prohibition
+  // is `setLegality` with the `attack` question and no `target` predicate — the
+  // subject cannot attack at all, rather than cannot attack some particular
+  // card — and that half has existed since that PR. What did not exist was a
+  // duration that survives the turn it is written in.
+  //
+  // **The gap was structural, not cosmetic.** An `endOfTurn` rule aimed at an
+  // opponent's Character expires in the End Phase of *this* turn (CR 6-6-1-2),
+  // which is before that Character has had a turn in which to attack. Written
+  // with the old duration the card would have been legal, silent and useless;
+  // `endOfOpponentNextTurn` is what makes the printed sentence mean anything.
+  //
+  // `subject: { cards: { var: 'pinned' } }` names the card by identity, so the
+  // rule dies with it if it leaves the field (CR 3-1-6) — the same reading
+  // `OP01-112` uses, and the reason the "up to 1" answered with nothing writes
+  // no rule at all.
+  'OP01-085': [
+    {
+      id: 'OP01-085-onPlay',
+      trigger: 'onPlay',
+      condition: leaderHasType('Baroque Works'),
+      script: [
+        {
+          op: 'select',
+          as: 'pinned',
+          from: { zone: 'field', owner: 'opponent', category: ['character'], costMax: 4 },
+          min: 0,
+          max: 1,
+          prompt: "Select up to 1 of your opponent's Characters with a cost of 4 or less",
+        },
+        {
+          op: 'setLegality',
+          effect: 'forbid',
+          subject: { cards: { var: 'pinned' } },
+          clause: { question: 'attack' },
+          duration: 'endOfOpponentNextTurn',
+        },
+      ],
+    },
+  ],
+
+  // ST02-014 X.Drake
+  // "[DON!! x1] [Your Turn] If this Character is rested, your {Supernovas} or
+  //  {Navy} type Leaders and Characters gain +1000 power."
+  //
+  // **A permanent effect, not a trigger, and that is the whole of the timing
+  // question.** CR 8-1-3-3-1 puts in this category every effect that "based on
+  // the card text, cannot be classified as auto, activate, or replacement
+  // effects", and this card carries no activation-timing marker at all — no
+  // `[On Play]`, no `[When Attacking]`, nothing from CR 8-1-3-1-1's list. So it
+  // is read continuously by `getPower`, and its three conditions are re-asked
+  // every time the question is put (CR 8-1-3-3-2: "Some permanent effects
+  // require the fulfillment of conditions for their effect to be valid").
+  //
+  // That is why the orientation condition is not trivially constant. Had this
+  // been `[When Attacking]`, CR 7-1-1-1 rests the attacker *as part of*
+  // declaring and CR 7-1-1-3 activates the trigger after — so an attacking
+  // X.Drake would always have been rested and the clause would have said
+  // nothing. As a permanent effect the same fact reads the other way round: the
+  // attack is what *switches the buff on*, mid-battle, for every Supernovas or
+  // Navy card including the one that is attacking.
+  //
+  // Three conditions and all three are printed: `[DON!! x1]`, `[Your Turn]` and
+  // the orientation clause. `[Your Turn]` is a condition rather than a timing
+  // (CR 8-3-2-4, CR 10-2-11-1: "a condition that is satisfied during your
+  // turn"), so it belongs here beside the other two and not in a trigger name.
+  //
+  // `affects` includes the Leader, because the text says "Leaders and
+  // Characters", and does not use `excludeSelf`: X.Drake is a {Supernovas} card
+  // and buffs itself when the clause is open.
+  'ST02-014': [
+    {
+      id: 'ST02-014-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          { kind: 'isYourTurn' },
+          { kind: 'selfOrientation', orientation: 'rested' },
+        ],
+      },
+      script: [],
+      affects: {
+        selector: {
+          zone: 'field',
+          owner: 'you',
+          category: ['leader', 'character'],
+          types: ['Supernovas', 'Navy'],
+        },
+      },
+      grants: { power: 1000 },
+    },
+  ],
 });

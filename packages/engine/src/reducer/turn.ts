@@ -26,7 +26,12 @@ export function applyEndTurn(
 
 /** The End Phase proper, run by the interpreter's `startTurn` continuation. */
 export function finishTurn(draft: GameState, player: PlayerId, events: GameEvent[]): void {
-  expireEndOfTurnModifiers(draft);
+  // CR 6-6-1-1 activated the [End of Your Turn] effects above; CR 6-6-1-2 is
+  // this line, and it now needs to know *whose* turn is ending, because
+  // `endOfOpponentNextTurn` is the first duration whose answer depends on it.
+  // The Refresh Phase of the next turn (6-6-1-4 → 6-2) comes after, so a rule
+  // that expires here is gone before anybody un-rests anything.
+  expireEndOfTurnModifiers(draft, player);
   for (const card of Object.values(draft.cards)) {
     if (card.usedThisTurn.length > 0) {
       card.usedThisTurn = [];

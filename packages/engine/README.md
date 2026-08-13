@@ -10,6 +10,15 @@ effect system**: a declarative DSL, a resumable interpreter, player choices,
 continuous effects, and the four keywords. Real card data (2B), UI for answering
 choices (2C), networking and hidden information are still out of scope.
 
+**The starter decks are done: 33 of the 34 cards in ST-01 and ST-02 have a
+script, a printed keyword the engine applies, or no text at all.** The
+thirty-fourth, `ST02-010` Basil Hawkins, is *declared* rather than deferred —
+the ruling was made and the card needs two capabilities that exist for no other
+card in the 2665-card set, so it stays unwritten on purpose.
+`packages/cards/tests/startersComplete.test.ts` is the guard; the reasoning is
+in `docs/starter-card-inventory.md`. OP-01 stands at 82 of 121 and is the slower
+half of the same campaign.
+
 ## Quick start
 
 ```bash
@@ -1303,6 +1312,24 @@ that sense of the word from CR 6-5-3-1's paid Main Phase action **for cost**
 (`playFromEffectPaysCost`), and nothing in that separation says the card was not
 played. `OP12-081` is the printed evidence: it names "plays a Character using a
 Character's effect" as a timing it has to *narrow*, not one it has to add.
+
+**`rules.nextTurnExcludesTurnInProgress` (default `true`).** `Duration`'s third
+member, `endOfOpponentNextTurn`, is the only one that outlives the turn it was
+written in, and CR 6-6-1-2 says exactly where it expires — the End Phase's
+expiry step runs the turn player's timed effects and then the non-turn player's,
+and an effect measured against the opponent's turn is always in the second
+clause when it dies. What the rules never say is how "next" is **counted** when
+the effect is written *during* the opponent's turn, which `OP08-112`'s
+`[Trigger]` really can do from the Life area. The default reads it off the
+English: a turn that is happening is not a turn that is next, and 459 cards say
+"during this turn" when they mean the current one.
+
+Both `Modifier` and `LegalityRule` gained a `controller` and a `writtenOnTurn`
+for this member alone, and both fields are required rather than optional —
+`exactOptionalPropertyTypes` plus the no-explicit-undefined rule make an
+always-present field the only encoding that round-trips exactly. An invariant
+bounds the lifetime at two turns, which is arithmetic and not caution: a record
+that outlives it has stopped being expired by anything.
 
 **`rules.placedRestedBecomesRested` (default `false`).** A Character placed
 rested did not *become* rested: CR 3-7-5 words that act as **placing**, and the

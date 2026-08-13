@@ -71,6 +71,9 @@ describe('createGame', () => {
       // than a field that appears silently.
       effectPlayIsPlayingACharacter: true,
       placedRestedBecomesRested: false,
+      // The one reading `endOfOpponentNextTurn` had to pick and the rules do
+      // not state: a turn already in progress is not a turn that is "next".
+      nextTurnExcludesTurnInProgress: true,
     });
     expect(state.log).toEqual([{ type: 'gameStarted', matchId: 'optcg-42', firstPlayer: 'p2' }]);
     for (const card of Object.values(state.cards)) {

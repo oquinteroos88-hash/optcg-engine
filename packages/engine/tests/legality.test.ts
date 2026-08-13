@@ -274,6 +274,8 @@ describe('a forbidden move is invisible, not rejected', () => {
     draft.legality.push({
       id: 'leg-test',
       source: attacker,
+      controller: 'p1',
+      writtenOnTurn: draft.turn,
       duration: 'endOfBattle',
       effect: 'forbid',
       subject: { player: 'p2' },
@@ -346,6 +348,8 @@ describe('a banned Blocker and a battle that evaporates', () => {
     draft.legality.push({
       id: 'leg-test',
       source: attacker,
+      controller: 'p1',
+      writtenOnTurn: draft.turn,
       duration: 'endOfBattle',
       effect: 'forbid',
       subject: { player: 'p2' },

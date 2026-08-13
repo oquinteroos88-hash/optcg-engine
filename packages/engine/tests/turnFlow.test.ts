@@ -127,6 +127,8 @@ describe('turnFlow', () => {
         value: 1000,
         duration: 'endOfTurn',
         source: leader,
+        controller: 'p1',
+        writtenOnTurn: draft.turn,
       });
     });
     expect(getPower(staged, leader)).toBe(6000);

@@ -80,10 +80,12 @@ describe('the normalized set', () => {
     // script attached to a card nobody meant to touch.
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
-      // OP-01 pile A, complete; the eleven pile-C cards a chosen payment and
-      // putting cards into play freed; and the starter set.
+      // OP-01 pile A, complete; the thirteen pile-C cards a chosen payment,
+      // putting cards into play and the two missing rules freed; and the
+      // starter set.
       'OP01-001',
       'OP01-003',
+      'OP01-004',
       'OP01-006',
       'OP01-007',
       'OP01-009',
@@ -110,6 +112,7 @@ describe('the normalized set', () => {
       'OP01-058',
       'OP01-059',
       'OP01-060',
+      'OP01-062',
       'OP01-064',
       'OP01-068',
       'OP01-070',

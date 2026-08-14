@@ -21,6 +21,8 @@ import {
   OP01_G_KANJURO,
   OP01_P_KING,
   OP01_RG_LIFE,
+  OP01_RG_SURGEON,
+  OP01_BP_WARLORD,
   assertFixtureDecksAreLegal,
 } from './fixtures/op01Decks.js';
 
@@ -243,6 +245,24 @@ export function op01LifeScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameSt
 
 export const OP01_KING_DECKS = { p1: OP01_KING_DECK, p2: OP01_KING_DECK };
 export const OP01_LIFE_DECKS = { p1: OP01_LIFE_DECK, p2: OP01_LIFE_DECK };
+
+/* ----------------------------------------- the closing batch (8 cards) --- */
+
+const OP01_SURGEON_DECK = toEngineDecklist(OP01_RG_SURGEON);
+const OP01_WARLORD_DECK = toEngineDecklist(OP01_BP_WARLORD);
+
+/** Red/green, Law-led. The Leader swap, the negation, and Kid's attack lock. */
+export function op01SurgeonScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_SURGEON_DECK, p2: OP01_SURGEON_DECK } });
+}
+
+/** Blue/purple, Crocodile-led. Scaling grants, cost modification, the reveals. */
+export function op01WarlordScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_WARLORD_DECK, p2: OP01_WARLORD_DECK } });
+}
+
+export const OP01_SURGEON_DECKS = { p1: OP01_SURGEON_DECK, p2: OP01_SURGEON_DECK };
+export const OP01_WARLORD_DECKS = { p1: OP01_WARLORD_DECK, p2: OP01_WARLORD_DECK };
 
 export function applyOk(state: GameState, action: Action): { state: GameState; events: GameEvent[] } {
   const result = applyAction(state, action);

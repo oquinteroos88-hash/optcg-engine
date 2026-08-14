@@ -729,6 +729,111 @@ export const OP01_BP_PACIFISTA: Decklist = {
   ],
 };
 
+/* ------------------------------------------- the player-chosen discard (4) */
+
+/**
+ * ## Two more decks, and the thirteen above stay untouched
+ *
+ * The same trade the name batch made and for the same reason: every existing
+ * fixture is exactly 50 cards and every seed measured against one is a fact
+ * about that shuffle, so making room by cutting a filler moves the deal and
+ * forces a corpus re-search that cannot tell a regression from a reshuffle.
+ *
+ * Two rather than one because the four cards do not share a colour: `OP01-038`
+ * is green, `OP01-088` is blue, and `OP01-102`/`OP01-114` are purple. No Leader
+ * in OP-01 covers green **and** blue/purple, so the split is the deckbuilding
+ * rules' and not a preference.
+ */
+
+/**
+ * Leader `OP01-061` Kaido, blue/purple — "your opponent trashes 1 card from
+ * their hand", twice, and the `[Trigger]` that trashes your own.
+ *
+ * Kaido carries {Animal Kingdom Pirates}, which is `OP01-102` Jack's and
+ * `OP01-114` X.Drake's own type. Nothing here gates on it — it is simply the
+ * Leader those two belong under, and the one blue/purple Leader whose colours
+ * hold all three cards.
+ *
+ * Both discard cards pay `DON!! −1`, so the deck wants to reach a board where a
+ * DON!! can be spared: the curve is deliberately cheap and wide. `OP01-088`
+ * Desert Spada is a 1-cost `[Counter]`, which is what makes its half reachable
+ * at all — a defender has spent most of their DON!! on their own turn
+ * (CR 7-1-3-2-2), and this repo has measured that a 5-cost `[Counter]` never
+ * fires in random play.
+ *
+ * The filler is every inert card the blue/purple pool has — nine distinct — so
+ * the manifestation union stays close to the batch rather than measuring a
+ * dozen other abilities at the same time.
+ */
+export const OP01_BP_JACK: Decklist = {
+  id: 'OP01-BP-JACK',
+  name: 'OP-01 blue/purple (test fixture, Kaido — the chosen discard)',
+  packId: '569101',
+  leader: 'OP01-061',
+  cards: [
+    { cardId: 'OP01-102', qty: 4 }, // Jack — [When Attacking] DON!! −1: opponent trashes 1
+    { cardId: 'OP01-114', qty: 4 }, // X.Drake — the same sentence on [On Play]
+    { cardId: 'OP01-088', qty: 4 }, // Desert Spada — [Counter] boost + split; [Trigger] draw 2, trash 1
+    // Inert bodies, the whole blue/purple pool of them.
+    { cardId: 'OP01-065', qty: 4 }, // Vergo — vanilla, cost 5
+    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+    { cardId: 'OP01-107', qty: 4 }, // Babanuki — vanilla, cost 5
+    { cardId: 'OP01-110', qty: 4 }, // Fukurokuju — vanilla, cost 6
+    { cardId: 'OP01-092', qty: 2 }, // Urashima — vanilla, cost 7
+    // The one scripted filler, and it earns its slot: a [Trigger] that plays
+    // itself is how a random game gets bodies onto a board cheaply, which is
+    // what Jack's [When Attacking] needs before it can attack at all.
+    { cardId: 'OP01-104', qty: 4 }, // Speed — [Trigger] Play this card
+  ],
+};
+
+/**
+ * Leader `OP01-031` Kouzuki Oden, mono-green — `OP01-038` Kanjuro, and nothing
+ * else in this batch.
+ *
+ * One card needs its own deck, and it is the one card in the **game** whose
+ * chooser and owner are opposite. Both of its halves need a board rather than a
+ * hand: the `[When Attacking]` wants an opponent's *rested* Character costing 2
+ * or less, and the `[On K.O.]` wants Kanjuro dead. A mirror match of a deck full
+ * of cheap green bodies gives both several times a game.
+ *
+ * `OP01_G_AKAZAYA` is Oden-led too and could have carried him, but its 50 slots
+ * are the name batch's corpus and this deck costs that corpus nothing. The two
+ * are not duplicates: that one is built around {The Akazaya Nine} at cost 3 or
+ * less because `OP01-040` plays one; this one is built around **2-cost bodies**,
+ * because that is what Kanjuro's first half is allowed to K.O.
+ */
+export const OP01_G_KANJURO: Decklist = {
+  id: 'OP01-G-KANJURO',
+  name: 'OP-01 mono-green (test fixture, Oden — the opponent chooses from your hand)',
+  packId: '569101',
+  leader: 'OP01-031',
+  cards: [
+    { cardId: 'OP01-038', qty: 4 }, // Kanjuro — K.O. a rested 2-drop; [On K.O.] they pick from your hand
+    // Cost-2-or-less bodies, which is what the first half may K.O. Four kinds,
+    // so a mirror game reliably has one rested on the far side.
+    { cardId: 'OP01-036', qty: 4 }, // Otsuru — vanilla, cost 1
+    { cardId: 'OP01-053', qty: 4 }, // Wire — vanilla, cost 2
+    { cardId: 'OP01-048', qty: 4 }, // Nekomamushi — [On Play] rest, cost 2
+    { cardId: 'OP01-037', qty: 4 }, // Kawamatsu — [Trigger] Play this card, cost 2
+    // The rest of the curve.
+    { cardId: 'OP01-043', qty: 4 }, // Shinobu — vanilla, cost 3
+    { cardId: 'OP01-045', qty: 4 }, // Jean Bart — vanilla, cost 4
+    { cardId: 'OP01-032', qty: 4 }, // Ashura Doji — static against a rested board
+    { cardId: 'OP01-033', qty: 4 }, // Izo — [On Play] rest
+    { cardId: 'OP01-034', qty: 4 }, // Inuarashi — [When Attacking] refresh DON!!
+    { cardId: 'OP01-035', qty: 4 }, // Okiku — [When Attacking] rest
+    { cardId: 'OP01-052', qty: 4 }, // Raizo — [When Attacking] draw
+    // Two, to keep the deck at 50. A [Counter] Event this cheap is also the
+    // only way a green mirror reaches the Counter Step with DON!! to spare.
+    { cardId: 'OP01-057', qty: 2 }, // Paradise Waterfall — [Counter] and [Trigger]
+  ],
+};
+
 export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
   OP01_R_ZORO,
@@ -743,6 +848,8 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_HEARTS,
   OP01_G_AKAZAYA,
   OP01_BP_PACIFISTA,
+  OP01_BP_JACK,
+  OP01_G_KANJURO,
 ]);
 
 /**

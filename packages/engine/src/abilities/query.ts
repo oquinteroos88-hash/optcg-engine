@@ -82,7 +82,14 @@ function zoneIds(state: GameState, player: PlayerId, selector: Selector): Instan
     case 'trash':
       return [...ps.trash];
     case 'life':
-      return [...ps.life];
+      // `count` means here what it means for `deckTop`: the first N, not a
+      // filter over the whole zone. CR 3-10-2 is why a card ever needs it — the
+      // Life area is a secret stack and "a player must select the card at the
+      // top of their Life cards unless otherwise specified", so a selector that
+      // offered every Life card would offer a choice the rules do not have.
+      // Left off, the whole area is returned, which is what a `countCards` over
+      // Life wants.
+      return selector.count === undefined ? [...ps.life] : ps.life.slice(0, selector.count);
     case 'deckTop':
       return ps.deck.slice(0, selector.count ?? 1);
   }

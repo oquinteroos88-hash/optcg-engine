@@ -3955,4 +3955,347 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
       ],
     },
   ],
+
+  /* ------------------------------------------------------------------------
+   * The closing batch — the last eight OP-01 cards that can be written.
+   *
+   * Five mechanisms, and after them the set stands at **118 of 121** with three
+   * cards declared and named: `OP01-024` (an attribute filter *and* a
+   * `koInBattle` clause that can name the other card — two capabilities for one
+   * card), `OP01-069` and `OP01-098` (searching the whole deck, 8 cards in the
+   * full set). Those three keep their rows; nothing here builds toward them.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-019 Bartolomeo
+  // "[Blocker]" — printed keyword.
+  // "[DON!! x2] [Opponent's Turn] This Character gains +3000 power."
+  //
+  // The card the negation was for, and the whole of it is one word: `[Opponent's
+  // Turn]` is `not(isYourTurn)`. A `static`, because both printed clauses are
+  // conditions re-read whenever the question is asked (CR 8-3-2-4 for the turn
+  // clause, and `[DON!! xN]` has been a condition since Phase 2A).
+  'OP01-019': [
+    {
+      id: 'OP01-019-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [{ kind: 'donAttached', min: 2 }, { kind: 'not', of: { kind: 'isYourTurn' } }],
+      },
+      script: [],
+      affects: { self: true },
+      grants: { power: 3000 },
+    },
+  ],
+
+  // OP01-072 Smiley
+  // "[DON!! x1] [Your Turn] This Character gains +1000 power for every card in
+  //  your hand."
+  //
+  // The simplest scaling grant in the set: one card, one thousand, no divisor.
+  // Counted at read time, so the number follows the hand without anything being
+  // written to `state.modifiers` — draw a card and Smiley is bigger.
+  'OP01-072': [
+    {
+      id: 'OP01-072-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [{ kind: 'donAttached', min: 1 }, { kind: 'isYourTurn' }],
+      },
+      script: [],
+      affects: { self: true },
+      grants: { powerPer: { of: { zone: 'hand', owner: 'you' }, value: 1000 } },
+    },
+  ],
+
+  // OP01-083 Mr.1(Daz.Bonez)
+  // "[DON!! x1] [Your Turn] If your Leader has the {Baroque Works} type, this
+  //  Character gains +1000 power for every 2 Events in your trash."
+  //
+  // The same arithmetic with a group size, and the only card in OP-01 that sets
+  // one. **The floor is the printed word**: "for every 2" describes complete
+  // groups, so one Event in the trash is worth nothing and three are worth the
+  // same as two. Three printed conditions, all gates on the same continuous
+  // effect, so `and`.
+  'OP01-083': [
+    {
+      id: 'OP01-083-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          { kind: 'isYourTurn' },
+          leaderHasType('Baroque Works'),
+        ],
+      },
+      script: [],
+      affects: { self: true },
+      grants: {
+        powerPer: {
+          of: { zone: 'trash', owner: 'you', category: ['event'] },
+          value: 1000,
+          per: 2,
+        },
+      },
+    },
+  ],
+
+  // OP01-067 Crocodile
+  // "[Banish]" — printed keyword.
+  // "[DON!! x1] Give blue Events in your hand −1 cost."
+  //
+  // The engine's third aggregated reading, and the card that forced it: six
+  // places read `CardDefinition.cost` before this and none of them could have
+  // seen a reduction. The audience is a selector over the **hand**, which needed
+  // nothing new — `resolveSelector` has reached that zone since Phase 2A and
+  // `forEachStatic` never cared which zone the cards it matches sit in.
+  //
+  // No `[Your Turn]` on this one: the reduction is live on either player's turn,
+  // which matters because a blue `[Counter]` Event is played on the opponent's.
+  'OP01-067': [
+    {
+      id: 'OP01-067-static',
+      trigger: 'static',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [],
+      affects: {
+        selector: { zone: 'hand', owner: 'you', category: ['event'], colors: ['blue'] },
+      },
+      grants: { cost: -1 },
+    },
+  ],
+
+  // OP01-105 Bao Huang
+  // "[On Play] Choose 2 cards from your opponent's hand; your opponent reveals
+  //  those cards."
+  //
+  // The whole card is the reveal, which makes it the cleanest witness the set
+  // has for the variable form: the cards revealed are exactly the cards chosen,
+  // and there is no second effect to confuse that with.
+  //
+  // `min: 2` and not "up to": the text names a number and CR 8-4-4-1 takes as
+  // many as there are, so a hand of one is answered with one and an empty hand
+  // asks nothing.
+  'OP01-105': [
+    {
+      id: 'OP01-105-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'seen',
+          from: { zone: 'hand', owner: 'opponent' },
+          min: 2,
+          max: 2,
+          prompt: "Choose 2 cards from your opponent's hand",
+        },
+        { op: 'reveal', var: 'seen' },
+      ],
+    },
+  ],
+
+  // OP01-002 Trafalgar Law (Leader)
+  // "[Activate: Main] [Once Per Turn] ② (You may rest the specified number of
+  //  DON!! cards in your cost area.): If you have 5 Characters, return 1 of your
+  //  Characters to the owner's hand. Then, play up to 1 Character with a cost of
+  //  5 or less from your hand that is a different color than the returned
+  //  Character."
+  //
+  // The last Leader in OP-01 to get its ability, and the card the colour
+  // comparison exists for. "If you have 5 Characters" is a full board — the
+  // limit is five — so the card is a way to swap a body out of a board that has
+  // no room, which is why the return comes first and the play second.
+  //
+  // "A different color than the returned Character" is `differentColorFrom`,
+  // reading the variable the return bound. **Unobservable as a two-colour
+  // question**: every two-colour card in the game is a Leader, so the returned
+  // card and the candidate are both single-coloured and the two readings of
+  // `rules.differentColorMeansNoSharedColor` agree on every position this card
+  // can reach.
+  'OP01-002': [
+    {
+      id: 'OP01-002-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      optional: true,
+      cost: [{ kind: 'restDon', count: 2 }],
+      condition: {
+        kind: 'countCards',
+        selector: { zone: 'field', owner: 'you', category: ['character'] },
+        min: 5,
+      },
+      script: [
+        {
+          op: 'select',
+          as: 'sent',
+          from: { zone: 'field', owner: 'you', category: ['character'] },
+          min: 1,
+          max: 1,
+          prompt: "Return 1 of your Characters to the owner's hand",
+        },
+        { op: 'moveCard', target: { var: 'sent' }, to: { zone: 'hand' } },
+        {
+          op: 'select',
+          as: 'recruit',
+          from: {
+            zone: 'hand',
+            owner: 'you',
+            category: ['character'],
+            costMax: 5,
+            differentColorFrom: 'sent',
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Play up to 1 Character with a cost of 5 or less of a different color than the returned one',
+        },
+        { op: 'play', target: { var: 'recruit' } },
+      ],
+    },
+  ],
+
+  // OP01-051 Eustass"Captain"Kid
+  // "[DON!! x1] [Opponent's Turn] If this Character is rested, your opponent
+  //  cannot attack any card other than the Character [Eustass"Captain"Kid]."
+  // "[Activate: Main] [Once Per Turn] You may rest this Character: Play up to 1
+  //  Character card with a cost of 3 or less from your hand."
+  //
+  // Three walls when the census counted it, and **two of them fell without this
+  // batch touching them**: put-into-play in PR #29, and `selfOrientation` in PR
+  // #35. The third — naming the exempt card in the legality target — fell to PR
+  // #38's name field, because `LegalityClause.attack.target` is a
+  // `CardPredicate` and `matchesPredicate` is what reads it. So all this batch
+  // owed Kid was the negation.
+  //
+  // **Two statics, and the reason is a Leader.** The exemption is "the
+  // **Character** [Kid]" — a negated conjunction, which one conjunctive
+  // predicate cannot say. `excludeNames` alone would also exempt a *Leader*
+  // named Eustass"Captain"Kid, and that is not hypothetical: `ST02-001` is a
+  // green Kid Leader, `OP01-051` is a green Kid Character, and ST-02 is one of
+  // the two decks this repo ships. So the prohibition is written as two clauses
+  // whose union is the complement of "Character named Kid" — the Leader always,
+  // and every Character but Kid. A Stage is not an attackable target at all
+  // (CR 7-1-1-2 gives the Leader or a rested Character), so the two cover the
+  // whole legal target set.
+  //
+  // `affects` names the **opponent's** cards because the subject is who may not
+  // attack: `canAttack` asks about the attacker, and the attacker is theirs.
+  'OP01-051': [
+    {
+      id: 'OP01-051-noLeader',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          { kind: 'not', of: { kind: 'isYourTurn' } },
+          { kind: 'selfOrientation', orientation: 'rested' },
+        ],
+      },
+      script: [],
+      affects: { selector: { zone: 'field', owner: 'opponent' } },
+      grants: {
+        legality: {
+          effect: 'forbid',
+          clause: { question: 'attack', target: { category: ['leader'] } },
+        },
+      },
+    },
+    {
+      id: 'OP01-051-noOtherCharacter',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          { kind: 'not', of: { kind: 'isYourTurn' } },
+          { kind: 'selfOrientation', orientation: 'rested' },
+        ],
+      },
+      script: [],
+      affects: { selector: { zone: 'field', owner: 'opponent' } },
+      grants: {
+        legality: {
+          effect: 'forbid',
+          clause: {
+            question: 'attack',
+            target: { category: ['character'], excludeNames: ['Eustass"Captain"Kid'] },
+          },
+        },
+      },
+    },
+    {
+      id: 'OP01-051-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      optional: true,
+      cost: [{ kind: 'restSelf' }],
+      script: [
+        {
+          op: 'select',
+          as: 'recruit',
+          from: { zone: 'hand', owner: 'you', category: ['character'], costMax: 3 },
+          min: 0,
+          max: 1,
+          prompt: 'Play up to 1 Character card with a cost of 3 or less from your hand',
+        },
+        { op: 'play', target: { var: 'recruit' } },
+      ],
+    },
+  ],
+
+  // OP01-063 Arlong
+  // "[DON!! x1] [Activate: Main] You may rest this Character: Choose 1 card from
+  //  your opponent's hand; your opponent reveals that card. If the revealed card
+  //  is an Event, place up to 1 card from your opponent's Life area at the
+  //  bottom of the owner's deck."
+  //
+  // The card that needed both halves of the variable row at once: `reveal` over
+  // what was chosen, and then a question about what it turned out to be.
+  //
+  // The Life card is **not** chosen. CR 3-10-2 makes the Life area a secret
+  // stack and requires the top card "unless otherwise specified", so the
+  // selector takes `count: 1` — the same reading `deckTop` has always had — and
+  // the only decision left is the printed "up to 1", which is `min: 0`.
+  //
+  // It goes to the **owner's** deck, which `ZoneRef` gives for free: a card
+  // always moves to the zones of its owner, so the opponent's Life card lands
+  // under the opponent's deck exactly as the text says.
+  'OP01-063': [
+    {
+      id: 'OP01-063-main',
+      trigger: 'activateMain',
+      condition: { kind: 'donAttached', min: 1 },
+      optional: true,
+      cost: [{ kind: 'restSelf' }],
+      script: [
+        {
+          op: 'select',
+          as: 'seen',
+          from: { zone: 'hand', owner: 'opponent' },
+          min: 1,
+          max: 1,
+          prompt: "Choose 1 card from your opponent's hand",
+        },
+        { op: 'reveal', var: 'seen' },
+        {
+          op: 'if',
+          cond: { kind: 'varMatches', name: 'seen', match: { category: ['event'] } },
+          then: [
+            {
+              op: 'select',
+              as: 'buried',
+              from: { zone: 'life', owner: 'opponent', count: 1 },
+              min: 0,
+              max: 1,
+              prompt: "Place up to 1 card from your opponent's Life area at the bottom of their deck",
+            },
+            { op: 'moveCard', target: { var: 'buried' }, to: { zone: 'deck' }, position: 'bottom' },
+          ],
+        },
+      ],
+    },
+  ],
 });

@@ -166,6 +166,31 @@ const VANISH_CARDS: CardDefinition[] = [
     keywords: [],
     types: ['Crew'],
   },
+  // **Watches for the battle itself**, which is the timing `ST02-010` Basil
+  // Hawkins prints. It belongs in this file rather than beside the other
+  // `whenBattling` cases because the claim it is here for is this file's rule:
+  // a battle routed to End of the Battle by CR 7-1-1-4 never reaches the Damage
+  // Step, so **nothing battled** and the trigger must not fire. The ABIL set has
+  // no card that can remove a participant mid-battle; these five can.
+  {
+    cardId: 'VAN-007',
+    name: 'Duelist',
+    category: 'character',
+    color: 'blue',
+    cost: 2,
+    power: 3000,
+    counter: 1000,
+    life: 0,
+    keywords: [],
+    types: ['Crew'],
+    abilities: [
+      {
+        id: 'VAN-007-whenBattling',
+        trigger: 'whenBattling',
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+    ],
+  },
 ];
 
 registerCardSet(VANISH_CARDS);
@@ -178,7 +203,8 @@ const VANISH_DECK: Decklist = {
     ...Array.from({ length: 8 }, () => 'VAN-003'),
     ...Array.from({ length: 8 }, () => 'VAN-004'),
     ...Array.from({ length: 8 }, () => 'VAN-005'),
-    ...Array.from({ length: 10 }, () => 'VAN-006'),
+    ...Array.from({ length: 6 }, () => 'VAN-006'),
+    ...Array.from({ length: 4 }, () => 'VAN-007'),
   ],
 };
 
@@ -408,5 +434,56 @@ describe('a battle that reaches the Damage Step is unchanged', () => {
     expect(declared.battle).not.toBeNull();
     expect(declared.battle?.step).toBe('block');
     expect(checkInvariants(declared)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// And nothing "battled" in a battle that never reached the Damage Step
+// ---------------------------------------------------------------------------
+
+/**
+ * **`whenBattling` is a Damage Step timing, so an early end is not a battle.**
+ *
+ * The `Trigger` union gained a member for the moment CR 7-1-4-1 compares two
+ * cards' power — `ST02-010` Basil Hawkins' "if this Character battles your
+ * opponent's Character". This file's whole subject is the battle that is routed
+ * to End of the Battle instead, and the two claims meet here: no power was
+ * compared, so nothing battled.
+ *
+ * It is also why the trigger sits in `resolveBattle` rather than in
+ * `closeBattle`, which both exits share. Putting it in the shared routine would
+ * have been the natural place and would have been wrong for exactly this case.
+ */
+describe('whenBattling and the battle that ended early', () => {
+  function clashes(state: GameState): number {
+    return state.log.filter(
+      (event) => event.type === 'abilityTriggered' && event.abilityId === 'VAN-007-whenBattling',
+    ).length;
+  }
+
+  it('fires when the battle reaches the Damage Step', () => {
+    // The positive control, without which the case below passes for the wrong
+    // reason — an ability that never fires anywhere also never fires here.
+    const start = scenario({
+      p1: { activeDon: 2, characters: [{ cardId: 'VAN-006' }] },
+      p2: { characters: [{ cardId: 'VAN-007', orientation: 'rested' }] },
+    });
+    const declared = attack(start, characterAt(start, 'p1', 0), characterAt(start, 'p2', 0));
+    const blockStep = apply(declared, { type: 'PASS', player: 'p2' });
+    const done = apply(blockStep, { type: 'PASS', player: 'p2' });
+    expect(clashes(done)).toBe(1);
+  });
+
+  it('does not fire when the target is removed before the Damage Step', () => {
+    // `VAN-001` Reaper K.O.s the target from its `[When Attacking]`, so the
+    // battle goes to CR 7-1-5 straight out of the Attack Step. The Duelist was
+    // declared against and never battled.
+    const start = scenario({
+      p1: { activeDon: 2, characters: [{ cardId: 'VAN-001' }] },
+      p2: { characters: [{ cardId: 'VAN-007', orientation: 'rested' }] },
+    });
+    const after = attack(start, characterAt(start, 'p1', 0), characterAt(start, 'p2', 0));
+    expect(endedEarly(after)).toBeDefined();
+    expect(clashes(after)).toBe(0);
   });
 });

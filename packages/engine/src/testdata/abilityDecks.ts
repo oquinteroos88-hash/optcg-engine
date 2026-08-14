@@ -38,6 +38,12 @@ const TRIGGER_COPIES_NEEDED = 2;
  * `TRIGGER_COPIES_NEEDED` already made.
  */
 const PAIRED: readonly CardId[] = [
+  // `keywords.test.ts` stages two of these as p2's life cards to watch Double
+  // Attack take two of them. It was paired by list order alone until `ABIL-038`
+  // took the last free second copy, and it went red with a message about a deck
+  // rather than about a keyword — which is the exact failure this list exists
+  // to stop happening twice.
+  'ABIL-002',
   'ABIL-003',
   // Named when the name-reference cards took the set from 31 playable to 34 and
   // the free second copies fell from 19 to 16. Both were paired by list order

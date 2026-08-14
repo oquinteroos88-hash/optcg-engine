@@ -133,6 +133,12 @@ describe('the OP-01 test decks are legal', () => {
       // The top-or-bottom partition, the campaign's last capability.
       'OP01-073',
       'OP01-077',
+      // The player-chosen discard instruction - the census's four, and the
+      // last half of the deterministic-discard divergence.
+      'OP01-038',
+      'OP01-088',
+      'OP01-102',
+      'OP01-114',
       // Reference by name - the closing census's twelve.
       'OP01-005',
       'OP01-015',

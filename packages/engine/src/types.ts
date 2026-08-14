@@ -401,7 +401,25 @@ export interface PendingChoice {
     | { kind: 'cost' }
     | { kind: 'play'; entering: InstanceId; rested: boolean }
     | { kind: 'orderToBottom' }
-    | { kind: 'orderToDeckEnds' };
+    | { kind: 'orderToDeckEnds' }
+    /**
+     * The seventh, and the first whose answer comes from a player who may not
+     * control the effect at all.
+     *
+     * It carries `owner` for `play`'s reason rather than `orderToBottom`'s. The
+     * cards to trash are `candidates` and validation proves the answer is a
+     * subset of them, so the *cards* need no recording — but **whose hand they
+     * leave** is a second fact, and the only other way to get it is to re-read
+     * the instruction's `owner` against `StackItem.controller` after the answer.
+     * That is a second resolution of the same reference, which is exactly what
+     * `play`'s sink exists to avoid. One field makes the record complete.
+     *
+     * It is a sink rather than a `var` for `orderToBottom`'s reason: **the
+     * answer is an action, not a value.** A variable would make "your opponent
+     * trashes 1 card from their hand" expressible as a script that asks and
+     * never trashes.
+     */
+    | { kind: 'discard'; owner: PlayerId };
 }
 
 /**

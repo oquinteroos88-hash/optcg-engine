@@ -17,6 +17,8 @@ import {
   OP01_RG_HEARTS,
   OP01_G_AKAZAYA,
   OP01_BP_PACIFISTA,
+  OP01_BP_JACK,
+  OP01_G_KANJURO,
   assertFixtureDecksAreLegal,
 } from './fixtures/op01Decks.js';
 
@@ -203,6 +205,24 @@ export function op01PacifistaScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): G
 export const OP01_HEARTS_DECKS = { p1: OP01_HEARTS_DECK, p2: OP01_HEARTS_DECK };
 export const OP01_AKAZAYA_DECKS = { p1: OP01_AKAZAYA_DECK, p2: OP01_AKAZAYA_DECK };
 export const OP01_PACIFISTA_DECKS = { p1: OP01_PACIFISTA_DECK, p2: OP01_PACIFISTA_DECK };
+
+/* ------------------------------------------- the player-chosen discard (4) */
+
+const OP01_JACK_DECK = toEngineDecklist(OP01_BP_JACK);
+const OP01_KANJURO_DECK = toEngineDecklist(OP01_G_KANJURO);
+
+/** Blue/purple, Kaido-led. `OP01-102`, `OP01-114` and `OP01-088`. */
+export function op01JackScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_JACK_DECK, p2: OP01_JACK_DECK } });
+}
+
+/** Mono-green, Oden-led. `OP01-038` and the 2-cost bodies its first half wants. */
+export function op01KanjuroScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_KANJURO_DECK, p2: OP01_KANJURO_DECK } });
+}
+
+export const OP01_JACK_DECKS = { p1: OP01_JACK_DECK, p2: OP01_JACK_DECK };
+export const OP01_KANJURO_DECKS = { p1: OP01_KANJURO_DECK, p2: OP01_KANJURO_DECK };
 
 export function applyOk(state: GameState, action: Action): { state: GameState; events: GameEvent[] } {
   const result = applyAction(state, action);

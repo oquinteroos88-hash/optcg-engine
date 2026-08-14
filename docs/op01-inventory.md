@@ -212,7 +212,7 @@ size and a reason it is not being built.
 | `OP01-024` | filter by attribute (`＜Strike＞`) | 1 card in OP-01 |
 | ~~`OP01-099`~~ | ~~reference a card by **name**~~ | **built.** The census re-counted this row at twelve cards rather than one, and it shipped |
 | `OP01-051` | negation in `Condition`, plus two more | three walls on one card |
-| `OP01-088` | a **player-chosen discard instruction** | the last open half of the deterministic-discard divergence; its partition half shipped in PR #36 |
+| ~~`OP01-088`~~ | ~~a **player-chosen discard instruction**~~ | **built.** The row was worth four cards, not one, and the instruction needed *two* player fields rather than the one the row implied |
 | `OP06-002` | layered evaluation for a static's own gate | priced and declined — see `docs/trigger-reachability.md` |
 | — | the three DON!! mechanics no sample could see | sized in `docs/starter-card-inventory.md`; no OP-01 card prints them |
 
@@ -582,8 +582,8 @@ an upper bound.
 | # | What the cards need | Touched | **Freed alone** | Full set (upper bound) |
 | --- | --- | --- | --- | --- |
 | 1 | ~~**Put a card into play**~~ — **bought** (batch 6); hand, deck top, active or rested | 19 | ~~**8**~~ **done** | 379 |
-| 2 | ~~**A payment whose card the player picks**~~ — the **cost** half is **bought** (batch 5, 3 freed); the **instruction** half, "your opponent trashes 1 card from their hand", is open | 12 | **6** → **3** | 292 |
-| 3 | ~~**`orderCards`, and naming "the rest"**~~ — **closed.** Batch 9 bought the permutation, **PR #36** the top-or-bottom partition; the row bundled two shapes and both are now built | 9 | **5** → **6 built, 1 left** (`OP01-088`, on its other wall) | 226 |
+| 2 | ~~**A payment whose card the player picks**~~ — **closed on both halves.** The **cost** half in batch 5 (3 freed); the **instruction** half here (4 more), and it needed **two** player fields rather than the one the row implied | 12 | **6** → **3 + 4, done** | 292 |
+| 3 | ~~**`orderCards`, and naming "the rest"**~~ — **closed.** Batch 9 bought the permutation, **PR #36** the top-or-bottom partition; the row bundled two shapes and both are now built | 9 | **5** → **7, done** (`OP01-088` finished when its other wall fell) | 226 |
 | 4 | ~~**Add DON!! from the DON!! deck**~~ — **bought** (batch 10). Touched was right; **freed was 8, not 5** — all three exclusions had expired | 8 | **5** → **8, done** | 141 |
 | 5 | ~~**Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]"~~ — **bought.** One field pair on `CardFilter` (`names`/`excludeNames`) and every predicate site inherited it; the census's re-count was right and **12 were freed, not 3** | 14 → **16** | ~~**3**~~ → **12, done** | 399 |
 | 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
@@ -1220,6 +1220,50 @@ concept the client could use to blur those candidates, and a client that renders
 phase-2C notes in `trigger-reachability.md` rather than in a gap table — it is a
 model gap, and the two cards that expose it are blocked on other things anyway.
 
+### The debt is no longer theoretical — `OP01-038` reaches it
+
+**Written, shipped, and leaking.** Kanjuro prints *"Your opponent chooses 1 card
+from your hand; trash that card"*, and unlike Arlong and Bao Huang it is blocked
+on nothing: the player-chosen discard instruction shipped it. So the engine now
+opens a `PendingChoice` whose `candidates` are **the controller's hand**, hands
+them to the **opponent**, and the client renders them face-up. Every game of the
+`OP01-G-KANJURO` fixture does it.
+
+The rules are explicit that it should not happen, which is what makes this a
+divergence rather than an open question:
+
+- The hand is a **secret area** — CR 3-1-5 splits areas into open and secret by
+  whether their cards are revealed.
+- CR **11-3-1**: effects that let a player look at a secret area "apply only to
+  the player of that effect" unless the card says otherwise. Kanjuro says
+  otherwise about *choosing*, not about *looking*.
+- CR **8-4-4-2** states the consequence directly: choosing from a secret area,
+  "players cannot guarantee that the chosen card meets the required conditions",
+  which is only true of a chooser who cannot see. At a table the owner fans the
+  hand face-down and the opponent points at one.
+
+**It is deliberately not modelled as a random pick.** A die roll would remove the
+leak and replace it with a different game: the rules say the opponent *chooses*,
+the choice is a real decision about a physical position, and a random discard
+would make the card's whole downside a coin flip. The engine keeps the decision
+and carries the leak, which is the same trade the perfect-information posture
+makes everywhere else — recorded, not papered over.
+
+**What a per-player view has to do with it.** Two shapes, and this is the second:
+
+| Event or field | Shape | What a filtered view owes |
+| --- | --- | --- |
+| `deckPartitioned` | public counts, private faces | redact to two lengths |
+| `PendingChoice.candidates` over a secret area | private faces, and the **chooser is not the owner** | offer positions, not identities |
+
+The second is harder than the first and is new with this card. A redaction that
+simply withholds the ids would leave the chooser with nothing to answer, because
+`ANSWER_CHOICE` names cards by `InstanceId`. So a real hidden-information layer
+needs *opaque handles* — a stable per-choice index the chooser can pick by and
+the engine can resolve back — rather than a filter that drops fields.
+`OP01-063` and `OP01-105` will want exactly the same machinery when their own
+walls fall, which is the argument for building it once.
+
 ## A fourth: two cards are illegal to model in deck construction
 
 `packages/cards/src/decklists.ts` enforces `MAX_COPIES = 4` with no per-card
@@ -1288,7 +1332,7 @@ have been added to it as batches land:
 | OP01-035 | Okiku | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `donAttached 1`; select 0–1 {opponent, costMax 5} → `rest` |
 | OP01-036 | Otsuru | char | vanilla | — |
 | OP01-037 | Kawamatsu | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
-| OP01-038 | Kanjuro | char | **C** | a discard **the opponent chooses** from your hand. `PendingChoice` already carries a `player`, so the chooser is not the hard part — suspension during the effect is. Its `whenAttacking` half is expressible |
+| OP01-038 | Kanjuro | char | ~~**C**~~ **written** | `discard` with `chooser: opponent, owner: you` — **the only card in the game** whose two differ, and the reason the op takes two `PlayerRef`s. Its `whenAttacking` half never wanted any of it |
 | OP01-039 | Killer | char | **A** ✅ | `onBlock`, cond `and(donAttached 1, countCards {field, you, character} min 3)` → `draw you 1` |
 | OP01-040 | Kin'emon | char | ~~**C**~~ **written** | `leaderIsNamed(Kouzuki Oden)`. Only the `[On Play]` half ever wanted a name; the `whenAttacking` half never did |
 | OP01-041 | Kouzuki Momonosuke | char | **A** ✅ | Bonney with one type changed, down to the cost list. **✅ written — batch 9** |
@@ -1338,7 +1382,7 @@ have been added to it as batches land:
 | OP01-085 | Mr.3(Galdino) | char | ~~**C**~~ ✅ | **written — PR #35.** Two walls: batch 8 took the prohibition, PR #35 took the duration |
 | OP01-086 | Overheat | event | **A** ✅ | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
 | OP01-087 | Officer Agents | event | **C** ✅ | `counterEvent` and `trigger` on one shared list; select 0–1 {hand, you, character, types Baroque Works, costMax 3} → `play`. Freed by batch 6 |
-| OP01-088 | Desert Spada | event | **C** | ~~the partition on the `[Counter]` half~~ (PR #36) **and** a player-chosen discard on the `[Trigger]` half, which is the wall still standing |
+| OP01-088 | Desert Spada | event | ~~**C**~~ **written** | both halves, one PR apart: the partition in PR #36, the `[Trigger]`'s `chooser: you, owner: you` discard here. Draw first, then trash — CR 2-8-3, so the drawn cards are candidates |
 | OP01-089 | Crescent Cutlass | event | **A** ✅ | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
 | OP01-090 | Baroque Works | event | ~~**C**~~ **written** | the one card whose excluded **name** and required **type** are the same string, and they are different fields |
 | OP01-091 | King (L) | leader | **C** | a condition on how many DON!! you have on the field. Everything else is a `static` with a selector `affects` |
@@ -1352,7 +1396,7 @@ have been added to it as batches land:
 | OP01-099 | Kurozumi Semimaru | char | ~~**C**~~ **written** | `excludeNames` on a static's `Audience` — the third site, and the one that proves the field is on the shared predicate |
 | OP01-100 | Kurozumi Higurashi | char | **A** | `[Blocker]` reminder only. No `Ability` needed |
 | OP01-101 | Sasaki | char | **C** | the chosen discard now exists; still blocked by the DON!! deck (gap 4) |
-| OP01-102 | Jack | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |
+| OP01-102 | Jack | char | ~~**C**~~ **written** | `chooser: opponent, owner: opponent` — the shape where the two move together, which is what made one field look sufficient |
 | OP01-103 | Scratchmen Apoo | char | vanilla | — |
 | OP01-104 | Speed | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-105 | Bao Huang | char | **B** | `reveal` takes a `Selector`; this needs it to take a `Ref` so it can reveal the cards just chosen. See the hidden-information note |
@@ -1364,7 +1408,7 @@ have been added to it as batches land:
 | OP01-111 | Black Maria | char | **A** ✅ | `onBlock`, `optional`, cost `returnDon 1` → `addPower self +1000 endOfTurn`. `[Blocker]` is printed |
 | OP01-112 | Page One | char | **A** ✅ | the same clause as `OP01-021`, written by a script instead of read off a static: `activateMain`, `oncePerTurn`, cost `returnDon 1`, `setLegality` with `endOfTurn`. The pair is what shows the mechanism has one shape. **✅ written — batch 8** |
 | OP01-113 | Holedem | char | **C** | the DON!! deck, and nothing else |
-| OP01-114 | X.Drake | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |
+| OP01-114 | X.Drake | char | ~~**C**~~ **written** | `OP01-102`'s twin: the same sentence, a different trigger and cost |
 | OP01-115 | Elephant's Marchoo | event | **C** | the DON!! deck, and nothing else. The `ko` half is expressible |
 | OP01-116 | Artificial Devil Fruit SMILE | event | **A** ✅ | both gaps closed, one batch each: put-into-play from the deck in batch 6, the ordering in batch 9. It **plays** what it finds instead of taking it to hand. **✅ written — batch 9** |
 | OP01-117 | Sheep's Horn | event | **A** ✅ | `mainEvent`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 6} → `rest` |
@@ -1499,11 +1543,16 @@ lesson is the one this document keeps re-learning: the *touched* column and the
 *freed alone* column disagree for a reason, and a summary that does not survive
 a read of its own rows is a summary, not a measurement.
 
-**The half that is still open is the other side of the colon.** "Your opponent
-trashes 1 card from their hand" (`OP01-038`, `-102`, `-114`, and `OP01-088`'s
-`[Trigger]`) is a chosen **discard instruction**, not a chosen cost.
-`PendingChoice` already carries a `player`, so the chooser was never the hard
-part; `op: 'discard'` taking a chosen set is.
+**The other side of the colon is now closed too**, and re-reading the four
+cards for the build corrected this paragraph twice. It is a chosen **discard
+instruction** rather than a chosen cost, which was right — but "your opponent
+trashes 1 card from their hand" is only **two** of the four sentences.
+`OP01-088` prints "trash 1 card from your hand" (the controller picks), and
+`OP01-038` prints "your opponent **chooses** 1 card from **your** hand" —
+chooser and owner opposite, the only card in the game that separates them. So
+the instruction takes two `PlayerRef`s, and `PendingChoice` carrying a `player`
+was indeed not the hard part: composing "candidates from X's hand, asked of Y"
+was.
 
 ### Then it flattens, and that is the finding
 

@@ -1355,6 +1355,14 @@ goes; without it the reducer would have to infer whether an answer belongs to a
 script variable or to a rule, and that inference is exactly the kind of implicit
 continuation this design forbids.
 
+The union has seven members and three of them carry data for one reason: the
+answer is an **action**, not a value, and re-reading the instruction after the
+answer could name something else. `play` carries the entering card, and
+`discard` carries the **owner** — the hand the chosen cards leave, which is a
+second fact from the cards themselves and the only one that cannot be recovered
+from `candidates`. That matters more here than anywhere else, because the player
+answering may not be the player losing the cards.
+
 **`Condition.varTrue`.** The brief's `Instruction` list has `confirm`, which
 writes a boolean into `vars`, but its `Condition` list has nothing that can read
 one — so a "you may do X, otherwise Y" card could be written and would never
@@ -1478,12 +1486,52 @@ determining is the choosing. Costs are still settled before the script runs; the
 settling is simply not atomic. See **Costs are checked, never paid halfway**
 above.
 
-The **instruction** half is still open. `op: 'discard'` takes from the front of
-the hand, and the cards that need otherwise — `OP01-038`, `OP01-102`,
-`OP01-114` — all read "your opponent trashes 1 card from their hand", where the
-chooser is the player who does *not* control the effect. `PendingChoice` already
-carries a `player`, so the chooser is not the hard part; the instruction taking
-a chosen set is. `TODO: player-chosen discard instruction.`
+The **instruction** half is closed too, and with it the whole divergence. There
+is no deterministic discard left in the DSL: `op: 'discard'` now takes a
+`chooser` and an `owner` and opens a choice. The front-of-hand form was not kept
+beside it, because **no printed card in the game means "trash the leftmost card
+in your hand"** — it was correct for zero cards and available to every author.
+
+The note this paragraph replaces got the cards wrong in two ways, and both
+mattered to the design. It listed three and there are four (`OP01-088` prints
+the controller-chooses form), and it said all of them read "your opponent trashes
+1 card from their hand" — `OP01-038` Kanjuro does not. Kanjuro reads "your
+opponent **chooses** 1 card from **your** hand", which is a different sentence:
+
+| Printed | `chooser` | `owner` | Set |
+| --- | --- | --- | --- |
+| "trash N cards from your hand" | `you` | `you` | 142 |
+| "your opponent trashes N cards from their hand" | `opponent` | `opponent` | 21 |
+| "your opponent **chooses** N cards from **your** hand" | `opponent` | `you` | **1** |
+
+One "whose hand" field says the first two and makes the third unspellable. Two
+independent `PlayerRef`s say all three and the fourth combination nothing prints
+yet. Kanjuro is the only card in the game in that last row, which would normally
+be a declared row here — but that standard prices a *mechanism* built for one
+asker, and this is one field on an instruction being built anyway for the other
+163.
+
+**It is the first script in the engine that asks the other player anything.**
+Every other `openChoice` call site passes `item.controller`, and the
+`discardHand` cost resolves its candidates with `owner: 'you'` hardcoded, so the
+cost half never crossed the table either. Choices have gone to the *non-turn*
+player since Phase 2A — a life card's `[Trigger]` belongs to the damaged player —
+but never to the ability's opponent. Nothing underneath had to change:
+`openChoice` already moves priority to whoever is asked, `checkEffectShape`
+already asserts `priority === pending.player`, and `validateAnswerChoice` already
+refuses everyone else. The consequence is new all the same — a player's own card
+can now leave them holding exactly `[CONCEDE]` while the opponent decides.
+
+**The chooser is shown a hand they should not see.** The hand is a secret area
+(CR 3-1-5), CR 11-3-1 confines looking to "the player of that effect" unless the
+card says otherwise, and CR 8-4-4-2 states the consequence for choosing out of
+one: "players cannot guarantee that the chosen card meets the required
+conditions". So Kanjuro's opponent points at a face-down card. This engine is
+perfect-information by declared design, so `PendingChoice.candidates` carries
+real ids to the chooser — which makes this the first card that turns that debt
+from theoretical into reachable. Filed with the per-player-view debt in
+`docs/op01-inventory.md`; deliberately **not** modelled as a random pick, because
+the rules say the opponent chooses and a die roll is a different game.
 
 **Simultaneous trigger order is fixed, not chosen.** Turn player first, then
 board position. `TODO phase 2B: player-chosen order`, as the brief requested.
@@ -1521,9 +1569,10 @@ makes, and it is the shape a real hidden-information layer should inherit.
   none at all — are written up for 2C in
   `docs/trigger-reachability.md`, under "Notes for phase 2C".
 - **Player-chosen trigger order** — still a fixed deterministic policy, flagged
-  `TODO phase 2B` above. Player-chosen discards were the other half of that
-  line; the `discardHand` **cost** now asks, and only the `discard`
-  **instruction** still does not.
+  `TODO phase 2B` above, and now the **only** half of that line still open.
+  Player-chosen discards were the other half: the `discardHand` **cost** asks
+  (PR #28) and the `discard` **instruction** asks, so nothing about a discard is
+  deterministic any more.
 - **`PLAY_CARD.trashCharacter` as a `PendingChoice`** — the machinery now exists
   and the `play` instruction uses it, so the *effect* path asks and the *action*
   path still takes the answer in the action. Converting the action remains a

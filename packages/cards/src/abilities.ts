@@ -3098,12 +3098,10 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
    * top of your deck and place them at the top or bottom of the deck in any
    * order." Nothing is taken out of the window, so neither needs `minus`.
    *
-   * The third OP-01 card with this text, `OP01-088` Desert Spada, is **not**
-   * here. Its `[Counter]` half is expressible now; its `[Trigger]` reads "Draw 2
-   * cards and trash 1 card from your hand", and `op: 'discard'` still takes from
-   * the front of the hand rather than asking — the instruction half of the
-   * deterministic-discard divergence, which is still open. A card whose printed
-   * text is half-implemented is worse than one honestly absent, so it waits.
+   * The third OP-01 card with this text, `OP01-088` Desert Spada, waited here
+   * for one PR: its `[Counter]` half was expressible and its `[Trigger]` needed
+   * the chosen discard. That shipped, and the card is written below with the
+   * other three.
    * ---------------------------------------------------------------------- */
 
   // OP01-073 Donquixote Doflamingo
@@ -3120,6 +3118,148 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
   // witness the set has for this mechanism: everything the card does is the
   // partition.
   'OP01-077': [{ id: 'OP01-077-onPlay', trigger: 'onPlay', script: lookAndSplit(5) }],
+
+  /* ------------------------------------------------------------------------
+   * The player-chosen discard instruction — the last half of the oldest
+   * divergence in the project.
+   *
+   * Four cards, and between them they print **all three** shapes the sentence
+   * has. The order below is the order the two `PlayerRef`s separate in:
+   *
+   *   OP01-088  chooser: you       owner: you        142 cards in the set
+   *   OP01-102  chooser: opponent  owner: opponent    21
+   *   OP01-114  the same sentence on a different trigger
+   *   OP01-038  chooser: opponent  owner: you          1 — this card, in the
+   *                                                    whole game
+   *
+   * The first two shapes move the chooser and the owner together, which is
+   * exactly what makes a single "whose hand" field look sufficient. `OP01-038`
+   * Kanjuro is what it is not.
+   * ---------------------------------------------------------------------- */
+
+  // OP01-088 Desert Spada
+  // "[Counter] Up to 1 of your Leader or Character cards gains +2000 power
+  //  during this battle. Then, look at 3 cards from the top of your deck and
+  //  place them at the top or bottom of the deck in any order."
+  // "[Trigger] Draw 2 cards and trash 1 card from your hand."
+  //
+  // The card that had one wall left. PR #36 built the partition its `[Counter]`
+  // wanted; the `[Trigger]`'s discard is the controller choosing out of their
+  // own hand, which is the shape 142 cards in the set print and none of them
+  // could say until now.
+  //
+  // **Draw first, then trash**, and the order is load-bearing rather than
+  // cosmetic: the two cards drawn are candidates for the trash. CR 2-8-3
+  // resolves text "in order starting from the text closest to the top", and the
+  // sentence puts the draw first, so a player who draws into something worse
+  // than what they hold may trash the card they just drew.
+  'OP01-088': [
+    {
+      id: 'OP01-088-counter',
+      trigger: 'counterEvent',
+      script: [...counterBoost(2000), ...lookAndSplit(3)],
+    },
+    {
+      id: 'OP01-088-trigger',
+      trigger: 'trigger',
+      script: [
+        { op: 'draw', player: 'you', count: 2 },
+        { op: 'discard', chooser: 'you', owner: 'you', count: 1 },
+      ],
+    },
+  ],
+
+  // OP01-102 Jack
+  // "[When Attacking] DON!! −1 (You may return the specified number of DON!!
+  //  cards from your field to your DON!! deck.): Your opponent trashes 1 card
+  //  from their hand."
+  //
+  // The middle shape, and the one where the two fields agree: "your opponent
+  // trashes" makes them both the chooser and the owner, so the sentence never
+  // has to name a hand — "their hand" is the same player again.
+  //
+  // `DON!! −1` is a `returnDon` cost and the parenthesis is its explanatory note
+  // (CR 2-8-4-1: notes "do not influence gameplay"). "You may" inside the note
+  // is CR 8-3-1-4's existing decline-before-paying, so the ability is `optional`.
+  'OP01-102': [
+    {
+      id: 'OP01-102-whenAttacking',
+      trigger: 'whenAttacking',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 1 }],
+      script: [{ op: 'discard', chooser: 'opponent', owner: 'opponent', count: 1 }],
+    },
+  ],
+
+  // OP01-114 X.Drake
+  // "[On Play] DON!! −1 (You may return the specified number of DON!! cards from
+  //  your field to your DON!! deck.): Your opponent trashes 1 card from their
+  //  hand."
+  //
+  // `OP01-102`'s twin at a different cost and a different trigger — the
+  // inventory called them twins and they are, to the instruction. Written out
+  // rather than shared through a constant: the two differ in trigger and in
+  // nothing else, and a shared script would hide that the sentence is identical
+  // while the timing is not.
+  'OP01-114': [
+    {
+      id: 'OP01-114-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'returnDon', count: 1 }],
+      script: [{ op: 'discard', chooser: 'opponent', owner: 'opponent', count: 1 }],
+    },
+  ],
+
+  // OP01-038 Kanjuro
+  // "[DON!! x1] [When Attacking] K.O. up to 1 of your opponent's rested
+  //  Characters with a cost of 2 or less."
+  // "[On K.O.] Your opponent chooses 1 card from your hand; trash that card."
+  //
+  // **The only card in the entire game whose chooser and owner are opposite**,
+  // and the reason `discard` takes two `PlayerRef`s instead of one. "Your
+  // opponent chooses" names the chooser; "from **your** hand" names the owner;
+  // and "trash that card" is impersonal, so nothing in the sentence says who
+  // performs the trashing — which is right, because the resulting state is the
+  // same either way and only the *choice* is anyone's.
+  //
+  // Its second half is a drawback printed on its own card: when Kanjuro dies,
+  // **his controller** loses a card from hand and the opponent picks which.
+  // `owner: 'you'` is the controller because "your" in card text always is.
+  //
+  // The first half needed nothing new and has been expressible for batches —
+  // `OP01-054`'s selector with a smaller cost cap. The inventory's row named the
+  // whole card after the wall on one of its halves, which is the same conflation
+  // `OP01-040` carried until the name field shipped.
+  'OP01-038': [
+    {
+      id: 'OP01-038-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [
+        {
+          op: 'select',
+          as: 'victim',
+          from: {
+            zone: 'field',
+            owner: 'opponent',
+            category: ['character'],
+            orientation: 'rested',
+            costMax: 2,
+          },
+          min: 0,
+          max: 1,
+          prompt: "K.O. up to 1 of your opponent's rested Characters with a cost of 2 or less",
+        },
+        { op: 'ko', target: { var: 'victim' } },
+      ],
+    },
+    {
+      id: 'OP01-038-onKO',
+      trigger: 'onKO',
+      script: [{ op: 'discard', chooser: 'opponent', owner: 'you', count: 1 }],
+    },
+  ],
 
   /* ------------------------------------------------------------------------
    * Reference by name — the closing census's largest group, twelve cards.

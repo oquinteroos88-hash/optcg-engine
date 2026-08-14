@@ -94,6 +94,13 @@ function lookKeepBury(
   types: string[],
   prompt: string,
   category?: CardCategory[],
+  /**
+   * "…other than [X]" — `OP01-016` and `OP01-090`, which are this sentence with
+   * four more words. Optional because the four cards that shared it first print
+   * no exclusion, and a filter absent is not a filter matching everything by
+   * accident: `excludeNames` left off is left off.
+   */
+  excludeNames?: string[],
 ): Instruction[] {
   return [
     { op: 'lookAt', as: 'looked', count },
@@ -106,6 +113,7 @@ function lookKeepBury(
         count,
         types,
         ...(category === undefined ? {} : { category }),
+        ...(excludeNames === undefined ? {} : { excludeNames }),
       },
       min: 0,
       max: 1,
@@ -442,6 +450,62 @@ function leaderHasType(type: string): Condition {
     selector: { zone: 'field', owner: 'you', category: ['leader'], types: [type] },
     min: 1,
   };
+}
+
+/**
+ * "If your Leader is [X]" — `leaderHasType` with the name field in place of the
+ * type field, and nothing else changed.
+ *
+ * Three OP-01 cards print it (`OP01-040`, `OP01-042`, `OP01-046`) and 87 in the
+ * full set. That the two helpers differ by one key is the closing census's
+ * headline made concrete: a name is another printed property of a card, read the
+ * same way `types` and `colors` are, and not a new kind of question.
+ *
+ * Checked when the ability is activated, like every `condition` — CR 8-4-1-1.
+ */
+function leaderIsNamed(name: string): Condition {
+  return {
+    kind: 'countCards',
+    selector: { zone: 'field', owner: 'you', category: ['leader'], names: [name] },
+    min: 1,
+  };
+}
+
+/**
+ * "If you don't have [X]" — the same count with `max: 0`.
+ *
+ * The negation that needed no negation. `countCards` has taken a `max` since
+ * Phase 2A, so the only word missing from these two cards was the name.
+ *
+ * `zone: 'field'` is the printed "have": CR 3-1-2 collects the Leader,
+ * Character, Stage and cost areas under the word. The hand is not the field,
+ * which matters here rather than being a technicality — the card this gate is
+ * about to play is sitting in hand while the gate is read.
+ */
+function doNotHaveNamed(name: string): Condition {
+  return {
+    kind: 'countCards',
+    selector: { zone: 'field', owner: 'you', names: [name] },
+    max: 0,
+  };
+}
+
+/**
+ * "Play up to 1 [X] from your hand" — `OP01-044` and `OP01-050`, which print it
+ * with no category, no type and no cost cap. The name is the whole filter.
+ */
+function playNamedFromHand(name: string): Instruction[] {
+  return [
+    {
+      op: 'select',
+      as: 'recruit',
+      from: { zone: 'hand', owner: 'you', names: [name] },
+      min: 0,
+      max: 1,
+      prompt: `Play up to 1 [${name}] from your hand`,
+    },
+    { op: 'play', target: { var: 'recruit' } },
+  ];
 }
 
 export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Object.freeze({
@@ -3056,4 +3120,443 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
   // witness the set has for this mechanism: everything the card does is the
   // partition.
   'OP01-077': [{ id: 'OP01-077-onPlay', trigger: 'onPlay', script: lookAndSplit(5) }],
+
+  /* ------------------------------------------------------------------------
+   * Reference by name — the closing census's largest group, twelve cards.
+   *
+   * One field on `CardFilter` and every card below enters through it. The five
+   * printed shapes are grouped in the order the census counted them, and each
+   * group's comment says which part of the field it is leaning on:
+   *
+   *   "…other than [X]"          `excludeNames` on a script selector    (5)
+   *   "if your Leader is [X]"    `names` inside `countCards`            (3)
+   *   "play / add [X]"           `names` on a script selector           (1)
+   *   "if you don't have [X]"    the same, with `countCards`' `max: 0`  (2)
+   *   a static's "other than"    `excludeNames` on an `Audience`        (1)
+   *
+   * **The alias is not here and is not this field.** `OP01-121` Yamato prints
+   * "Also treat this card's name as [Kouzuki Oden]" — CR 2-1-3 — and that is a
+   * property of a card rather than a filter over cards, which is why `hasName`
+   * is a question and the one place it will land. OP-01 cannot make it
+   * observable: Yamato is a Character and the set's three name gates ask about
+   * the *Leader*. Declared in the census, and it stays declared.
+   *
+   * Three OP-01 cards that print a name are still absent, each behind a second
+   * wall: `OP01-051` (negation in `Condition`), `OP01-069` and `OP01-098`
+   * (searching the whole deck).
+   * ---------------------------------------------------------------------- */
+
+  // --- "…other than [X]" ---------------------------------------------------
+  //
+  // `excludeNames`, never `excludeSelf`. The two are not interchangeable and
+  // `OP01-094` Kaido, a few hundred lines up, is the contrast printed in the
+  // same set: "K.O. all Characters other than **this Character**" is one
+  // instance and uses `excludeSelf`. "Other than **[Uta]**" is every card with
+  // the name — including copies in another zone, and including a second copy on
+  // the board that is emphatically not the source.
+
+  // OP01-005 Uta
+  // "[On Play] Add up to 1 red Character card other than [Uta] with a cost of 3
+  //  or less from your trash to your hand."
+  //
+  // The card that makes the instance/name distinction unavoidable, which is why
+  // the census led with it: the copies of [Uta] this reaches for are **in the
+  // trash**, and they are different instances from the one on the field running
+  // the ability. `excludeSelf` would have excluded the source — a card that is
+  // not in the trash and was never a candidate — and offered every trashed Uta.
+  'OP01-005': [
+    {
+      id: 'OP01-005-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'recovered',
+          from: {
+            zone: 'trash',
+            owner: 'you',
+            category: ['character'],
+            colors: ['red'],
+            costMax: 3,
+            excludeNames: ['Uta'],
+          },
+          min: 0,
+          max: 1,
+          prompt: 'Add up to 1 red Character card other than [Uta] with a cost of 3 or less',
+        },
+        { op: 'moveCard', target: { var: 'recovered' }, to: { zone: 'hand' } },
+      ],
+    },
+  ],
+
+  // OP01-015 Tony Tony.Chopper
+  // "[DON!! x1] [When Attacking] You may trash 1 card from your hand: Add up to
+  //  1 {Straw Hat Crew} type Character card other than [Tony Tony.Chopper] with
+  //  a cost of 4 or less from your trash to your hand."
+  //
+  // Uta's shape with a cost in front of it, and the one card in this group whose
+  // excluded name reaches **outside OP-01**: `ST01-006` is a second Tony
+  // Tony.Chopper, {Straw Hat Crew}, cost 1, and therefore a card that satisfies
+  // every other clause of this selector. It is excluded because of the name and
+  // nothing else, which is the sharpest available proof that the filter does not
+  // key on the card number.
+  //
+  // "You may" is the printed opt-in, so `optional`; the colon makes the trash a
+  // cost (CR 8-3-1) rather than an instruction.
+  'OP01-015': [
+    {
+      id: 'OP01-015-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      optional: true,
+      cost: [{ kind: 'discardHand', count: 1 }],
+      script: [
+        {
+          op: 'select',
+          as: 'recovered',
+          from: {
+            zone: 'trash',
+            owner: 'you',
+            category: ['character'],
+            types: ['Straw Hat Crew'],
+            costMax: 4,
+            excludeNames: ['Tony Tony.Chopper'],
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Add up to 1 {Straw Hat Crew} type Character card other than [Tony Tony.Chopper] with a cost of 4 or less',
+        },
+        { op: 'moveCard', target: { var: 'recovered' }, to: { zone: 'hand' } },
+      ],
+    },
+  ],
+
+  // OP01-016 Nami
+  // "[On Play] Look at 5 cards from the top of your deck; reveal up to 1
+  //  {Straw Hat Crew} type card other than [Nami] and add it to your hand. Then,
+  //  place the rest at the bottom of your deck in any order."
+  //
+  // The census's cheapest card: `lookKeepBury` already says every word of this
+  // except four. It is **not** `SABAODY`, though — that constant passes
+  // `category: ['character']` because `ST02-007`, `OP01-030`, `OP01-041` and
+  // `OP01-084` all print "type **Character** card", and this one prints "type
+  // card". The text wins, as always, so the helper is called directly with no
+  // category and the exclusion added.
+  //
+  // `ST01-007` is a second Nami, {Straw Hat Crew}, and is excluded by name here
+  // the way `ST01-006` is on the card above.
+  'OP01-016': [
+    {
+      id: 'OP01-016-onPlay',
+      trigger: 'onPlay',
+      script: lookKeepBury(
+        5,
+        ['Straw Hat Crew'],
+        'Reveal up to 1 {Straw Hat Crew} type card other than [Nami]',
+        undefined,
+        ['Nami'],
+      ),
+    },
+  ],
+
+  // OP01-049 Bepo
+  // "[DON!! x1] [When Attacking] Play up to 1 {Heart Pirates} type Character
+  //  card other than [Bepo] with a cost of 4 or less from your hand."
+  //
+  // The third card whose excluded name has a second card number in the
+  // registry, and the closest call of the three: `ST02-012` Bepo is
+  // {Heart Pirates}, a Character, and costs 1 — every clause of this selector
+  // except the name. A filter keyed on `cardId` would have offered it.
+  'OP01-049': [
+    {
+      id: 'OP01-049-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      script: [
+        {
+          op: 'select',
+          as: 'recruit',
+          from: {
+            zone: 'hand',
+            owner: 'you',
+            category: ['character'],
+            types: ['Heart Pirates'],
+            costMax: 4,
+            excludeNames: ['Bepo'],
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Play up to 1 {Heart Pirates} type Character card other than [Bepo] with a cost of 4 or less',
+        },
+        { op: 'play', target: { var: 'recruit' } },
+      ],
+    },
+  ],
+
+  // OP01-090 Baroque Works
+  // "[Main] Look at 5 cards from the top of your deck; reveal up to 1
+  //  {Baroque Works} type card other than [Baroque Works] and add it to your
+  //  hand. Then, place the rest at the bottom of your deck in any order."
+  //
+  // `OP01-016`'s sentence with the type and the name changed, and the one card
+  // in the set where the excluded name and the *type* are the same string. They
+  // are different fields asking different questions: `types` matches the printed
+  // {Baroque Works} type on eighteen cards, `excludeNames` matches the single
+  // Event actually called Baroque Works — this one. Filtering on the type alone
+  // would have looked right and silently offered the copy of itself.
+  'OP01-090': [
+    {
+      id: 'OP01-090-main',
+      trigger: 'mainEvent',
+      script: lookKeepBury(
+        5,
+        ['Baroque Works'],
+        'Reveal up to 1 {Baroque Works} type card other than [Baroque Works]',
+        undefined,
+        ['Baroque Works'],
+      ),
+    },
+  ],
+
+  // --- "If your Leader is [X]" ---------------------------------------------
+  //
+  // `leaderIsNamed`, which is `leaderHasType` with the name field instead of the
+  // type field — the same `countCards` over the Leader slot, the same `min: 1`.
+  // That the two are one shape apart is the census's claim in miniature.
+  //
+  // Evaluated **when the ability is activated**, like every other `condition`:
+  // CR 8-4-1-1, "If there are conditions for activation, those conditions must
+  // be met. The effect cannot be activated if the conditions are not met." No
+  // new timing, no new machinery.
+
+  // OP01-040 Kin'emon
+  // "[On Play] If your Leader is [Kouzuki Oden], play up to 1 {The Akazaya Nine}
+  //  type Character card with a cost of 3 or less from your hand."
+  // "[DON!! x1] [When Attacking] [Once Per Turn] Set up to 1 of your
+  //  {The Akazaya Nine} type Character cards with a cost of 3 or less as
+  //  active."
+  //
+  // Two halves and only the first one needed the name. The second has been
+  // expressible since `setActive` existed; nothing in the ranked table ever said
+  // so, because the row was written about the card and not about its halves.
+  'OP01-040': [
+    {
+      id: 'OP01-040-onPlay',
+      trigger: 'onPlay',
+      condition: leaderIsNamed('Kouzuki Oden'),
+      script: [
+        {
+          op: 'select',
+          as: 'recruit',
+          from: {
+            zone: 'hand',
+            owner: 'you',
+            category: ['character'],
+            types: ['The Akazaya Nine'],
+            costMax: 3,
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Play up to 1 {The Akazaya Nine} type Character card with a cost of 3 or less from your hand',
+        },
+        { op: 'play', target: { var: 'recruit' } },
+      ],
+    },
+    {
+      id: 'OP01-040-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: { kind: 'donAttached', min: 1 },
+      oncePerTurn: true,
+      script: [
+        {
+          op: 'select',
+          as: 'roused',
+          from: {
+            zone: 'field',
+            owner: 'you',
+            category: ['character'],
+            types: ['The Akazaya Nine'],
+            costMax: 3,
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Set up to 1 of your {The Akazaya Nine} type Characters with a cost of 3 or less as active',
+        },
+        { op: 'setActive', target: { var: 'roused' } },
+      ],
+    },
+  ],
+
+  // OP01-042 Komurasaki
+  // "[On Play] ③ (You may rest the specified number of DON!! cards in your cost
+  //  area.): If your Leader is [Kouzuki Oden], set up to 1 of your
+  //  {Land of Wano} type Character cards with a cost of 3 or less as active."
+  //
+  // The DON!! symbol is a `restDon` cost and the parenthesis is its explanatory
+  // note (CR 2-8-4-1: notes "do not influence gameplay"). "You may" inside the
+  // note is what CR 8-3-1-4 already grants — decline before paying — so the
+  // ability is `optional` and the cost is not conditional on anything else.
+  //
+  // Cost before condition is the printed order; the engine's is CR 8-4-1's —
+  // 8-4-1-1 checks, 8-4-1-3 pays. Nothing here can tell the difference, because
+  // resting DON!! cannot change who your Leader is.
+  'OP01-042': [
+    {
+      id: 'OP01-042-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'restDon', count: 3 }],
+      condition: leaderIsNamed('Kouzuki Oden'),
+      script: [
+        {
+          op: 'select',
+          as: 'roused',
+          from: {
+            zone: 'field',
+            owner: 'you',
+            category: ['character'],
+            types: ['Land of Wano'],
+            costMax: 3,
+          },
+          min: 0,
+          max: 1,
+          prompt:
+            'Set up to 1 of your {Land of Wano} type Characters with a cost of 3 or less as active',
+        },
+        { op: 'setActive', target: { var: 'roused' } },
+      ],
+    },
+  ],
+
+  // OP01-046 Denjiro
+  // "[DON!! x1] [When Attacking] If your Leader is [Kouzuki Oden], set up to 2
+  //  of your DON!! cards as active."
+  //
+  // Two printed conditions, both gates on the same activation, so `and`. The
+  // body is `orientDon`, built in PR #13 and waiting on nothing but the name.
+  'OP01-046': [
+    {
+      id: 'OP01-046-whenAttacking',
+      trigger: 'whenAttacking',
+      condition: {
+        kind: 'and',
+        of: [{ kind: 'donAttached', min: 1 }, leaderIsNamed('Kouzuki Oden')],
+      },
+      script: [{ op: 'orientDon', player: 'you', orientation: 'active', count: 2 }],
+    },
+  ],
+
+  // --- "play [X]" ----------------------------------------------------------
+
+  // OP01-074 Bartholomew Kuma
+  // "[Blocker]" — printed keyword.
+  // "[On K.O.] Play up to 1 [Pacifista] with a cost of 4 or less from your
+  //  hand."
+  //
+  // The inclusion form on its own, with no exclusion anywhere near it: `names`
+  // is the entire filter apart from the printed cost cap. Note what the text
+  // does **not** say — it names no category and no type, so the selector names
+  // none either. Every card called Pacifista is a Character today; the day one
+  // is not, this card's text still reads the same and so does this script.
+  'OP01-074': [
+    {
+      id: 'OP01-074-onKO',
+      trigger: 'onKO',
+      script: [
+        {
+          op: 'select',
+          as: 'replacement',
+          from: { zone: 'hand', owner: 'you', names: ['Pacifista'], costMax: 4 },
+          min: 0,
+          max: 1,
+          prompt: 'Play up to 1 [Pacifista] with a cost of 4 or less from your hand',
+        },
+        { op: 'play', target: { var: 'replacement' } },
+      ],
+    },
+  ],
+
+  // --- "If you don't have [X]" ---------------------------------------------
+  //
+  // The pair that needed no negation. `countCards` has taken a `max` since Phase
+  // 2A, so "you don't have one" is `max: 0` and the only missing word was the
+  // name — which is exactly what the census predicted and the reason row 13
+  // (negation in `Condition`) is *not* on the critical path for these two.
+  //
+  // "Have" is the field. CR 3-1-2 collects the Leader, Character, Stage and cost
+  // areas under that word, so the count reads `zone: 'field'`; the printed text
+  // names no category, so neither does the selector.
+  //
+  // The two cards are each other's mirror and each other's target, which is the
+  // nicest property in the group: playing one from hand closes the other's gate.
+
+  // OP01-044 Shachi
+  // "[Blocker]" — printed keyword.
+  // "[On Play] If you don't have [Penguin], play up to 1 [Penguin] from your
+  //  hand."
+  'OP01-044': [
+    {
+      id: 'OP01-044-onPlay',
+      trigger: 'onPlay',
+      condition: doNotHaveNamed('Penguin'),
+      script: playNamedFromHand('Penguin'),
+    },
+  ],
+
+  // OP01-050 Penguin
+  // "[Blocker]" — printed keyword.
+  // "[On Play] If you don't have [Shachi], play up to 1 [Shachi] from your
+  //  hand."
+  'OP01-050': [
+    {
+      id: 'OP01-050-onPlay',
+      trigger: 'onPlay',
+      condition: doNotHaveNamed('Shachi'),
+      script: playNamedFromHand('Shachi'),
+    },
+  ],
+
+  // --- a static's "other than your [X]" ------------------------------------
+
+  // OP01-099 Kurozumi Semimaru
+  // "{Kurozumi Clan} type Characters other than your [Kurozumi Semimaru] cannot
+  //  be K.O.'d in battle."
+  //
+  // The fifth site, and the one that proves the field really is on the shared
+  // predicate rather than on selectors: this is an `Audience`, read by
+  // `forEachStatic` outside any script, and it takes `excludeNames` without the
+  // audience type learning a word.
+  //
+  // **`excludeSelf` is genuinely not enough here, and it is not a near miss.**
+  // With two Semimaru on the field, `affects` is evaluated once per source: from
+  // A's static, `excludeSelf` drops A and grants the immunity to B; from B's, it
+  // drops B and grants it to A. Both end up immune — the exact inverse of what
+  // the card says. The name drops both from both, which is the printed reading
+  // and the one the census called out.
+  //
+  // A `static`, because the sentence has no trigger and no duration: CR 8-1-3-3
+  // has permanent effects "constantly affect gameplay while they are valid".
+  // `owner: 'you'` is the printed "**your**", and `koInBattle` is the narrow
+  // clause CR 10-2-1-3 distinguishes from a K.O. by an effect.
+  'OP01-099': [
+    {
+      id: 'OP01-099-static',
+      trigger: 'static',
+      script: [],
+      affects: {
+        selector: {
+          zone: 'field',
+          owner: 'you',
+          category: ['character'],
+          types: ['Kurozumi Clan'],
+          excludeNames: ['Kurozumi Semimaru'],
+        },
+      },
+      grants: { legality: { effect: 'forbid', clause: { question: 'koInBattle' } } },
+    },
+  ],
 });

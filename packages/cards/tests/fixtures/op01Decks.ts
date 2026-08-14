@@ -561,6 +561,168 @@ export const OP01_B_DOFLAMINGO: Decklist = {
   ],
 };
 
+/* ------------------------------------------------- reference by name (12) */
+
+/**
+ * ## Three decks, and not one line changed in the other ten
+ *
+ * The name batch is twelve cards across four colours, and the obvious move —
+ * spreading them through the existing fixtures — was declined for the reason
+ * batch 10 built `OP01_P_KAIDO`: a family spread one or two to a mixed deck is a
+ * family a random game meets once in three hundred. It was declined a second
+ * time for a reason that is this batch's own. **Every existing fixture is
+ * exactly 50 cards and every seed measured against one of them is a fact about
+ * that shuffle.** Cutting two copies of a filler to make room moves the deal,
+ * and a seed corpus that has to be re-searched cannot tell a regression from a
+ * reshuffle. Three new decks leave all ten alone and every existing seed still.
+ *
+ * They are not three arbitrary decks either. The batch has a shape the fixtures
+ * have to match:
+ *
+ * - Three cards gate on **"if your Leader is [Kouzuki Oden]"**, so the open side
+ *   of that gate needs an Oden-led deck and the closed side needs a deck that
+ *   holds the same three cards under a Leader who is *not* Oden. One deck cannot
+ *   be both; the Leader is a property of the deck.
+ * - `OP01-074` names `[Pacifista]`, which is `OP01-075` — a card that has never
+ *   been in a fixture, because its only non-keyword line is a deck-construction
+ *   rule (see `docs/op01-closing-census.md`).
+ * - `OP01-099`'s static needs {Kurozumi Clan} Characters to protect, and the
+ *   only inert one in OP-01 is `OP01-100`.
+ */
+
+/**
+ * Leader `OP01-002` Trafalgar Law, red/green — the batch's main deck, and the
+ * **closed** side of the Leader-name gate.
+ *
+ * Law is chosen twice over. He is red/green, which is the only Leader colouring
+ * that can hold the three red cards and the six green ones at once; and he is
+ * {Heart Pirates}, which is the type `OP01-044`, `OP01-049` and `OP01-050` are
+ * built out of. He is emphatically **not** [Kouzuki Oden], which is the third
+ * reason: `OP01-040`, `-042` and `-046` sit here at two copies apiece purely so
+ * their gate can be watched failing.
+ *
+ * The filler is not filler. `OP01-025` Roronoa Zoro is a {Straw Hat Crew}
+ * Character costing 3, so he is a candidate for `OP01-016` Nami's search, for
+ * `OP01-015` Chopper's trash recovery and for `OP01-005` Uta's, all three at
+ * once. `OP01-045` Jean Bart is a {Heart Pirates} Character costing 4 who is not
+ * called Bepo — the card `OP01-049` must offer, standing next to the two it must
+ * also offer and the copies of itself it must not.
+ */
+export const OP01_RG_HEARTS: Decklist = {
+  id: 'OP01-RG-HEARTS',
+  name: 'OP-01 red/green (test fixture, Law — reference by name)',
+  packId: '569101',
+  leader: 'OP01-002',
+  cards: [
+    // The three red cards, all "other than [X]".
+    { cardId: 'OP01-005', qty: 4 }, // Uta — recover a red 3-drop other than [Uta]
+    { cardId: 'OP01-015', qty: 4 }, // Chopper — recover a Straw Hat other than himself
+    { cardId: 'OP01-016', qty: 4 }, // Nami — search a Straw Hat other than herself
+    // The mirror pair and Bepo.
+    { cardId: 'OP01-044', qty: 4 }, // Shachi — if you don't have [Penguin], play one
+    { cardId: 'OP01-050', qty: 4 }, // Penguin — the same sentence pointed back
+    { cardId: 'OP01-049', qty: 4 }, // Bepo — play a Heart Pirate other than [Bepo]
+    // The Oden gate, closed: Law is not [Kouzuki Oden].
+    { cardId: 'OP01-040', qty: 2 }, // Kin'emon — cost 6
+    { cardId: 'OP01-042', qty: 2 }, // Komurasaki — cost 1
+    { cardId: 'OP01-046', qty: 2 }, // Denjiro — cost 5
+    // Targets, chosen for what each of the above has to find.
+    { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — {Straw Hat Crew}, red, cost 3
+    { cardId: 'OP01-023', qty: 4 }, // Marco — red, cost 3, for Uta to recover
+    { cardId: 'OP01-010', qty: 4 }, // Komachiyo — red, cost 1
+    { cardId: 'OP01-012', qty: 4 }, // Sai — red, cost 2
+    { cardId: 'OP01-045', qty: 4 }, // Jean Bart — {Heart Pirates}, cost 4, not [Bepo]
+  ],
+};
+
+/**
+ * Leader `OP01-031` Kouzuki Oden, mono-green — the **open** side of the gate.
+ *
+ * The fifth single-colour fixture and the narrowest: it exists so three
+ * conditions can be true. `OP01_G_ODEN` is Oden-led too and could have carried
+ * them, but it is the deck batch 5's filtered-discard corpus was searched
+ * against and its 50 slots are spoken for; this one is new and costs that corpus
+ * nothing.
+ *
+ * Built around {The Akazaya Nine}, because `OP01-040` plays one costing 3 or
+ * less and then sets one active. Six of OP-01's nine Akazaya are green and cost
+ * 3 or less, and all six are here at four copies — 24 of the 50 — so a random
+ * game that lands Kin'emon has something for him to find.
+ */
+export const OP01_G_AKAZAYA: Decklist = {
+  id: 'OP01-G-AKAZAYA',
+  name: 'OP-01 mono-green (test fixture, Oden — the Leader-name gate)',
+  packId: '569101',
+  leader: 'OP01-031',
+  cards: [
+    { cardId: 'OP01-040', qty: 4 }, // Kin'emon — play an Akazaya 3-drop; set one active
+    { cardId: 'OP01-042', qty: 4 }, // Komurasaki — ③: set a {Land of Wano} 3-drop active
+    { cardId: 'OP01-046', qty: 4 }, // Denjiro — set 2 of your DON!! active
+    // What Kin'emon plays and what Komurasaki wakes. Every one is {The Akazaya
+    // Nine} and costs 3 or less, which is the printed window of both halves.
+    { cardId: 'OP01-032', qty: 4 }, // Ashura Doji — cost 3
+    { cardId: 'OP01-034', qty: 4 }, // Inuarashi — cost 3
+    { cardId: 'OP01-035', qty: 4 }, // Okiku — cost 3
+    { cardId: 'OP01-037', qty: 4 }, // Kawamatsu — cost 2, [Trigger] Play this card
+    { cardId: 'OP01-048', qty: 4 }, // Nekomamushi — cost 2
+    { cardId: 'OP01-052', qty: 4 }, // Raizo — cost 3
+    // Curve, and Oden's own cost: his [Activate: Main] trashes a {Land of Wano}
+    // card from hand, so the deck has to keep enough of the type to pay it.
+    { cardId: 'OP01-036', qty: 4 }, // Otsuru — {Land of Wano}, cost 1
+    { cardId: 'OP01-043', qty: 4 }, // Shinobu — {Land of Wano}, cost 3
+    { cardId: 'OP01-045', qty: 4 }, // Jean Bart — cost 4
+    // The one green body that is *not* {Land of Wano}, so a test can watch
+    // Oden's cost filter refuse a card. Two, because a case needs one in hand
+    // while the other is somewhere else.
+    { cardId: 'OP01-053', qty: 2 }, // Wire — {Kid Pirates}, cost 2
+  ],
+};
+
+/**
+ * Leader `OP01-062` Crocodile, blue/purple — the inclusion form and the static.
+ *
+ * Crocodile carries {Baroque Works}, which `OP01-090` searches for and which
+ * `OP01-079` and `OP01-085` gate on, so one Leader opens three cards at once.
+ *
+ * **`OP01-075` Pacifista is in a fixture for the first time**, and it has to be:
+ * `OP01-074`'s whole ability is "Play up to 1 [Pacifista] … from your hand", and
+ * a deck without one would make the card resolve into nothing every game while
+ * looking perfectly healthy. It is the one entry here that `op01Decks.test.ts`'s
+ * inert-filler rule has to be told about — its first printed line is a
+ * deck-construction rule ("you may have any number of this card in your deck"),
+ * which is neither a keyword nor an ability, and which our own `validateDecklist`
+ * does not honour. Four copies, which is what the rule we *do* implement allows.
+ *
+ * `OP01-100` Kurozumi Higurashi is the only inert {Kurozumi Clan} Character in
+ * OP-01 and therefore the only thing `OP01-099`'s static has to protect. Four
+ * copies for the same reason `OP01-099` has four: the sharp case is two Semimaru
+ * on the board at once.
+ */
+export const OP01_BP_PACIFISTA: Decklist = {
+  id: 'OP01-BP-PACIFISTA',
+  name: 'OP-01 blue/purple (test fixture, Crocodile — named cards and the static)',
+  packId: '569101',
+  leader: 'OP01-062',
+  cards: [
+    { cardId: 'OP01-074', qty: 4 }, // Bartholomew Kuma — [On K.O.] play a [Pacifista]
+    { cardId: 'OP01-075', qty: 4 }, // Pacifista — the card that name refers to
+    { cardId: 'OP01-090', qty: 4 }, // Baroque Works — search a Baroque Works card, not itself
+    { cardId: 'OP01-099', qty: 4 }, // Kurozumi Semimaru — the static, and its own exemption
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — what the static protects
+    // {Baroque Works} for OP01-090 to find. Crocodile has the type, so the two
+    // gated abilities among them are live rather than decorative.
+    { cardId: 'OP01-079', qty: 4 }, // Ms. All Sunday — [On K.O.] recover an Event
+    { cardId: 'OP01-080', qty: 4 }, // Miss Doublefinger — [On K.O.] draw
+    { cardId: 'OP01-085', qty: 4 }, // Mr.3(Galdino) — [On Play] cannot attack
+    { cardId: 'OP01-087', qty: 2 }, // Officer Agents — [Counter] play a Baroque Works 3-drop
+    // Curve.
+    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+  ],
+};
+
 export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
   OP01_R_ZORO,
@@ -572,6 +734,9 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_BP_KAIDO,
   OP01_P_KAIDO,
   OP01_BP_EVERYTHING,
+  OP01_RG_HEARTS,
+  OP01_G_AKAZAYA,
+  OP01_BP_PACIFISTA,
 ]);
 
 /**

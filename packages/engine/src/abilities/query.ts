@@ -90,6 +90,12 @@ function zoneIds(state: GameState, player: PlayerId, selector: Selector): Instan
       // Left off, the whole area is returned, which is what a `countCards` over
       // Life wants.
       return selector.count === undefined ? [...ps.life] : ps.life.slice(0, selector.count);
+    case 'deck':
+      // The whole deck, in deck order, and `count` is deliberately not read
+      // here: a search is not a window. CR 11-3-1 confines the looking to "the
+      // player of that effect", which is the privacy this engine declines to
+      // model and `shuffleDeck` is the thing that ends.
+      return [...ps.deck];
     case 'deckTop':
       return ps.deck.slice(0, selector.count ?? 1);
   }

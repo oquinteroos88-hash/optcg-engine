@@ -359,6 +359,11 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
         player: event.player,
         text: `pone ${event.instanceIds.length} cartas al fondo del mazo en el orden que eligió`,
       };
+    case 'deckShuffled':
+      // The one event in the log with nothing to redact: the new order is hidden
+      // from both players at a real table too. So the line says the whole truth,
+      // which is rare enough here to be worth the comment.
+      return { player: event.player, text: `baraja su mazo (${event.count} cartas)` };
     case 'donAdded':
       // Deliberately worded apart from `donGained`, which is the DON!! Phase's
       // own step: this one names a card effect's doing, and it names the
@@ -420,6 +425,10 @@ const EFFECT_EVENTS = new Set<GameEvent['type']>([
   'cardsLookedAt',
   'deckOrdered',
   'deckPartitioned',
+  // A search that found nothing still shuffles, and the shuffle is the only
+  // thing on screen when it does — without this line the ability would read as
+  // one that resolved into nothing.
+  'deckShuffled',
   'cardDrawn',
   'donAttached',
   'donGained',

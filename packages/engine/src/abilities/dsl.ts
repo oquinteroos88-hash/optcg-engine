@@ -294,9 +294,22 @@ export interface CardPredicate extends CardFilter {
  *
  * `deckTop` is the only zone where `count` means anything: it takes the first
  * `count` cards of the deck rather than filtering the whole deck.
+ *
+ * **`deck` and `deckTop` are two zones and not one with a flag**, and the
+ * difference is a rule rather than a size. `deckTop` is CR 11-3-2's *look* — a
+ * window of N cards the effect names, where "the rest" is a meaningful set and
+ * `Ref`'s `minus` exists to name it. `deck` is a **search**: the player reads
+ * the whole deck to find one card, which is why every printed card that opens it
+ * closes with "then shuffle your deck". A `count` on `deck` would describe
+ * neither.
+ *
+ * A search is also the widest candidate list this engine produces — a 40+ card
+ * `PendingChoice` where every other one is single digits — and that is a fact
+ * about the client rather than about the engine: nothing here is bounded by how
+ * many cards a dialog can show.
  */
 export interface Selector extends CardPredicate {
-  zone: 'field' | 'hand' | 'trash' | 'deckTop' | 'life';
+  zone: 'field' | 'hand' | 'trash' | 'deck' | 'deckTop' | 'life';
   owner: 'you' | 'opponent' | 'any';
   excludeSelf?: boolean;
   count?: number;
@@ -902,6 +915,41 @@ export type Instruction =
    * nothing and the whole effect degrades to a no-op.
    */
   | { op: 'lookAt'; as: string; count: number }
+  /**
+   * Shuffles the controller's deck — "then shuffle your deck".
+   *
+   * **The other half of a search, and it is not optional decoration.** Every
+   * printed card in the game that reads the whole deck closes with this sentence,
+   * and CR 11-4-1 is why: "when a player searches their deck ... they must
+   * shuffle their deck afterwards". A search without it would leave the player
+   * knowing the order of forty cards for the rest of the game.
+   *
+   * **Unconditional, because the printed text is.** `OP01-069` says "Play up to
+   * 1 [Smiley] from your deck, **then** shuffle your deck" and `OP01-098` says
+   * "…add it to your hand. **Then**, shuffle your deck" — neither hangs the
+   * shuffle on having found anything, and CR 4-10-2 lets the clause after a
+   * "then" resolve even when the one before it did not. A player who searches and
+   * takes nothing has still read their deck, which is exactly the knowledge this
+   * erases.
+   *
+   * **It consumes the state RNG**, the same `rng` the opening shuffle draws
+   * from and the same cursor, so determinism is a property of the construction
+   * rather than a thing the tests hope for: one seed, one sequence of actions,
+   * one game. That is also why it is an op rather than something `select`
+   * quietly does — an implicit shuffle would advance the cursor from a place no
+   * card text points at.
+   *
+   * **No `player` field**, following `lookAt` and `discardHand`: every printed
+   * card says "your deck", and an op that can only ever reach its own
+   * controller's zone should not be able to say otherwise, right or wrong.
+   *
+   * **Where a per-player view starts caring.** Searching is the widest private
+   * read in the game — one player learns their whole deck — and shuffling is the
+   * act that takes it back. The original `PlayerView` sketch said `knownBy`
+   * empties on a shuffle; this is the first mechanism that makes that sentence
+   * reachable. See the note beside the op in `interpreter.ts`.
+   */
+  | { op: 'shuffleDeck' }
   /**
    * Puts `cards` at the bottom of their owner's deck in an order the controller
    * chooses — "place the rest at the bottom of your deck in any order".

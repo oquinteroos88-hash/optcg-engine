@@ -124,8 +124,16 @@ export const MARK_NAMES = [
   // The variable form: revealing cards something already chose, rather than
   // cards a selector found. Counted apart because the two are different acts.
   'op.revealVar',
+  // A reveal with nothing to reveal, which is not a reveal at all. Counted so
+  // the silence is a measured outcome rather than a missing event.
+  'op.revealNothing',
   'op.lookAt',
   'op.lookAtNothing',
+  'op.shuffleDeck',
+  // The empty deck, counted apart because it is the one shuffle that consumes no
+  // RNG: an empty deck has one order, and drawing for it would make the sequence
+  // depend on the board instead of on the seed.
+  'op.shuffleEmpty',
   'op.orderToBottom',
   'op.orderToDeckEnds',
   // The partition asked with nothing to place. Its sibling below is the

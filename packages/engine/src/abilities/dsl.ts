@@ -401,7 +401,20 @@ export type Audience = { self: true } | { selector: Selector };
  *   CR 10-2-1-3 says effects reading "cannot be K.O.'d" are valid when the card
  *   is K.O.'d "by an effect **or** due to the result of a battle", so the
  *   printed "in battle" is a narrowing the clause has to keep. The unqualified
- *   form is a wider clause and no card in scope prints it.
+ *   form is a wider clause and no card in scope prints it. **It carries a
+ *   `target` too**, and that is the second question with a pair: a battle has
+ *   two cards in it, so a prohibition about one of them can be qualified by the
+ *   other. `OP01-099` prints the unqualified form and `OP01-024` the qualified
+ *   one — "cannot be K.O.'d in battle **by ＜Strike＞ attribute Characters**" —
+ *   and both are this clause, with and without the field.
+ *
+ * **`target` is not a fourth question and not a member of its own.** The census
+ * that found this hole (`docs/op01-closing-census.md`) filed it as a wall with
+ * no row precisely because it looked like one: `attack` had the field and
+ * `koInBattle` did not, so the pair-shape existed and one of the two questions
+ * that has a pair could not spell it. Adding the field is the whole of it —
+ * `clauseHolds` already asked "does this clause name the other card, and is the
+ * other card it", and it now asks that of two questions instead of one.
  *
  * The subject — *whose* cards, and which of them — is deliberately **not** in
  * the clause. It lives beside it (`LegalityRule.subject` for a written rule,
@@ -414,7 +427,8 @@ export type LegalityClause =
   | { question: 'activateBlocker' }
   /** `target` is the *other* card in the pair, never the subject. */
   | { question: 'attack'; target?: CardPredicate }
-  | { question: 'koInBattle' };
+  /** The attacker, when the prohibition is qualified by who is swinging. */
+  | { question: 'koInBattle'; target?: CardPredicate };
 
 /**
  * `forbid` narrows, `allow` widens.

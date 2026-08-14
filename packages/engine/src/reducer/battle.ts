@@ -456,7 +456,9 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
   // happened, so it gets its own outcome rather than borrowing `noEffect` —
   // the same distinction `battleEndedEarly` exists to keep.
   const wins = attackPower >= defensePower;
-  const koPrevented = wins && !targetIsLeader && !canBeKOdInBattle(draft, target);
+  // The attacker goes into the question because a prohibition may be qualified
+  // by it — `OP01-024` is immune to ＜Strike＞ Characters and to nothing else.
+  const koPrevented = wins && !targetIsLeader && !canBeKOdInBattle(draft, target, attacker);
   if (koPrevented) {
     mark('battle.koPrevented');
   }

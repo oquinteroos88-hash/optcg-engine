@@ -23,9 +23,14 @@ export {
   isOwnLeaderOrCharacter,
   WITHOUT_STATICS,
 } from './selectors.js';
+// The one question the engine asks about card names, exported for the reason
+// `hasKeyword` is: a consumer that wants to know whether a card answers to a
+// name must ask the engine rather than read `CardDefinition.name` itself.
+export { hasName } from './abilities/query.js';
 export type {
   Ability,
   AbilityContext,
+  CardFilter,
   CardPredicate,
   Color,
   Condition,

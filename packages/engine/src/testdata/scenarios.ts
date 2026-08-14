@@ -57,6 +57,20 @@ export interface SideSpec {
   /** Replace the hand entirely instead of adding to the dealt one. */
   clearHand?: boolean;
   /**
+   * Put these cards in the trash, in the order given.
+   *
+   * The trash became a precondition the day an effect reached into it. "Add up
+   * to 1 red Character card other than [Uta] with a cost of 3 or less from your
+   * trash to your hand" is a table case about which cards are down there, and
+   * the alternative — playing cards and killing them until the right ones land
+   * — writes a battle into every case that is not about battles, and leaves the
+   * trash holding whatever the route happened to put there.
+   *
+   * Cards come out of the deck like every other stager's, so card conservation
+   * holds and the engine's own invariants stay meaningful.
+   */
+  trash?: CardId[];
+  /**
    * Put these cards on top of the deck, first one topmost.
    *
    * The deck's *order* became a precondition the day an effect looked at it:
@@ -186,6 +200,10 @@ function applySide(draft: GameState, player: PlayerId, side: SideSpec): void {
     if (card !== undefined) {
       card.playedOnTurn = 0;
     }
+  }
+
+  for (const cardId of side.trash ?? []) {
+    ps.trash.push(takeFromDeck(draft, player, cardId));
   }
 
   for (const cardId of side.hand ?? []) {

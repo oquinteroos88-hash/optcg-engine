@@ -133,11 +133,47 @@ describe('the OP-01 test decks are legal', () => {
       // The top-or-bottom partition, the campaign's last capability.
       'OP01-073',
       'OP01-077',
+      // Reference by name - the closing census's twelve.
+      'OP01-005',
+      'OP01-015',
+      'OP01-016',
+      'OP01-040',
+      'OP01-042',
+      'OP01-044',
+      'OP01-046',
+      'OP01-049',
+      'OP01-050',
+      'OP01-074',
+      'OP01-090',
+      'OP01-099',
     ]);
+    /**
+     * The one card in a fixture that is neither scripted nor inert, and the
+     * exception is a finding rather than a convenience.
+     *
+     * `OP01-075` Pacifista prints "Under the rules of this game, you may have
+     * any number of this card in your deck" above its `[Blocker]`. That is not a
+     * keyword and it is not an ability — it is a **deck-construction** rule, the
+     * only wall in `docs/op01-closing-census.md` that lives outside the DSL
+     * entirely, and one `validateDecklist` does not honour: it enforces a flat
+     * `MAX_COPIES = 4`, so a legal Pacifista deck is rejected by our own
+     * validator today.
+     *
+     * It is in a fixture because `OP01-074`'s whole ability is "play up to 1
+     * [Pacifista] from your hand", and a deck holding none would let that card
+     * resolve into nothing forever while looking healthy. Four copies, which is
+     * what the rule we implement allows.
+     *
+     * Listed separately from `BATCH` on purpose. `BATCH` means "an ability is
+     * written for this card"; nothing is written for this one, and folding it in
+     * there would hide a card with live printed text among cards whose text is
+     * implemented.
+     */
+    const PRINTED_TEXT_THAT_IS_NOT_AN_ABILITY = new Set(['OP01-075']);
     const KEYWORD_ONLY = /^\[(Blocker|Rush|Banish|Double Attack)\]/;
     for (const deck of OP01_TEST_DECKS) {
       for (const entry of deck.cards) {
-        if (BATCH.has(entry.cardId)) {
+        if (BATCH.has(entry.cardId) || PRINTED_TEXT_THAT_IS_NOT_AN_ABILITY.has(entry.cardId)) {
           continue;
         }
         const card = findCard(entry.cardId);

@@ -89,6 +89,58 @@ function zoneIds(state: GameState, player: PlayerId, selector: Selector): Instan
 }
 
 /**
+ * **The single question the engine asks about card names**, and the only place
+ * allowed to read `CardDefinition.name`.
+ *
+ * A question rather than a getter, and the shape is `hasKeyword`'s for
+ * `hasKeyword`'s reason: what the rules define is not "this card's name" but
+ * *whether a card answers to a name*. CR 2-1-3 says why in one sentence — "As an
+ * exception, some cards get card names from their text. Treat these cards as if
+ * they have this name by default, including during deck construction and when in
+ * secret areas." That is the **alias**, and it is additive: every one of the
+ * eight cards in the game that prints it says "**Also** treat this card's name
+ * as [X]", and `EB04-038` adds *two* at once ("also treat this card's name as
+ * [Trafalgar Law] **and** [Donquixote Rosinante]"), so that card answers to
+ * three names at the same time. A `cardName(state, id): string` returning one
+ * value cannot hold that, and every caller comparing against it would have to
+ * change on the day the alias is built — which is precisely the hunt this
+ * function exists to prevent.
+ *
+ * So the alias, when it is built, is **one addition here** and nothing else
+ * moves: whatever grants the extra name is consulted after the printed one
+ * fails. Today there is only the printed one. It is spelled out rather than left
+ * implicit because the census that commissioned this field
+ * (`docs/op01-closing-census.md`) found the failure mode first: build the filter
+ * without a seam for the alias and `OP01-121` Yamato's only printed line stops
+ * meaning anything, silently, with no test failing.
+ *
+ * The alias has two siblings the same sentence covers — CR 2-4-4 for types and
+ * CR 2-5-7 for attributes, word for word — so `types` in `matchesPredicate` has
+ * the same latent hole. Recorded here rather than fixed: no card in scope prints
+ * a granted type.
+ *
+ * **Exact match, and that is the printed form.** CR 2-1-2-1 defines a second,
+ * *substring* form — "Some text will include part of a card name in " "
+ * quotation marks" — and **exactly one card in the entire game prints it**
+ * (`OP16-015`, "If your Leader's card name includes "Ace""). One asker and no
+ * second is a declared row by this project's standard, not a capability.
+ *
+ * Not a `Lens` member, unlike `power` and `keyword`. Those two are anchors
+ * against a recursion that exists — a selector filtering on power, evaluated
+ * inside static evaluation, asks `getPower` for a card that evaluation is
+ * computing. A name reads off the definition and re-enters nothing. If the alias
+ * ever arrives as a `static` grant, that is the day this needs an anchor and the
+ * day to add one.
+ */
+export function hasName(state: GameState, id: InstanceId, name: string): boolean {
+  const card = state.cards[id];
+  if (card === undefined) {
+    return false;
+  }
+  return getCardDef(card.cardId).name === name;
+}
+
+/**
  * Whether one card satisfies a predicate, with no question of where it is.
  *
  * Exported because a legality rule tests a candidate the caller already holds —
@@ -123,6 +175,17 @@ export function matchesPredicate(
     return false;
   }
   if (predicate.costMin !== undefined && def.cost < predicate.costMin) {
+    return false;
+  }
+  // Through `hasName`, never `def.name`, so the day a card's name is more than
+  // the printed one there is a single place that learns it. The two lists are
+  // conjunctive and independent: `names` is an *or* over acceptable names,
+  // `excludeNames` disqualifies outright, and a card naming both must satisfy
+  // both.
+  if (predicate.names !== undefined && !predicate.names.some((want) => hasName(state, id, want))) {
+    return false;
+  }
+  if (predicate.excludeNames?.some((want) => hasName(state, id, want)) === true) {
     return false;
   }
   if (predicate.powerMax !== undefined && lens.power(state, id) > predicate.powerMax) {

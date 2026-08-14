@@ -185,7 +185,11 @@ Three things the census found that no row here said:
 
 - **Row 5 frees 12 cards, not 3.** Nine closed gaps falsified the freed column
   one card at a time, and nothing re-read it until now. It is four times the
-  next-largest group and one optional field on `CardFilter`.
+  next-largest group and one optional field on `CardFilter`. **Built, and the
+  count held:** `names` and `excludeNames` shipped and all twelve are written.
+  The one thing the census could not predict is in its own file — the field
+  arrived as a *pair*, and the alias arrived as a *question* rather than a
+  getter.
 - **`OP01-024` has two walls**, and the second — a `koInBattle` legality clause
   that can name the *other* card in the battle — has never had a row.
 - **`OP01-075` is rejected by our own deck validator.** Its "any number of this
@@ -206,7 +210,7 @@ size and a reason it is not being built.
 | Card | What it still wants | Why it is declared, not queued |
 | --- | --- | --- |
 | `OP01-024` | filter by attribute (`＜Strike＞`) | 1 card in OP-01 |
-| `OP01-099` | reference a card by **name** | 1 card in OP-01 |
+| ~~`OP01-099`~~ | ~~reference a card by **name**~~ | **built.** The census re-counted this row at twelve cards rather than one, and it shipped |
 | `OP01-051` | negation in `Condition`, plus two more | three walls on one card |
 | `OP01-088` | a **player-chosen discard instruction** | the last open half of the deterministic-discard divergence; its partition half shipped in PR #36 |
 | `OP06-002` | layered evaluation for a static's own gate | priced and declined — see `docs/trigger-reachability.md` |
@@ -581,7 +585,7 @@ an upper bound.
 | 2 | ~~**A payment whose card the player picks**~~ — the **cost** half is **bought** (batch 5, 3 freed); the **instruction** half, "your opponent trashes 1 card from their hand", is open | 12 | **6** → **3** | 292 |
 | 3 | ~~**`orderCards`, and naming "the rest"**~~ — **closed.** Batch 9 bought the permutation, **PR #36** the top-or-bottom partition; the row bundled two shapes and both are now built | 9 | **5** → **6 built, 1 left** (`OP01-088`, on its other wall) | 226 |
 | 4 | ~~**Add DON!! from the DON!! deck**~~ — **bought** (batch 10). Touched was right; **freed was 8, not 5** — all three exclusions had expired | 8 | **5** → **8, done** | 141 |
-| 5 | **Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]" | 14 | **3** | 399 |
+| 5 | ~~**Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]"~~ — **bought.** One field pair on `CardFilter` (`names`/`excludeNames`) and every predicate site inherited it; the census's re-count was right and **12 were freed, not 3** | 14 → **16** | ~~**3**~~ → **12, done** | 399 |
 | 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
 | 7 | ~~**Prohibitions** — "cannot"~~ — **bought** (batch 8), together with row 8, as **one** mechanism; the zero was right and stopped being right when put-into-play landed | 5 | **0** → **2** | 146 |
 | 8 | ~~**Attack-legality modifiers** — widen or narrow who may be attacked~~ — **bought** (batch 8); the count was right, 2 freed | 3 | **2, done** | 49 |
@@ -720,7 +724,7 @@ the shape the starters showed:
 | --- | --- | --- | --- |
 | `OP01-120` Shanks | opponent cannot activate a `[Blocker]` with 2000 power or less, this battle | `legalActions` — the blocker offer | ~~printed-keyword filter (gap 19)~~ — **nothing; written in batch 8** |
 | `OP01-024` Monkey.D.Luffy | cannot be K.O.'d in battle by ＜Strike＞ attribute Characters | `reducer/battle.ts` — damage resolution | attribute filter (gap 20) |
-| `OP01-099` Kurozumi Semimaru | {Kurozumi Clan} Characters other than this one cannot be K.O.'d in battle | `reducer/battle.ts`, as a board-wide `static` with no duration | name reference (gap 5) |
+| `OP01-099` Kurozumi Semimaru | {Kurozumi Clan} Characters other than this one cannot be K.O.'d in battle | `reducer/battle.ts`, as a board-wide `static` with no duration | ~~name reference (gap 5)~~ — **nothing; written with the name field** |
 | `OP01-051` Eustass"Captain"Kid | opponent cannot attack any card other than this Character | `legalActions` — the attack **target set** | negation, source orientation, put-into-play |
 | `OP01-085` Mr.3(Galdino) | the chosen Character cannot attack until the end of your opponent's next turn | `legalActions` — the attacker set, across two turns | a duration the engine cannot name (gap 18) |
 
@@ -1251,7 +1255,7 @@ have been added to it as batches land:
 | OP01-002 | Trafalgar Law (L) | leader | **C** | put-into-play, **and** a selector predicated on a card held in a var ("a different color than the returned Character") |
 | OP01-003 | Monkey.D.Luffy (L) | leader | **A** ✅ | `activateMain`, `oncePerTurn`, cost `restDon 4`; select 0–1 {field, you, character, types, costMax 5} → `setActive` + `addPower +1000 endOfTurn` |
 | OP01-004 | Usopp | char | **C** | a trigger for "your opponent activates an Event" — **missing rule**, no engine site fires it |
-| OP01-005 | Uta | char | **B** | fits but for "other than [Uta]": `Selector` cannot exclude by card name |
+| OP01-005 | Uta | char | ~~**B**~~ **written** | `excludeNames: [Uta]` — and the copies it must refuse are in the *trash*, which is why `excludeSelf` was never the tool |
 | OP01-006 | Otama | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character} → `addPower −2000 endOfTurn` |
 | OP01-007 | Caribou | char | **A** ✅ | `onKO`; select 0–1 {field, opponent, character, powerMax 4000} → `ko` |
 | OP01-008 | Cavendish | char | **B** | a `Cost` paid by moving a Life card to hand. Body is `grantKeyword self rush endOfTurn` |
@@ -1261,8 +1265,8 @@ have been added to it as batches land:
 | OP01-012 | Sai | char | vanilla | — |
 | OP01-013 | Sanji | char | **B** | same Life-card `Cost` as `OP01-008`; body is `addPower self` then `giveDon self 2` |
 | OP01-014 | Jinbe | char | **C** ✅ | `[Blocker]` printed; `onBlock` `[DON!! x1]`; select 0–1 {hand, you, character, colors red, costMax 2} → `play`. Freed by batch 6 |
-| OP01-015 | Tony Tony.Chopper | char | **C** | the chosen discard now exists; still blocked by "other than [Tony Tony.Chopper]" (gap 5) |
-| OP01-016 | Nami | char | **C** | ~~`orderCards` + "the rest"~~ — built; still blocked by "other than [Nami]" (gap 5) |
+| OP01-015 | Tony Tony.Chopper | char | ~~**C**~~ **written** | `excludeNames` on the trash selector. `ST01-006` is a second Tony Tony.Chopper and satisfies every other clause |
+| OP01-016 | Nami | char | ~~**C**~~ **written** | `lookKeepBury` with an exclusion — and **not** `SABAODY`: this one prints "type card", not "type Character card" |
 | OP01-017 | Nico Robin | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
 | OP01-018 | Hajrudin | char | vanilla | — |
 | OP01-019 | Bartolomeo | char | **C** | `[Opponent's Turn]` — `Condition` has no negation. Freed by that alone; `[Blocker]` is printed |
@@ -1286,17 +1290,17 @@ have been added to it as batches land:
 | OP01-037 | Kawamatsu | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-038 | Kanjuro | char | **C** | a discard **the opponent chooses** from your hand. `PendingChoice` already carries a `player`, so the chooser is not the hard part — suspension during the effect is. Its `whenAttacking` half is expressible |
 | OP01-039 | Killer | char | **A** ✅ | `onBlock`, cond `and(donAttached 1, countCards {field, you, character} min 3)` → `draw you 1` |
-| OP01-040 | Kin'emon | char | **C** | put-into-play **and** "if your Leader is [Kouzuki Oden]". Its `whenAttacking` half is expressible |
+| OP01-040 | Kin'emon | char | ~~**C**~~ **written** | `leaderIsNamed(Kouzuki Oden)`. Only the `[On Play]` half ever wanted a name; the `whenAttacking` half never did |
 | OP01-041 | Kouzuki Momonosuke | char | **A** ✅ | Bonney with one type changed, down to the cost list. **✅ written — batch 9** |
-| OP01-042 | Komurasaki | char | **B** | fits but for "if your Leader is [Kouzuki Oden]" — a condition on a card's name |
+| OP01-042 | Komurasaki | char | ~~**B**~~ **written** | the same gate behind a `restDon 3`. CR 8-4-1-1 checks before 8-4-1-3 pays, so a shut gate charges nothing |
 | OP01-043 | Shinobu | char | vanilla | — |
-| OP01-044 | Shachi | char | **C** | put-into-play **and** a name reference. "If you don't have [Penguin]" is `countCards … max: 0`, which exists |
+| OP01-044 | Shachi | char | ~~**C**~~ **written** | `countCards` with `names` and `max: 0`, exactly as predicted — the negation needed no negation |
 | OP01-045 | Jean Bart | char | vanilla | — |
-| OP01-046 | Denjiro | char | **B** | fits but for "if your Leader is [Kouzuki Oden]". Body is `orientDon you active 2` |
+| OP01-046 | Denjiro | char | ~~**B**~~ **written** | the Leader gate and `[DON!! x1]` as an `and`; the body is `orientDon`, untouched since PR #13 |
 | OP01-047 | Trafalgar Law | char | **C** | put-into-play, **and** a `Cost` that returns a Character you choose |
 | OP01-048 | Nekomamushi | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 3} → `rest` |
-| OP01-049 | Bepo | char | **C** | put-into-play **and** "other than [Bepo]" |
-| OP01-050 | Penguin | char | **C** | as `OP01-044` |
+| OP01-049 | Bepo | char | ~~**C**~~ **written** | `ST02-012` is a second Bepo, {Heart Pirates}, cost 1 — a card an id-keyed filter would have offered |
+| OP01-050 | Penguin | char | ~~**C**~~ **written** | `OP01-044`'s mirror, and each closes the other's gate |
 | OP01-051 | Eustass"Captain"Kid | char | **C** | four gaps: attack-target restriction, `[Opponent's Turn]` negation, the source's own orientation, and put-into-play on the second ability |
 | OP01-052 | Raizo | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `countCards {field, you, character, rested} min 2` → `draw you 1` |
 | OP01-053 | Wire | char | vanilla | — |
@@ -1320,7 +1324,7 @@ have been added to it as batches land:
 | OP01-071 | Jinbe | char | **C** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 3} → `moveCard deck bottom`. `trigger`; `play {self}`. Freed by batch 6 |
 | OP01-072 | Smiley | char | **C** | a scaling grant — "+1000 for every card in your hand". `grants.power` is a constant |
 | OP01-073 | Donquixote Doflamingo | char | ~~**C**~~ ✅ | **written — PR #36.** The top-**or**-bottom form: a partition plus an order, and its own `PendingChoice` kind. `[Blocker]` is printed |
-| OP01-074 | Bartholomew Kuma | char | **C** | put-into-play **and** a name reference |
+| OP01-074 | Bartholomew Kuma | char | ~~**C**~~ **written** | `names: [Pacifista]` and a cost cap, and no category or type — because the text names none |
 | OP01-075 | Pacifista | char | **A** | `[Blocker]` reminder only. Its deckbuilding line belongs to `validateDecklist` — see the deck-construction note |
 | OP01-076 | Bellamy | char | vanilla | — |
 | OP01-077 | Perona | char | ~~**C**~~ ✅ | **written — PR #36.** Top-or-bottom and nothing else, which makes it the cleanest witness the set has for the mechanism |
@@ -1336,7 +1340,7 @@ have been added to it as batches land:
 | OP01-087 | Officer Agents | event | **C** ✅ | `counterEvent` and `trigger` on one shared list; select 0–1 {hand, you, character, types Baroque Works, costMax 3} → `play`. Freed by batch 6 |
 | OP01-088 | Desert Spada | event | **C** | ~~the partition on the `[Counter]` half~~ (PR #36) **and** a player-chosen discard on the `[Trigger]` half, which is the wall still standing |
 | OP01-089 | Crescent Cutlass | event | **A** ✅ | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
-| OP01-090 | Baroque Works | event | **C** | ~~`orderCards` + "the rest"~~ — built; still blocked by "other than [Baroque Works]" (gap 5) |
+| OP01-090 | Baroque Works | event | ~~**C**~~ **written** | the one card whose excluded **name** and required **type** are the same string, and they are different fields |
 | OP01-091 | King (L) | leader | **C** | a condition on how many DON!! you have on the field. Everything else is a `static` with a selector `affects` |
 | OP01-092 | Urashima | char | vanilla | — |
 | OP01-093 | Ulti | char | **C** | the DON!! deck, and nothing else. The `restDon 1` cost already exists |
@@ -1345,7 +1349,7 @@ have been added to it as batches land:
 | OP01-096 | King | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 2`; two selects, two `ko` |
 | OP01-097 | Queen | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 1`; `grantKeyword self rush endOfTurn`, then `addPower −2000 endOfTurn` |
 | OP01-098 | Kurozumi Orochi | char | **C** | search the whole deck by name, and `shuffle` |
-| OP01-099 | Kurozumi Semimaru | char | **C** | a prohibition (board-wide K.O. immunity) **and** a name reference |
+| OP01-099 | Kurozumi Semimaru | char | ~~**C**~~ **written** | `excludeNames` on a static's `Audience` — the third site, and the one that proves the field is on the shared predicate |
 | OP01-100 | Kurozumi Higurashi | char | **A** | `[Blocker]` reminder only. No `Ability` needed |
 | OP01-101 | Sasaki | char | **C** | the chosen discard now exists; still blocked by the DON!! deck (gap 4) |
 | OP01-102 | Jack | char | **C** | a discard the **opponent** chooses. The `returnDon 1` cost already exists |

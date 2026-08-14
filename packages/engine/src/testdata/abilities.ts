@@ -986,6 +986,108 @@ export const ABIL_CARDS: CardDefinition[] = [
       },
     ],
   }),
+
+  /* --- reference by name -------------------------------------------------
+   *
+   * Three cards and **two card numbers sharing one name**, which is the part
+   * that cannot be faked with a single card: CR 2-1-2 makes a bracketed name
+   * refer to "cards with the card name specified in the brackets", and CR 2-14-2
+   * counts deck copies by *card number* instead — so name and number are
+   * different keys and the set has to hold a case where they disagree. The real
+   * corpus has plenty (`OP01-049` Bepo and `ST02-012` Bepo; nine names sit on
+   * two numbers inside OP-01 alone), but the engine may not lean on the card
+   * package to cover its own field.
+   */
+
+  /**
+   * The second `Signal Flag`, and the whole reason it exists: a different card
+   * number, a different cost, the same name. Vanilla on purpose — every claim
+   * about it is a claim about the name, so it must have no behaviour of its own
+   * to be confused with.
+   */
+  character('ABIL-032', 'Signal Flag', 1, 2000, 1000),
+
+  /**
+   * "[Activate: Main] [Once Per Turn] Rest up to 1 of your Characters **other
+   * than [Signal Flag]**."
+   *
+   * The exclusion form, printed on a card that carries the excluded name itself
+   * — `OP01-005` Uta's shape, and the one that separates a *name* from an
+   * *instance*. `excludeSelf` would drop this card and offer `ABIL-032` and any
+   * second copy of this one; `excludeNames` drops all three, which is what the
+   * printed words say.
+   *
+   * `min: 0` because "up to 1" may take nothing (CR 8-4-4-1), and
+   * `[Once Per Turn]` for the reason `ABIL-029` has one.
+   */
+  character('ABIL-033', 'Signal Flag', 3, 4000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-033-muster',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          {
+            op: 'select',
+            as: 'mustered',
+            from: {
+              zone: 'field',
+              owner: 'you',
+              category: ['character'],
+              excludeNames: ['Signal Flag'],
+            },
+            min: 0,
+            max: 1,
+            prompt: 'Rest up to 1 of your Characters other than [Signal Flag]',
+          },
+          { op: 'rest', target: { var: 'mustered' } },
+        ],
+      },
+    ],
+  }),
+
+  /**
+   * "[Activate: Main] [Once Per Turn] **If you don't have [Signal Flag]**, play
+   * up to 1 **[Signal Flag]** from your hand."
+   *
+   * `OP01-044` Shachi's shape, and it carries the other three quarters of the
+   * field in one sentence: the **inclusion** list in a selector, the same list
+   * inside a `countCards`, and the negation that needed no negation — `max: 0`
+   * has been "you don't have one" since Phase 2A.
+   *
+   * It is not itself a `Signal Flag`, which is the only reason its gate can be
+   * open: a card that gated on its own name would close its own condition the
+   * moment it hit the field.
+   *
+   * "Have" is the field (CR 3-1-2 collects the Leader, Character, Stage and cost
+   * areas under that word), so the count looks at `zone: 'field'` and names no
+   * category — the printed text names none either.
+   */
+  character('ABIL-034', 'Boatswain', 2, 3000, 1000, {
+    abilities: [
+      {
+        id: 'ABIL-034-call',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        condition: {
+          kind: 'countCards',
+          selector: { zone: 'field', owner: 'you', names: ['Signal Flag'] },
+          max: 0,
+        },
+        script: [
+          {
+            op: 'select',
+            as: 'called',
+            from: { zone: 'hand', owner: 'you', names: ['Signal Flag'] },
+            min: 0,
+            max: 1,
+            prompt: 'Play up to 1 [Signal Flag] from your hand',
+          },
+          { op: 'play', target: { var: 'called' } },
+        ],
+      },
+    ],
+  }),
 ];
 
 registerCardSet(ABIL_CARDS);

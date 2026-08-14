@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getAbilities } from '@optcg/engine';
-import type { Instruction } from '@optcg/engine';
+import type { Ability, Instruction } from '@optcg/engine';
 import { ABIL_CARDS } from '@optcg/engine/testdata/abilities';
 import { englishCards, registerEnglishCards } from '../src/index.js';
 
@@ -150,5 +150,175 @@ describe('a look-at window and the selector over it name the same number of card
       }
     }
     expect(mismatches).toEqual([]);
+  });
+});
+
+/**
+ * **Every card name a script names must be a name some card actually has.**
+ *
+ * `names` and `excludeNames` are free strings, and a free string is a typo
+ * waiting to happen — one that no type checks and no test notices, because a
+ * filter matching nobody does not throw. It quietly narrows: "other than
+ * [Nam]" excludes nothing and the card silently offers itself; "play up to 1
+ * [Pacifist]" offers an empty list and the ability resolves into nothing. Both
+ * look exactly like a card that legitimately found no target.
+ *
+ * So the resolution is pinned as a guard rather than performed once by hand.
+ * `nameReferences` walks the ability tree **structurally** instead of naming the
+ * fields that can hold a predicate — a script is plain JSON with no functions
+ * and no cycles, so a deep walk reaches every one, including the ones on ops
+ * that do not exist yet. A predicate-carrying op added tomorrow is covered
+ * without this file being touched.
+ *
+ * Each set is checked against **its own** registry: a typo in an ABIL script
+ * must not be rescued by a real card that happens to be called that.
+ */
+
+/** Every string in `names`/`excludeNames` anywhere in an ability, with a path. */
+function nameReferences(ability: Ability): Array<{ where: string; name: string }> {
+  const found: Array<{ where: string; name: string }> = [];
+
+  function walk(node: unknown, path: string): void {
+    if (Array.isArray(node)) {
+      node.forEach((item, index) => {
+        walk(item, `${path}[${index}]`);
+      });
+      return;
+    }
+    if (node === null || typeof node !== 'object') {
+      return;
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if ((key === 'names' || key === 'excludeNames') && Array.isArray(value)) {
+        for (const name of value) {
+          found.push({ where: `${path}.${key}`, name: String(name) });
+        }
+        continue;
+      }
+      walk(value, `${path}.${key}`);
+    }
+  }
+
+  walk(ability, ability.id);
+  return found;
+}
+
+/** Names that no card in `defs` carries. Empty is the only passing answer. */
+function unresolved(
+  defs: readonly { cardId: string; name: string }[],
+  abilities: Array<{ id: string; ability: Ability }>,
+): string[] {
+  const known = new Set(defs.map((def) => def.name));
+  const misses: string[] = [];
+  for (const { id, ability } of abilities) {
+    for (const reference of nameReferences(ability)) {
+      if (!known.has(reference.name)) {
+        misses.push(`${id}/${reference.where}: no card is named "${reference.name}"`);
+      }
+    }
+  }
+  return misses;
+}
+
+describe('every name a script filters on resolves to a real card', () => {
+  const registered: Array<{ id: string; ability: Ability }> = englishCards.flatMap((card) =>
+    getAbilities(card.cardId).map((ability) => ({ id: card.cardId, ability })),
+  );
+  const synthetic: Array<{ id: string; ability: Ability }> = ABIL_CARDS.flatMap((card) =>
+    (card.abilities ?? []).map((ability) => ({ id: card.cardId, ability })),
+  );
+
+  it('holds for every registered card', () => {
+    expect(unresolved(englishCards, registered)).toEqual([]);
+  });
+
+  it('holds for every ABIL card, against the ABIL set alone', () => {
+    expect(unresolved(ABIL_CARDS, synthetic)).toEqual([]);
+  });
+
+  it('is not vacuous — the ABIL set really does filter on a name', () => {
+    // A guard over an empty set passes for the wrong reason. The registered
+    // half of that claim is pinned as an exact list in
+    // `op01NameReference.test.ts`, where the cards that put names into scripts
+    // live; this is the synthetic half.
+    const names = synthetic.flatMap((entry) => nameReferences(entry.ability)).map((r) => r.name);
+    expect(new Set(names)).toEqual(new Set(['Signal Flag']));
+  });
+
+  it('catches a typo, which is the whole point', () => {
+    // The teeth, shown rather than asserted about. One letter off a real card
+    // name is a filter that matches nobody and fails nothing — unless something
+    // resolves it, and this is that something.
+    const typo: Ability = {
+      id: 'TYPO-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'x',
+          from: { zone: 'hand', owner: 'you', names: ['Kouzuki Ode'] },
+          min: 0,
+          max: 1,
+          prompt: 'never printed',
+        },
+      ],
+    };
+    expect(unresolved(englishCards, [{ id: 'TYPO', ability: typo }])).toEqual([
+      'TYPO/TYPO-onPlay.script[0].from.names: no card is named "Kouzuki Ode"',
+    ]);
+    // And the correctly spelled name it was one letter away from does resolve,
+    // so the guard is discriminating rather than merely strict.
+    const correct: Ability = {
+      ...typo,
+      script: [
+        {
+          op: 'select',
+          as: 'x',
+          from: { zone: 'hand', owner: 'you', names: ['Kouzuki Oden'] },
+          min: 0,
+          max: 1,
+          prompt: 'never printed',
+        },
+      ],
+    };
+    expect(unresolved(englishCards, [{ id: 'TYPO', ability: correct }])).toEqual([]);
+  });
+
+  it('reaches a name nested inside an if, a forEach and a condition', () => {
+    // The structural walk, exercised on the three places a hand-written field
+    // list would be most likely to forget.
+    const nested: Ability = {
+      id: 'NESTED-main',
+      trigger: 'activateMain',
+      condition: {
+        kind: 'countCards',
+        selector: { zone: 'field', owner: 'you', names: ['Deep In Condition'] },
+        min: 1,
+      },
+      cost: [{ kind: 'discardHand', count: 1, filter: { excludeNames: ['Deep In Cost'] } }],
+      script: [
+        {
+          op: 'forEach',
+          in: { selector: { zone: 'field', owner: 'you', excludeNames: ['Deep In Loop'] } },
+          do: [
+            {
+              op: 'if',
+              cond: {
+                kind: 'countCards',
+                selector: { zone: 'trash', owner: 'you', names: ['Deep In Branch'] },
+                min: 1,
+              },
+              then: [{ op: 'rest', target: { var: 'it' } }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(nameReferences(nested).map((reference) => reference.name).sort()).toEqual([
+      'Deep In Branch',
+      'Deep In Condition',
+      'Deep In Cost',
+      'Deep In Loop',
+    ]);
   });
 });

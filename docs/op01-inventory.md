@@ -173,6 +173,30 @@ The `Playable today` column moved as the batches landed:
   starters' tail had — one-card capabilities, and the standing advice not to
   follow the ranking past its top three.
 
+## The closing census supersedes the rows below
+
+**`docs/op01-closing-census.md` re-reads every unwritten OP-01 card against the
+engine as it stands, one card at a time, and it is the document to trust for
+"what is left and why".** The ranked table further down is kept as the record of
+how the campaign was planned and in what order the gaps fell; it is not kept as
+a current statement of what blocks what.
+
+Three things the census found that no row here said:
+
+- **Row 5 frees 12 cards, not 3.** Nine closed gaps falsified the freed column
+  one card at a time, and nothing re-read it until now. It is four times the
+  next-largest group and one optional field on `CardFilter`.
+- **`OP01-024` has two walls**, and the second — a `koInBattle` legality clause
+  that can name the *other* card in the battle — has never had a row.
+- **`OP01-075` is rejected by our own deck validator.** Its "any number of this
+  card" line is a deck-construction rule and `MAX_COPIES` has no exception, which
+  is a gap no card-text row could have caught.
+
+The census also corrects this document's own arithmetic: **35 OP-01 cards are
+unwritten**, not the ~24 the closing sections implied. The difference is between
+*cards blocked by a ranked gap* and *cards not written*; only the first was ever
+tracked here.
+
 ## The campaign is closed
 
 **Every capability this document ranked as worth building has been built.** What

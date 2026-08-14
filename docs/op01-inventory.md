@@ -173,6 +173,28 @@ The `Playable today` column moved as the batches landed:
   starters' tail had — one-card capabilities, and the standing advice not to
   follow the ranking past its top three.
 
+## OP-01 is closed — 118 of 121
+
+**The set is done, and "done" means what it meant for the starters:** every card
+either is written or has a row with a name, a size and a stated reason it is not.
+Four PRs took it from 86 to 118 — reference by name (12 cards), the
+player-chosen discard instruction (4), the DON!! count and two cost families (8),
+and the closing miscellany (8).
+
+**Three cards are declared, not queued:**
+
+| Card | What it wants | Why it stays declared |
+| --- | --- | --- |
+| `OP01-024` | an attribute filter **and** a `koInBattle` clause that can name the other card | two capabilities for one card — 6 in the set for the filter, and the targeted clause is this card alone |
+| `OP01-069`, `OP01-098` | search the **whole deck**, and shuffle | 8 cards in the set; both are finished but for this one capability |
+
+That is the same shape the starters closed in at 33 of 34, and it is the shape
+this document has argued for since its first page: *a mechanism with one card
+asking and no second asker is a declared row, not a build.*
+
+`docs/op01-closing-census.md` carries the arithmetic PR by PR and what building
+each row changed about it.
+
 ## The closing census supersedes the rows below
 
 **`docs/op01-closing-census.md` re-reads every unwritten OP-01 card against the
@@ -209,9 +231,10 @@ size and a reason it is not being built.
 
 | Card | What it still wants | Why it is declared, not queued |
 | --- | --- | --- |
-| `OP01-024` | filter by attribute (`＜Strike＞`) | 1 card in OP-01 |
+| `OP01-024` | filter by attribute (`＜Strike＞`) **and** a `koInBattle` clause that can name the other card | **two capabilities for one card** — 6 in the set for the filter, and the targeted clause is this card alone. The Hawkins shape |
 | ~~`OP01-099`~~ | ~~reference a card by **name**~~ | **built.** The census re-counted this row at twelve cards rather than one, and it shipped |
-| `OP01-051` | negation in `Condition`, plus two more | three walls on one card |
+| ~~`OP01-051`~~ | ~~negation in `Condition`, plus two more~~ | **built.** Three of its four walls closed without anyone re-reading it — #29, #35, and the name field in #38 reaching a legality clause |
+| `OP01-069`, `OP01-098` | search the **whole deck**, and shuffle | 8 cards in the set, and both are finished but for this one capability. Declined rather than deferred |
 | ~~`OP01-088`~~ | ~~a **player-chosen discard instruction**~~ | **built.** The row was worth four cards, not one, and the instruction needed *two* player fields rather than the one the row implied |
 | `OP06-002` | layered evaluation for a static's own gate | priced and declined — see `docs/trigger-reachability.md` |
 | — | the three DON!! mechanics no sample could see | sized in `docs/starter-card-inventory.md`; no OP-01 card prints them |
@@ -590,13 +613,13 @@ an upper bound.
 | 7 | ~~**Prohibitions** — "cannot"~~ — **bought** (batch 8), together with row 8, as **one** mechanism; the zero was right and stopped being right when put-into-play landed | 5 | **0** → **2** | 146 |
 | 8 | ~~**Attack-legality modifiers** — widen or narrow who may be attacked~~ — **bought** (batch 8); the count was right, 2 freed | 3 | **2, done** | 49 |
 | 9 | ~~**A trigger for something another card did**~~ — **built** (PR #30); the count was right, 2 freed | 3 | **2, done** | 11 |
-| 10 | **Scaling grants** — "+1000 for every card in your hand" | 2 | **2** | 23 |
+| 10 | ~~**Scaling grants**~~ — **bought.** `grants.powerPer`: a count over a selector, times a value, floored by an optional group size | 2 | **2, done** | 23 |
 | 11 | ~~**A cost paid with a Life card**~~ — **bought.** The top card, no choice (CR 3-10-2) and no `[Trigger]` (CR 2-11-1) — the one new cost of its batch that does not suspend | 2 | **2, done** | — |
-| 12 | **Cost modification** — "give blue Events in your hand −1 cost" | 1 | **1** | 127 |
-| 13 | **Negation in `Condition`** — `[Opponent's Turn]` | 2 | **1** | 77 |
-| 14 | **`reveal` taking a `Ref`** — reveal the cards you just chose | 2 | **1** | 2 |
+| 12 | ~~**Cost modification**~~ — **bought**, and the finding was the six places that read a printed cost. Only the continuous face; no card in scope scripts one | 1 | **1, done** | 127 |
+| 13 | ~~**Negation in `Condition`**~~ — **bought** as `{kind: 'not'}`, the variant rather than an `isOpponentTurn` member | 2 | **1** → **2, done** | 77 |
+| 14 | ~~**`reveal` taking a `Ref`**~~ — **bought** as a second *shape* of the op taking only `{var}`, not a whole `Ref` | 2 | **1** → **2, done** | 2 |
 | 15 | ~~**A cost paid with other cards you choose** — rest 2 Characters, return a Character~~ — **bought** as **three** narrow members, not one generic choose-and-do | 3 | ~~**0**~~ → **3, done** | 4 |
-| 16 | **A predicate about a card held in a variable** | 2 | **0** | — |
+| 16 | ~~**A predicate about a card held in a variable**~~ — **bought** as **two** narrow shapes, because it was two questions: `Condition.varMatches` and `Selector.differentColorFrom` | 2 | **0** → **2, done** | — |
 | 17 | **Search the whole deck, and shuffle it** | 2 | **0** | 8 |
 | 18 | ~~**A duration longer than end of turn**~~ — **closed (PR #35)**, `endOfOpponentNextTurn` | 1 | ~~**0**~~ **1 — done** | 43 |
 | 19 | ~~**Filter by printed keyword** — "[Blocker] Characters"~~ — **bought** (batch 8) as one field on `CardPredicate`; it was never `OP01-120`'s second wall, only `ST01-016`'s | 1 | **0** | 6 |
@@ -1220,6 +1243,7 @@ concept the client could use to blur those candidates, and a client that renders
 phase-2C notes in `trigger-reachability.md` rather than in a gap table — it is a
 model gap, and the two cards that expose it are blocked on other things anyway.
 
+
 ### The debt is no longer theoretical — `OP01-038` reaches it
 
 **Written, shipped, and leaking.** Kanjuro prints *"Your opponent chooses 1 card
@@ -1264,6 +1288,33 @@ the engine can resolve back — rather than a filter that drops fields.
 `OP01-063` and `OP01-105` will want exactly the same machinery when their own
 walls fall, which is the argument for building it once.
 
+### Their walls fell, and now all three cards reach it
+
+The closing batch wrote **`OP01-063` Arlong** and **`OP01-105` Bao Huang** — the
+two cards this finding was originally about, and the sentence above predicted
+their arrival correctly. Neither is blocked on anything now: both look straight
+into the opponent's hand, `PendingChoice.candidates` carries real ids to the
+player choosing, and the client renders them face-up. With Kanjuro that is
+**three printed cards leaking, in three fixtures, in every game**.
+
+What the batch adds to the *shape* of a fix is the act itself. `reveal` gained a
+second form — revealing the cards a variable already names — and revealing is the
+moment a card becomes **known to a player who could not see it**. So a per-player
+view is not only a filter over what it publishes; it needs somewhere to record
+**who learned what**, and `cardsRevealed` is where that record starts. The debt
+now has three distinct pieces and they want three different treatments:
+
+| Piece | What a filtered view owes it |
+| --- | --- |
+| `PendingChoice.candidates` over a secret area | **opaque handles**, not withheld ids — `ANSWER_CHOICE` names cards by `InstanceId`, so dropping them leaves the chooser unable to answer |
+| `deckPartitioned` | **redact** to two lengths; the counts are public at a real table and the faces are not |
+| `cardsRevealed` | **apply** it — the one event that should *widen* what a player knows, so a view that drops it is wrong in the other direction |
+
+The pointer is beside the op in `packages/engine/src/abilities/interpreter.ts`.
+Nothing is built for any of it, and OP-01 closing does not close it: this is a
+model gap, and it went from zero reachable cards to three in the batch that
+finished the set.
+
 ## A fourth: two cards are illegal to model in deck construction
 
 `packages/cards/src/decklists.ts` enforces `MAX_COPIES = 4` with no per-card
@@ -1296,7 +1347,7 @@ have been added to it as batches land:
 | Card | Name | Cat | Pile | What it needs, or how it is said |
 | --- | --- | --- | --- | --- |
 | OP01-001 | Roronoa Zoro (L) | leader | **A** ✅ | `static`, cond `and(donAttached 1, isYourTurn)`, `affects` selector {field, you, character}, `grants.power +1000` |
-| OP01-002 | Trafalgar Law (L) | leader | **C** | put-into-play, **and** a selector predicated on a card held in a var ("a different color than the returned Character") |
+| OP01-002 | Trafalgar Law (L) | leader | ~~**C**~~ **written** | `differentColorFrom`, reading the variable the return bound. The last OP-01 Leader to get its ability |
 | OP01-003 | Monkey.D.Luffy (L) | leader | **A** ✅ | `activateMain`, `oncePerTurn`, cost `restDon 4`; select 0–1 {field, you, character, types, costMax 5} → `setActive` + `addPower +1000 endOfTurn` |
 | OP01-004 | Usopp | char | **C** | a trigger for "your opponent activates an Event" — **missing rule**, no engine site fires it |
 | OP01-005 | Uta | char | ~~**B**~~ **written** | `excludeNames: [Uta]` — and the copies it must refuse are in the *trash*, which is why `excludeSelf` was never the tool |
@@ -1313,7 +1364,7 @@ have been added to it as batches land:
 | OP01-016 | Nami | char | ~~**C**~~ **written** | `lookKeepBury` with an exclusion — and **not** `SABAODY`: this one prints "type card", not "type Character card" |
 | OP01-017 | Nico Robin | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–1 {field, opponent, character, powerMax 3000} → `ko`. The DSL says it; the engine cannot survive it — K.O.ing the attack's own target throws in `resolveBattle`. **Missing rule**, backlog A. |
 | OP01-018 | Hajrudin | char | vanilla | — |
-| OP01-019 | Bartolomeo | char | **C** | `[Opponent's Turn]` — `Condition` has no negation. Freed by that alone; `[Blocker]` is printed |
+| OP01-019 | Bartolomeo | char | ~~**C**~~ **written** | `not(isYourTurn)`, and the row was right that it was freed by that alone |
 | OP01-020 | Hyogoro | char | **A** ✅ | `activateMain`, cost `restSelf`; select 0–1 {field, you, leader+character} → `addPower +2000 endOfTurn` |
 | OP01-021 | Franky | char | **A** ✅ | `static`, cond `donAttached 1`, `affects {self}`, `grants.legality` — `allow` on the `attack` question with a target predicate of `orientation: 'active'`. The card that reframed the hole, written as the reframing said it would be. **✅ written — batch 8** |
 | OP01-022 | Brook | char | **A** ✅ | `whenAttacking`, cond `donAttached 1`; select 0–2 {field, opponent, character} → `addPower −2000 endOfTurn` |
@@ -1345,7 +1396,7 @@ have been added to it as batches land:
 | OP01-048 | Nekomamushi | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 3} → `rest` |
 | OP01-049 | Bepo | char | ~~**C**~~ **written** | `ST02-012` is a second Bepo, {Heart Pirates}, cost 1 — a card an id-keyed filter would have offered |
 | OP01-050 | Penguin | char | ~~**C**~~ **written** | `OP01-044`'s mirror, and each closes the other's gate |
-| OP01-051 | Eustass"Captain"Kid | char | **C** | four gaps: attack-target restriction, `[Opponent's Turn]` negation, the source's own orientation, and put-into-play on the second ability |
+| OP01-051 | Eustass"Captain"Kid | char | ~~**C**~~ **written** | three of its four gaps closed **without this batch**: put-into-play (#29), `selfOrientation` (#35), and the legality target the name field reached (#38). It owed only the negation |
 | OP01-052 | Raizo | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `countCards {field, you, character, rested} min 2` → `draw you 1` |
 | OP01-053 | Wire | char | vanilla | — |
 | OP01-054 | X.Drake | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, rested, costMax 4} → `ko` |
@@ -1357,16 +1408,16 @@ have been added to it as batches land:
 | OP01-060 | Donquixote Doflamingo (L) | leader | **C** ✅ | `whenAttacking` `optional` `[DON!! x2]`; cost `restDon 1`; `reveal deckTop 1`, `if countCards {deckTop, types Seven Warlords, costMax 4}` → `confirm` → `play {var} rested`. The re-resolved `deckTop` selector worked exactly as predicted. Freed by batch 6 |
 | OP01-061 | Kaido (L) | leader | **C** | a trigger for "your opponent's Character is K.O.'d" (**missing rule**) **and** the DON!! deck |
 | OP01-062 | Crocodile (L) | leader | **C** | a trigger for "you activate an Event" (**missing rule**), and nothing else — `oncePerTurn` and `countCards` cover the rest |
-| OP01-063 | Arlong | char | **C** | a predicate about a card held in a var ("if the revealed card is an Event") **and** `reveal` taking a `Ref`. See the hidden-information note |
+| OP01-063 | Arlong | char | ~~**C**~~ **written** | both halves of row 16 at once. The Life card is **not** chosen — CR 3-10-2 takes the top, so the selector says `count: 1` |
 | OP01-064 | Alvida | char | **C** ✅ | `whenAttacking` `optional` `[DON!! x1]`; cost `discardHand 1` → select 0–1 {field, opponent, character, costMax 3} → `moveCard hand`. Freed by batch 5 |
 | OP01-065 | Vergo | char | vanilla | — |
 | OP01-066 | Krieg | char | vanilla | — |
-| OP01-067 | Crocodile | char | **C** | cost modification — "give blue Events in your hand −1 cost". `[Banish]` is printed |
+| OP01-067 | Crocodile | char | ~~**C**~~ **written** | `grants.cost` and the new `getCost`. Its audience is a selector over the **hand**, which needed nothing new |
 | OP01-068 | Gecko Moria | char | **A** ✅ | `static`, cond `and(isYourTurn, countCards {hand, you} min 5)`, `affects self`, `grants.keyword doubleAttack` |
 | OP01-069 | Caesar Clown | char | **C** | put-into-play **from the whole deck**, a name reference, and a `shuffle` op |
 | OP01-070 | Dracule Mihawk | char | **A** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 7} → `moveCard {deck}, position 'bottom'` |
 | OP01-071 | Jinbe | char | **C** ✅ | `onPlay`; select 0–1 {field, any, character, costMax 3} → `moveCard deck bottom`. `trigger`; `play {self}`. Freed by batch 6 |
-| OP01-072 | Smiley | char | **C** | a scaling grant — "+1000 for every card in your hand". `grants.power` is a constant |
+| OP01-072 | Smiley | char | ~~**C**~~ **written** | `powerPer` with no divisor — the simplest scaling grant in the set |
 | OP01-073 | Donquixote Doflamingo | char | ~~**C**~~ ✅ | **written — PR #36.** The top-**or**-bottom form: a partition plus an order, and its own `PendingChoice` kind. `[Blocker]` is printed |
 | OP01-074 | Bartholomew Kuma | char | ~~**C**~~ **written** | `names: [Pacifista]` and a cost cap, and no category or type — because the text names none |
 | OP01-075 | Pacifista | char | **A** | `[Blocker]` reminder only. Its deckbuilding line belongs to `validateDecklist` — see the deck-construction note |
@@ -1377,7 +1428,7 @@ have been added to it as batches land:
 | OP01-080 | Miss Doublefinger(Zala) | char | **A** ✅ | `onKO` → `draw you 1` |
 | OP01-081 | Mocha | char | vanilla | — |
 | OP01-082 | Monet | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
-| OP01-083 | Mr.1(Daz.Bonez) | char | **C** | a scaling grant — "+1000 for every 2 Events in your trash". The Leader-type condition is expressible |
+| OP01-083 | Mr.1(Daz.Bonez) | char | ~~**C**~~ **written** | the same grant with `per: 2`. The floor is the printed word: one Event is worth nothing |
 | OP01-084 | Mr.2.Bon.Kurei(Bentham) | char | **A** ✅ | the only one of the four filtering on a category as well as a type, and the only one behind a `[DON!! xN]` gate. **✅ written — batch 9** |
 | OP01-085 | Mr.3(Galdino) | char | ~~**C**~~ ✅ | **written — PR #35.** Two walls: batch 8 took the prohibition, PR #35 took the duration |
 | OP01-086 | Overheat | event | **A** ✅ | `counterEvent`: `addPower +4000 endOfBattle`, then select 0–1 {field, any, character, active, costMax 3} → `moveCard {hand}`. `trigger` likewise |
@@ -1399,7 +1450,7 @@ have been added to it as batches land:
 | OP01-102 | Jack | char | ~~**C**~~ **written** | `chooser: opponent, owner: opponent` — the shape where the two move together, which is what made one field look sufficient |
 | OP01-103 | Scratchmen Apoo | char | vanilla | — |
 | OP01-104 | Speed | char | **C** ✅ | `trigger`; `play {self}`. Freed by batch 6 |
-| OP01-105 | Bao Huang | char | **B** | `reveal` takes a `Selector`; this needs it to take a `Ref` so it can reveal the cards just chosen. See the hidden-information note |
+| OP01-105 | Bao Huang | char | ~~**B**~~ **written** | the cleanest witness the set has for the variable form: the whole card is the reveal |
 | OP01-106 | Basil Hawkins | char | **C** | the DON!! deck **and** put-into-play |
 | OP01-107 | Babanuki | char | vanilla | — |
 | OP01-108 | Hitokiri Kamazo | char | **A** ✅ | `onKO`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 5} → `ko` |

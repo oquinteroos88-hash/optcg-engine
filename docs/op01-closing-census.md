@@ -1,6 +1,6 @@
 # OP-01 closing census — every unwritten card, re-read against today's engine
 
-> ## PRs 1, 2 and 3 shipped: 110 of 121
+> ## OP-01 is closed: 118 of 121, in four PRs
 >
 > **PR 1 — reference by name** (12 cards). Row 5 was this document's headline and
 > its arithmetic held exactly: one field pair on the shared predicate, no new op
@@ -16,6 +16,11 @@
 > 15 and 11 at once. The counts held; row 6's framing did not, and row 15's
 > `OP01-047` turned out to be the only card in the game worded the way it is. See
 > [what building rows 6, 15 and 11 changed](#what-building-rows-6-15-and-11-changed).
+>
+> **PR 4 — the closing miscellany** (8 cards). Negation, scaling grants, cost
+> modification, revealing what was chosen, and a predicate about a card a
+> variable names. With it the set is done: **118 written, 3 declared**. See
+> [OP-01 is closed](#op-01-is-closed-118-of-121).
 >
 > Every table below is left as it was written, including the rows these PRs made
 > obsolete. This document is the record of what was true on the day it was
@@ -760,3 +765,142 @@ which `OP01-109` does on every power lookup — re-enters nothing. It needs no
 Which lands exactly on the census's own "PRs 1–4" line: **110, with 11 blocked** —
 `OP01-002`, `-019`, `-024`, `-051`, `-063`, `-067`, `-069`, `-072`, `-083`,
 `-098`, `-105`.
+
+## OP-01 is closed: 118 of 121
+
+The set is done, and "done" means what it meant for the starters — **not** that
+every card is written, but that every card either **is** written or has a row
+with a name, a size and a stated reason it is not.
+
+| | Count |
+| --- | --- |
+| OP-01 base cards | **121** |
+| written, keyword-only, or blank | **118** |
+| **declared, not built** | **3** |
+
+Four PRs took it from 86, and each one closed the row the census ranked next:
+
+| PR | Row | Cards | Left |
+| --- | --- | --- | --- |
+| — | the census | — | 35 |
+| 1 | reference by name | 12 | 23 |
+| 2 | the player-chosen discard instruction | 4 | 19 |
+| 3 | the DON!! count, and two cost families | 8 | 11 |
+| **4** | **the closing miscellany** | **8** | **3** |
+
+### The three, and why each stays
+
+**`OP01-024` Monkey.D.Luffy — two capabilities for one card.** It wants an
+attribute filter *and* a `koInBattle` clause that can name the other card in the
+battle. The second wall is the one this census found and nobody had written down:
+`LegalityClause`'s `koInBattle` member carries no `target`, where `attack`
+carries one. Attribute filters are 6 cards in the set and the targeted
+`koInBattle` is this card alone. **Two mechanisms, one asker** — the exact shape
+PR #35 declined for `ST02-010` Basil Hawkins, and the standard has not moved.
+
+**`OP01-069` Caesar Clown and `OP01-098` Kurozumi Orochi — the whole deck.**
+Both need a search of the entire deck plus a shuffle; both had their *other* wall
+(a card name) removed by PR 1 and stand only on this one. 8 cards in the full
+set. This is the borderline the census refused to call, and it is being declined
+rather than deferred: the two cards are finished except for one capability whose
+whole-set count is 8, and nothing else in OP-01 asks for it.
+
+Their rows are in `op01-inventory.md` and stay there.
+
+### What the closing batch found
+
+**`OP01-051` Kid needed only the negation, and that is a result about PR #38.**
+The census gave it three walls. Two closed without anyone re-reading the card —
+put-into-play in PR #29 and `selfOrientation` in PR #35 — and the third closed
+in **PR #38**, because the name field went onto `CardFilter` and
+`LegalityClause.attack.target` is a `CardPredicate` that `matchesPredicate`
+reads. The field arrived in a legality clause the day it shipped and no test
+noticed until this batch wrote the card. That is the counting rule's second
+clause one last time: *a row's wall is a claim about every other gap.*
+
+**And Kid is two statics, because of a Leader.** Its exemption is "the
+**Character** [Kid]" — a negated conjunction, which a conjunctive predicate
+cannot express. `excludeNames` alone would also exempt a *Leader* named
+Eustass"Captain"Kid, and that is reachable rather than theoretical: `ST02-001` is
+a green Kid Leader, `OP01-051` a green Kid Character, and ST-02 is one of the two
+decks this repo ships. So the prohibition is written as two clauses whose union
+is the complement — the Leader always, every Character but Kid. CR 7-1-1-2 makes
+the Leader and rested Characters the whole legal target set, so two clauses
+cover it.
+
+**`getCost` found six readers, which is the finding rather than the feature.**
+Nothing could change a cost because nothing *asked* for one through a function:
+`legalActions` read `CardDefinition.cost` twice and the play and Counter-Event
+reducers twice each. Unifying them was the work; `grants.cost` was four lines
+after it. The same shape as `setOrientation` in PR #34 and `hasKeyword` before
+it, and it keeps arriving the same way — a mechanism is unbuildable until the
+question it answers has one place to be asked.
+
+**Only the continuous face of cost modification is built.** `Modifier` gains no
+`cost` kind, because `OP01-067` is the whole of row 12 in OP-01 and no card in
+scope writes a cost change from a script. `setLegality`/`grants.legality` came as
+a pair in PR #31 because both faces had printed cards; a `Modifier` member no
+card can produce is one the coverage sweep would correctly report as dead.
+
+**The cost floor is sharper than "clamp at zero".** CR 1-3-6-2: a cost "may
+become a negative value **only for the duration of that calculation**. Outside of
+such calculations, the cost of a card whose value becomes negative is treated as
+being 0" — and CR 1-3-6-2-1 keeps the negative in play for further arithmetic. So
+`getCost` sums signed and clamps **once**, at the boundary. Clamping per grant
+would read a 1-cost card under two −1s and a +3 as 3 instead of 2.
+
+**The bicolour question is real, decided, and unobservable.** "A different color
+than the returned Character" against a two-colour card: CR 2-3-5 says "cards with
+multiple colors ... are treated as **a card of every color they possess**", so a
+red/green candidate *is* a red card and is not different from a red one. That is
+the no-shared-colour reading and it is the default. It sits behind
+`rules.differentColorMeansNoSharedColor` because the step from that sentence to
+the comparison is an inference, and **two cards in the entire game print the
+phrase**.
+
+What makes it worth a flag rather than a line of code is the measurement beside
+it: **every two-colour card in the game is a Leader** — 68 of them, and not one
+Character, Event or Stage. A Leader is neither returned to hand nor played from
+it, so the two readings **cannot disagree on any position a printed card can
+reach**. The decision is recorded before a bicolour Character exists rather than
+after.
+
+The same measurement fixed a latent bug on the way past: `matchesPredicate`
+compared `predicate.colors` against the card's **first** printed colour only.
+Right by accident for every non-Leader card in the game, wrong in principle, and
+now reading the whole set — with `CardDefinition.colors` added to say so.
+
+### Two things this batch did not build, on purpose
+
+**No `Modifier.cost`** — see above.
+
+**No generic comparator for "a predicate about a card in a variable".** The
+census's row 16 turned out to be two questions asked in two places, and they got
+two narrow shapes: `Condition.varMatches` for Arlong's "if the revealed card is
+an Event", and `Selector.differentColorFrom` for Law's colour comparison. The
+second is on `Selector` rather than `CardPredicate` because evaluating it needs
+the script context and `matchesPredicate` has none — it is exported for legality
+rules, which hold their candidate already. Putting it one level down keeps that
+signature untouched and makes the clause unspellable in the two places that could
+not honour it.
+
+### Where hidden information will start
+
+`reveal` gained a second shape, and it is the act a per-player view will have to
+model first: revealing is what makes a card **known to a player who could not see
+it**. A filtered view cannot merely withhold ids there — it has to record who
+learned what. The pointer is beside the op in `interpreter.ts` and the debt is
+sized under the per-player-view finding in `op01-inventory.md`, which this batch
+adds a third reachable card to (`OP01-105` Bao Huang looks straight into the
+opponent's hand, and now really does).
+
+### What the set looks like finished
+
+Two sets closed, and both closed the same way: **33 of 34** for the starters and
+**118 of 121** for OP-01, each with a short list of rows that have names, sizes
+and reasons instead of a queue. The engine that got here has 45 test files and
+456 cases of its own; the cards have 30 and 579.
+
+Nothing in this document is edited to agree with the build. The tables above the
+line are what was true on the day they were counted, and this section is what
+happened next.

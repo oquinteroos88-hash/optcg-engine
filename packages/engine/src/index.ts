@@ -14,6 +14,7 @@ export type { ReasonCode } from './reducer/errors.js';
 export {
   EFFECTIVE,
   getActiveCostDon,
+  getCost,
   getOpponent,
   getPower,
   getPowerWithoutStatics,

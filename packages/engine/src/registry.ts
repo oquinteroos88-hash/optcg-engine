@@ -9,6 +9,22 @@ export interface CardDefinition {
   name: string;
   category: CardCategory;
   color: string;
+  /**
+   * Every colour the card possesses, first printed colour first. Optional so
+   * Phase 0 definitions still compile; absent means `[color]`.
+   *
+   * The engine needed the plural the day a card compared two cards' colours
+   * (`OP01-002`). CR 2-3-5 is why it is a set rather than a primary plus
+   * extras: "cards with multiple colors, such as red and green, are treated as
+   * **a card of every color they possess**" — there is no principal colour in
+   * the rules, only a printed order.
+   *
+   * **Every two-colour card in the game is a Leader** — 68 of them, and not one
+   * Character, Event or Stage. So `color` alone was never wrong in practice;
+   * it was wrong in principle, which is a different thing and the reason this
+   * field exists now rather than the day it first mattered.
+   */
+  colors?: readonly string[];
   cost: number; // leaders: 0
   power: number;
   /**

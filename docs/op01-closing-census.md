@@ -1,14 +1,18 @@
 # OP-01 closing census — every unwritten card, re-read against today's engine
 
-> ## PR 1 shipped: reference by name, and the census's twelve are written
+> ## PRs 1 and 2 shipped: 102 of 121
 >
-> **OP-01 is 98 of 121.** Row 5 was this document's headline and its arithmetic
-> held exactly: twelve cards, one field pair on the shared predicate, no new op
-> and no new condition kind. What the census could not predict is in
-> [what building it changed](#what-building-row-5-changed), at the bottom — three
-> findings, one of which changes the shape it recommended.
+> **PR 1 — reference by name** (12 cards). Row 5 was this document's headline and
+> its arithmetic held exactly: one field pair on the shared predicate, no new op
+> and no new condition kind. See
+> [what building it changed](#what-building-row-5-changed).
 >
-> Every table below is left as it was written, including the rows this PR made
+> **PR 2 — the player-chosen discard instruction** (4 cards). Row 2's last open
+> half, and with it the deterministic-discard divergence closes on both halves.
+> The count held; the *shape* did not. See
+> [what building row 2's open half changed](#what-building-row-2s-open-half-changed).
+>
+> Every table below is left as it was written, including the rows these PRs made
 > obsolete. This document is the record of what was true on the day it was
 > counted, and a census edited after the fact to agree with the build is a census
 > nobody can check the build against.
@@ -454,3 +458,149 @@ either yet.
 The three cards the census listed as *also* needing this field — `OP01-051`,
 `OP01-069`, `OP01-098` — each have their name half written and are still blocked
 on their second wall, exactly as predicted.
+
+## What building row 2's open half changed
+
+The row's count was right — four cards — and the row's *shape* was wrong in a way
+that would have shipped a card unspellable. Three findings.
+
+### 1. It is two player fields, not one
+
+This document already knew the open half was **three forms** and listed them
+correctly. What it did not say, because it was a census and not a design, is that
+the third form's two players are **independent**: `OP01-038` Kanjuro reads "your
+opponent **chooses** 1 card from **your** hand", where the chooser and the
+hand-owner are opposite. The other two forms move them together, which is exactly
+what makes a single "whose hand" field look sufficient.
+
+So `op: 'discard'` takes `chooser` and `owner`, both `PlayerRef`:
+
+| Printed | `chooser` | `owner` |
+| --- | --- | --- |
+| "trash N cards from your hand" | `you` | `you` |
+| "your opponent trashes N cards from their hand" | `opponent` | `opponent` |
+| "your opponent chooses N cards from **your** hand" | `opponent` | `you` |
+
+The fourth combination — you choosing out of your opponent's hand — is
+expressible and **no card in the game prints it**.
+
+One field would have said the first two and made Kanjuro unspellable. That is
+normally the moment this project declares a row and moves on, because Kanjuro is
+one card; the standard does not apply here, and the difference is worth stating.
+The Hawkins standard prices **a mechanism built for one asker**. This is one
+`PlayerRef` on an instruction being built anyway for the other 163 cards, and
+leaving it out would have to be undone the first time a card prints the mirror.
+
+### 2. The deterministic discard is gone, not joined
+
+The divergence is closed rather than halved: there is no front-of-hand `discard`
+left beside the chosen one. **No printed card in the game means "trash the
+leftmost card in your hand"**, so the old op was correct for zero cards and
+available to every author — and exactly one thing in the repo used it, the
+synthetic `ABIL-002`. Both halves of the debt now have a PR: the **cost** half in
+PR #28, the **instruction** half here.
+
+### 3. This is the first script that asks the other player anything
+
+Worth checking rather than assuming, and the check changed what the PR could
+claim. **PR #28 did not cross the table.** Its `discardCandidates` resolves with
+`owner: 'you'` hardcoded and its choice opens to `item.controller`, so the cost
+half only ever asked the controller about the controller's own hand. Every one of
+the interpreter's seven `openChoice` call sites passes `item.controller`.
+
+Choices have reached the **non-turn player** since Phase 2A — a life card's
+`[Trigger]` belongs to the damaged player — but never the ability's *opponent*.
+Nothing underneath had to change for it: `openChoice` already moves priority,
+`checkEffectShape` already asserts `priority === pending.player`, and
+`validateAnswerChoice` already refuses everyone else. The **client** needed
+nothing either, which is now a test rather than a claim — `answeringChoice` was
+written against `state.priority` and the overlay renders `candidates` rather than
+a zone, so a choice over the opponent's hand renders with zero source changes.
+
+The reachable consequence is new all the same: a player's own card can leave them
+holding exactly `[CONCEDE]` while the opponent decides what they lose.
+
+### The rules, and the one thing the engine gets wrong on purpose
+
+- **CR 8-4-4-1** and **CR 1-3-2** — a hand shorter than the count trashes what
+  there is; an empty one trashes nothing and asks nothing.
+- **CR 2-8-3** — text resolves top-down, so `OP01-088`'s "draw 2 cards and trash
+  1 card" draws *first* and the drawn cards are candidates for the trash.
+- **CR 8-4-1-1** before **8-4-1-3** — a declined `DON!! −1` on `OP01-102` and
+  `OP01-114` costs nothing and opens no question.
+- **CR 3-1-5, 11-3-1, 8-4-4-2** — the hand is a secret area, looking at one is
+  confined to "the player of that effect", and a chooser picking out of one
+  "cannot guarantee that the chosen card meets the required conditions". **The
+  chooser is not supposed to see the hand.** The engine shows it, because it is
+  perfect-information by declared design — and `OP01-038` is the first card that
+  makes that debt *reachable* rather than theoretical. Written up under the
+  per-player-view finding in `op01-inventory.md`, including the part that is new:
+  a filtered view cannot simply withhold the ids, because `ANSWER_CHOICE` names
+  cards by `InstanceId`, so hidden information needs **opaque handles** rather
+  than a field filter. Deliberately not modelled as a random pick — the rules say
+  the opponent *chooses*, and a die roll is a different game.
+
+No `rules` flag was added. There is no second defensible reading here: every
+question the four cards raise is settled by a rule with a number, and the one
+divergence is the engine-wide information model rather than a choice about these
+cards.
+
+### Two corrections to this document's own probes
+
+**The asymmetric form is 1 card, not 2.** The table above reads 2 for "your
+opponent chooses N cards from your hand". Re-probed across the whole set for the
+build: `OP01-038` is the only card in the game that prints it, and the only card
+whose chooser and owner differ at all. The starred-probe caveat applies — these
+numbers were always upper bounds — but this one decided a design question, so the
+exact figure is worth having.
+
+**The controller-chooses form is 142 cards, not 88.** The census's probe was
+narrower than the printed family. The direction is the usual one for this
+document's counts and it changes nothing about the ranking: the form was already
+the largest of the three.
+
+One shape neither number covers, found in the same sweep and **not** built:
+`OP05-058` prints "you and your opponent trash cards from your hands until you
+each have N", which is a repeat-until-count over *both* hands rather than a
+chooser and an owner. One card, no second asker, declared.
+
+### Discard observers: a family nobody had written down
+
+Asked because a chosen discard raises the question of who caused it, and worth
+recording precisely because the answer is "nothing to build yet". The engine has
+**no discard observer at all** — no `Trigger` member watches a card leaving a
+hand — and the prose sweeps of PR #30 and PR #34 did not find the family because
+they were looking for other shapes.
+
+There are **four cards** in the full set:
+
+| Card | Text |
+| --- | --- |
+| `OP12-040` | "When a card is trashed from your hand by your {Navy} type card's effect, draw cards equal to the number of cards trashed" |
+| `OP14-045` | "When a card is trashed from your hand by an effect, this Character gains [Rush] during this turn" |
+| `OP14-049` | the same sentence |
+| `OP14-056` | "When a card is trashed from your hand by an effect, this Character's effect is negated during this turn" |
+
+Two facts about them decide what this PR owed:
+
+- **They key on the owner, not the chooser.** All four read "from **your** hand",
+  which is a fact about whose hand emptied. So `cardDiscarded.player` carries the
+  **owner** and not the player who picked — pinned by a test now, so the day these
+  arrive is not an archaeology exercise.
+- **The distinction they draw is effect-versus-rule, not whose effect.** "By an
+  effect" excludes the Counter Step's discard, which is a rule action. None of
+  them asks "by your opponent's effect", so the causante question the build raised
+  has a printed answer: no card cares.
+
+Four cards, none in OP-01, no engine hook. **Declared, sized, and filed** — the
+Hawkins standard applied to a family this document had not previously named.
+
+### The arithmetic now
+
+| After | OP-01 | Still blocked |
+| --- | --- | --- |
+| the census | 86 | 35 |
+| + reference by name (PR 1) | 98 | 23 |
+| **+ player-chosen discard (this PR)** | **102** | **19** |
+| + DON!! count condition (PR 3) | 105 | 16 |
+| + costs that move chosen cards (PR 4) | 110 | 11 |

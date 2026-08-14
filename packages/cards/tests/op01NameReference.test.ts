@@ -110,6 +110,12 @@ describe('the names the scripts filter on', () => {
     expect([...referenced].sort()).toEqual([
       'Baroque Works',
       'Bepo',
+      // The eleventh name, and it is not on a script selector at all:
+      // `OP01-051` Kid names itself in a **legality clause**, which reads the
+      // same `CardPredicate`. That the closing batch could write Kid without
+      // touching the name field is the evidence that the field really does sit
+      // on `CardFilter` rather than on `Selector`.
+      'Eustass"Captain"Kid',
       'Kouzuki Oden',
       'Kurozumi Semimaru',
       'Nami',
@@ -149,6 +155,9 @@ describe('the names the scripts filter on', () => {
       'OP01-046',
       'OP01-049',
       'OP01-050',
+      // The thirteenth card, added by the closing batch through a legality
+      // target rather than a selector.
+      'OP01-051',
       'OP01-074',
       'OP01-090',
       'OP01-099',

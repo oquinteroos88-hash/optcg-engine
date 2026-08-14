@@ -2,7 +2,7 @@ import { fireEventActivated, fireTriggers } from '../abilities/triggers.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getCardDef } from '../registry.js';
-import { getActiveCostDon, isOwnLeaderOrCharacter } from '../selectors.js';
+import { getActiveCostDon, getCost, isOwnLeaderOrCharacter } from '../selectors.js';
 import type { GameState, InstanceId, PlayerId } from '../types.js';
 import { REASONS } from './errors.js';
 import {
@@ -39,7 +39,9 @@ export function validatePlayCard(state: GameState, action: PlayCardAction): stri
   if (def.category !== 'character' && def.category !== 'event' && def.category !== 'stage') {
     return REASONS.unplayableCategory;
   }
-  if (getActiveCostDon(state, action.player).length < def.cost) {
+  // `getCost`, not `def.cost`: validation and the offer in `legalActions` have to
+  // read the same number or a reduced card is offered and then refused.
+  if (getActiveCostDon(state, action.player).length < getCost(state, action.instanceId)) {
     return REASONS.notEnoughDon;
   }
   // The trash choice is required iff a character hits a full board.
@@ -66,7 +68,9 @@ export function applyPlayCard(
   const def = getCardDef(card.cardId);
   const ps = draft.players[action.player];
 
-  payDonCost(draft, action.player, def.cost, events);
+  // Read before the card leaves the hand: a grant whose audience is a selector
+  // over the hand stops applying the moment it is not there.
+  payDonCost(draft, action.player, getCost(draft, action.instanceId), events);
   ps.hand = ps.hand.filter((id) => id !== action.instanceId);
 
   switch (def.category) {

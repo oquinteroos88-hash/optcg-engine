@@ -83,7 +83,7 @@ export function hasKeywordWithoutStatics(
 export function forEachStatic(
   state: GameState,
   id: InstanceId,
-  visit: (grants: NonNullable<Ability['grants']>) => void,
+  visit: (grants: NonNullable<Ability['grants']>, ctx: AbilityContext) => void,
 ): void {
   for (const player of PLAYER_IDS) {
     for (const sourceId of fieldIds(state, player)) {
@@ -124,7 +124,7 @@ export function forEachStatic(
         if (!applies) {
           continue;
         }
-        visit(ability.grants);
+        visit(ability.grants, ctx);
       }
     }
   }
@@ -137,13 +137,66 @@ export function forEachStatic(
  */
 export function getPower(state: GameState, id: InstanceId): number {
   let power = getPowerWithoutStatics(state, id);
-  forEachStatic(state, id, (grants) => {
+  forEachStatic(state, id, (grants, ctx) => {
     if (grants.power !== undefined) {
       mark('static.powerApplied');
       power += grants.power;
     }
+    if (grants.powerPer !== undefined) {
+      // "+X power for every N cards …" — counted at read time, so the answer
+      // follows the board without anything being written down. The count runs
+      // through `WITHOUT_STATICS` like every other selector a static evaluates,
+      // which is the same anchor `affects` rides and the reason a counting
+      // selector cannot start a recursion here.
+      const { of, value, per } = grants.powerPer;
+      const matched = resolveSelector(state, ctx, of, WITHOUT_STATICS).length;
+      // Complete groups only. CR 8-4-4 and the printed "for every 2" both
+      // describe groups, and a partial group is not one — a single Event in the
+      // trash is worth nothing to `OP01-083`.
+      const groups = Math.floor(matched / (per ?? 1));
+      if (groups > 0) {
+        mark('static.powerPerApplied');
+        power += groups * value;
+      }
+    }
   });
   return power;
+}
+
+/**
+ * **What a card costs to play right now** — printed, plus every applicable
+ * continuous grant.
+ *
+ * `getPower`'s third sibling, and it exists for the reason that one does: a cost
+ * that effects can change has to be asked through one function, or the places
+ * that read it drift. There were **six** of them before this — `legalActions`
+ * offering a play and offering a `[Counter]` Event, and the validate/pay pair in
+ * each of the two reducers — and every one read `CardDefinition.cost` straight.
+ * Unifying them was the work; the grant itself is four lines.
+ *
+ * **Floored once, at the boundary.** CR 1-3-6-2: a cost "may become a negative
+ * value only for the duration of that calculation. Outside of such calculations,
+ * the cost of a card whose value becomes negative is treated as being 0" — and
+ * CR 1-3-6-2-1 keeps that negative in play for further arithmetic. So the sum
+ * runs signed and `Math.max(0, …)` applies once at the end. Clamping per grant
+ * would read a 1-cost card under two −1s and a +3 as 3 instead of 2.
+ *
+ * Leaders have no cost (CR 2-7-5) and the registry stores 0 for them; nothing
+ * asks this about a Leader, and if it did the answer would be 0 either way.
+ */
+export function getCost(state: GameState, id: InstanceId): number {
+  const card = state.cards[id];
+  if (card === undefined) {
+    throw new Error(`Unknown instance id: ${id}`);
+  }
+  let cost = getCardDef(card.cardId).cost;
+  forEachStatic(state, id, (grants) => {
+    if (grants.cost !== undefined) {
+      mark('static.costApplied');
+      cost += grants.cost;
+    }
+  });
+  return Math.max(0, cost);
 }
 
 /**

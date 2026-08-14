@@ -1225,6 +1225,154 @@ export const ABIL_CARDS: CardDefinition[] = [
       },
     ],
   }),
+
+  /**
+   * The five mechanisms of the closing batch, on one card.
+   *
+   * Its two power statics are gated on `isYourTurn` and `not(isYourTurn)`, which
+   * makes them **mutually exclusive** — a card carrying two self-buffs that
+   * could both be live would make every power assertion read as a sum and hide
+   * which clause was on.
+   */
+  character('ABIL-036', 'Almanac', 2, 2000, 1000, {
+    abilities: [
+      /**
+       * `OP01-019` Bartolomeo's shape: a buff that exists only on the other
+       * player's turn. `[Opponent's Turn]` is `not(isYourTurn)` and nothing else
+       * in `Condition` had to change for it.
+       */
+      {
+        id: 'ABIL-036-opponentTurn',
+        trigger: 'static',
+        condition: { kind: 'not', of: { kind: 'isYourTurn' } },
+        script: [],
+        affects: { self: true },
+        grants: { power: 3000 },
+      },
+      /**
+       * `OP01-072` Smiley's shape: +1000 for every card in your hand, counted at
+       * read time. `per` is left off, which is 1.
+       */
+      {
+        id: 'ABIL-036-perCard',
+        trigger: 'static',
+        condition: { kind: 'isYourTurn' },
+        script: [],
+        affects: { self: true },
+        grants: { powerPer: { of: { zone: 'hand', owner: 'you' }, value: 1000 } },
+      },
+      /**
+       * `OP01-083` Mr.1's shape: the same arithmetic with a divisor. Gated on an
+       * attached DON!! so a staged position can turn it off without emptying the
+       * trash, and on the opponent's turn so it never sums with `perCard`.
+       */
+      {
+        id: 'ABIL-036-perTwo',
+        trigger: 'static',
+        condition: {
+          kind: 'and',
+          of: [{ kind: 'donAttached', min: 1 }, { kind: 'not', of: { kind: 'isYourTurn' } }],
+        },
+        script: [],
+        affects: { self: true },
+        grants: {
+          powerPer: {
+            of: { zone: 'trash', owner: 'you', category: ['event'] },
+            value: 1000,
+            per: 2,
+          },
+        },
+      },
+      /**
+       * `OP01-067` Crocodile's shape: a continuous **cost** reduction whose
+       * audience is a selector over the **hand**. Nothing new was needed for
+       * that zone — `resolveSelector` has reached it since Phase 2A.
+       */
+      {
+        id: 'ABIL-036-cheaper',
+        trigger: 'static',
+        condition: { kind: 'donAttached', min: 1 },
+        script: [],
+        affects: { selector: { zone: 'hand', owner: 'you', category: ['event'] } },
+        grants: { cost: -1 },
+      },
+      /**
+       * `OP01-105` Bao Huang and the middle of `OP01-063` Arlong: choose out of
+       * the opponent's hand, reveal **those** cards, and branch on what they
+       * turned out to be.
+       */
+      {
+        id: 'ABIL-036-peek',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          {
+            op: 'select',
+            as: 'seen',
+            from: { zone: 'hand', owner: 'opponent' },
+            min: 1,
+            max: 1,
+            prompt: "Choose 1 card from your opponent's hand",
+          },
+          { op: 'reveal', var: 'seen' },
+          {
+            op: 'if',
+            cond: { kind: 'varMatches', name: 'seen', match: { category: ['event'] } },
+            then: [{ op: 'draw', player: 'you', count: 1 }],
+          },
+        ],
+      },
+      /**
+       * `OP01-002` Trafalgar Law's shape: return one of yours, then play
+       * something **of a different colour than the card that left**.
+       */
+      {
+        id: 'ABIL-036-swap',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          {
+            op: 'select',
+            as: 'sent',
+            from: { zone: 'field', owner: 'you', category: ['character'] },
+            min: 1,
+            max: 1,
+            prompt: 'Return 1 of your Characters to the owner’s hand',
+          },
+          { op: 'moveCard', target: { var: 'sent' }, to: { zone: 'hand' } },
+          {
+            op: 'select',
+            as: 'recruit',
+            from: {
+              zone: 'hand',
+              owner: 'you',
+              category: ['character'],
+              differentColorFrom: 'sent',
+            },
+            min: 0,
+            max: 1,
+            prompt: 'Play up to 1 Character of a different color than the returned one',
+          },
+          { op: 'play', target: { var: 'recruit' } },
+        ],
+      },
+    ],
+  }),
+
+  /**
+   * The set's one **two-colour** card, and the only way the colour comparison
+   * can be watched deciding anything.
+   *
+   * Every two-colour card in the real game is a **Leader** — 68 of them, and not
+   * one Character, Event or Stage — so `differentColorFrom`'s two readings can
+   * never disagree on a printed card today. They disagree here: against a
+   * mono-blue reference this card **shares** blue, so the default excludes it,
+   * and the whole-set reading admits it.
+   *
+   * Vanilla on purpose, like `ABIL-032`: every claim about it is a claim about
+   * its colours.
+   */
+  character('ABIL-037', 'Envoy', 1, 2000, 1000, { colors: ['blue', 'green'] }),
 ];
 
 registerCardSet(ABIL_CARDS);

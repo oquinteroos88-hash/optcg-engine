@@ -374,17 +374,26 @@ describe('returnCharacters returns one of your own Characters to hand', () => {
 
 describe('restCharacters rests two of your active Characters', () => {
   function staged(active: number, rested = 0): GameState {
+    // Distinct bodies rather than N copies of one card: how many second copies
+    // the ABIL deck can afford falls every time the set grows, and a position
+    // that needs two of the *same* card is a position the next card added can
+    // break. These are singles, so the deck always has them.
+    const spare = ['ABIL-004', 'ABIL-006', 'ABIL-007', 'ABIL-008'] as const;
+    const rests = ['ABIL-010', 'ABIL-012', 'ABIL-014'] as const;
     const characters = [
       { cardId: 'ABIL-035' as const },
-      ...Array.from({ length: active - 1 }, () => ({ cardId: 'ABIL-004' as const })),
-      ...Array.from({ length: rested }, () => ({
-        cardId: 'ABIL-022' as const,
-        orientation: 'rested' as const,
-      })),
+      ...spare.slice(0, active - 1).map((cardId) => ({ cardId })),
+      ...rests.slice(0, rested).map((cardId) => ({ cardId, orientation: 'rested' as const })),
     ];
     return buildScenario({
       decks,
-      p1: { characters, activeDon: 4 },
+      // Life named so the bodies below are always available: the deal can
+      // otherwise take one, and `takeFromDeck` does not reach the Life area.
+      p1: {
+        characters,
+        activeDon: 4,
+        lifeCards: ['ABIL-017', 'ABIL-019', 'ABIL-020', 'ABIL-025', 'ABIL-026'],
+      },
       p2: { activeDon: 4 },
     });
   }

@@ -930,6 +930,85 @@ export const OP01_RG_LIFE: Decklist = {
   ],
 };
 
+/* ------------------------------------------- the closing batch (8 cards) */
+
+/**
+ * The last two fixtures OP-01 needs, and the seventeen above stay untouched —
+ * the trade every batch since the name field has made, for the same reason: a
+ * seed measured against a 50-card fixture is a fact about that shuffle.
+ */
+
+/**
+ * Leader `OP01-002` Trafalgar Law, red/green — and the Leader is the point.
+ *
+ * `OP01-002`'s own ability is in this batch and is the last OP-01 Leader to get
+ * one. It needs **five Characters** on the board before it will fire, so the
+ * deck is built almost entirely out of cheap bodies: nine inert lines at four
+ * copies each, plus two `[Trigger]` bodies that put themselves down for free.
+ *
+ * Both colours are present in quantity on purpose. The Leader returns a
+ * Character and then plays one **of a different colour**, so a mono-colour deck
+ * would make the second half of its own ability unresolvable every time.
+ */
+export const OP01_RG_SURGEON: Decklist = {
+  id: 'OP01-RG-SURGEON',
+  name: 'OP-01 red/green (test fixture, Law — the Leader swap and the negation)',
+  packId: '569101',
+  leader: 'OP01-002',
+  cards: [
+    { cardId: 'OP01-019', qty: 4 }, // Bartolomeo — [Blocker]; +3000 on the opponent's turn
+    { cardId: 'OP01-051', qty: 4 }, // Eustass"Captain"Kid — the attack lock, and a 3-drop out of hand
+    // Cheap bodies, both colours, so five of them are on the board early and the
+    // Leader always has a colour to swap into.
+    { cardId: 'OP01-010', qty: 4 }, // Komachiyo — red, cost 1
+    { cardId: 'OP01-012', qty: 4 }, // Sai — red, cost 2
+    { cardId: 'OP01-023', qty: 4 }, // Marco — red, cost 3
+    { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — red, [Rush] only, cost 3
+    { cardId: 'OP01-018', qty: 4 }, // Hajrudin — red, cost 4
+    { cardId: 'OP01-036', qty: 4 }, // Otsuru — green, cost 1
+    { cardId: 'OP01-043', qty: 4 }, // Shinobu — green, cost 3
+    { cardId: 'OP01-045', qty: 4 }, // Jean Bart — green, cost 4
+    { cardId: 'OP01-053', qty: 4 }, // Wire — green, cost 2
+    { cardId: 'OP01-009', qty: 2 }, // Carrot — red, [Trigger] Play this card
+    { cardId: 'OP01-037', qty: 4 }, // Kawamatsu — green, [Trigger] Play this card
+  ],
+};
+
+/**
+ * Leader `OP01-062` Crocodile, blue/purple — and this Leader is load-bearing
+ * twice.
+ *
+ * `OP01-083` Mr.1 gates on a {Baroque Works} Leader, which Crocodile is, so its
+ * scaling grant is live rather than decorative. And the deck runs twelve Event
+ * slots, all blue and all {Baroque Works}: they are what `OP01-067` Crocodile
+ * discounts while they sit in hand, and what fills the trash Mr.1 counts once
+ * they are played. CR 8-4-2 trashes an Event as it activates, so the two halves
+ * feed each other without anything being staged.
+ */
+export const OP01_BP_WARLORD: Decklist = {
+  id: 'OP01-BP-WARLORD',
+  name: 'OP-01 blue/purple (test fixture, Crocodile — scaling grants and cost)',
+  packId: '569101',
+  leader: 'OP01-062',
+  cards: [
+    { cardId: 'OP01-072', qty: 4 }, // Smiley — +1000 per card in hand
+    { cardId: 'OP01-083', qty: 4 }, // Mr.1(Daz.Bonez) — +1000 per 2 Events in the trash
+    { cardId: 'OP01-063', qty: 4 }, // Arlong — reveal from hand, then bury a Life card
+    { cardId: 'OP01-105', qty: 4 }, // Bao Huang — reveal 2 from the opponent's hand
+    { cardId: 'OP01-067', qty: 2 }, // Crocodile — cost 7, and the −1 to blue Events
+    // Blue {Baroque Works} Events: discounted in hand, counted in the trash.
+    { cardId: 'OP01-087', qty: 4 }, // Officer Agents — [Counter]/[Trigger]
+    { cardId: 'OP01-088', qty: 4 }, // Desert Spada — [Counter] boost + split
+    { cardId: 'OP01-090', qty: 4 }, // Baroque Works — search a Baroque Works card
+    // Bodies.
+    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+  ],
+};
+
 export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
   OP01_R_ZORO,
@@ -948,6 +1027,8 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_G_KANJURO,
   OP01_P_KING,
   OP01_RG_LIFE,
+  OP01_RG_SURGEON,
+  OP01_BP_WARLORD,
 ]);
 
 /**

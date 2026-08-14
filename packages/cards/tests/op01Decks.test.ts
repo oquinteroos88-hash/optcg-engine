@@ -133,6 +133,16 @@ describe('the OP-01 test decks are legal', () => {
       // The top-or-bottom partition, the campaign's last capability.
       'OP01-073',
       'OP01-077',
+      // The closing batch - the last eight OP-01 cards that can be written.
+      // After these the set is 118 of 121; the three that remain are declared
+      // rows, not a queue.
+      'OP01-019',
+      'OP01-051',
+      'OP01-063',
+      'OP01-067',
+      'OP01-072',
+      'OP01-083',
+      'OP01-105',
       // The DON!! count condition and the two new cost families - eight cards
       // across three census rows.
       'OP01-008',

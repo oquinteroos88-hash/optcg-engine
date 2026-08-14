@@ -40,7 +40,7 @@ import type {
   ZoneRef,
 } from './dsl.js';
 import { LOOP_VAR } from './dsl.js';
-import { evalCondition, resolveRef, resolveSelector } from './query.js';
+import { evalCondition, idsFromVar, resolveRef, resolveSelector } from './query.js';
 import { fireTriggers, ownedFieldSources } from './triggers.js';
 
 /**
@@ -925,9 +925,22 @@ function execute(
       return;
     }
     case 'reveal': {
-      const revealed = resolveSelector(draft, ctxOf(item), instruction.from, EFFECTIVE);
-      item.vars[instruction.as] = revealed;
-      mark('op.reveal');
+      // Two shapes, told apart by which key is present — `Ref`'s discipline. The
+      // variable form reveals cards something already chose and binds nothing:
+      // `OP01-105` picks two out of the opponent's hand and then reveals *those*.
+      const revealed =
+        'from' in instruction
+          ? resolveSelector(draft, ctxOf(item), instruction.from, EFFECTIVE)
+          : idsFromVar(ctxOf(item), instruction.var);
+      if ('from' in instruction) {
+        item.vars[instruction.as] = revealed;
+      }
+      mark('from' in instruction ? 'op.reveal' : 'op.revealVar');
+      // **Where hidden information will start.** Revealing is the act that makes
+      // a card known to a player who could not see it, so a per-player view has
+      // to record *who learned what* here rather than merely withholding ids.
+      // Filed with the rest of that debt in `docs/op01-inventory.md`; nothing is
+      // built for it, and this comment is the pointer the mine asked for.
       emit(draft, events, {
         type: 'cardsRevealed',
         player: item.controller,

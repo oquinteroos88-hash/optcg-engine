@@ -193,6 +193,26 @@ export interface GameState {
      * happens after, not in what may be chosen.
      */
     selfReturnResolvesEffect: boolean;
+    /**
+     * How **"a different color than X"** reads against a two-colour card.
+     *
+     * True: the candidate must share **no** colour with the reference. That is
+     * the direct consequence of CR 2-3-5 — "cards with multiple colors, such as
+     * red and green, are treated as a card of every color they possess" — so a
+     * red/green candidate *is* a red card and is therefore not different from a
+     * red one.
+     *
+     * It is a flag rather than a fact because the step from "is a card of every
+     * colour it has" to "is not *different* from" is an inference, not a
+     * sentence, and no rule or Q&A states the comparison outright. **Two cards
+     * in the entire game print the phrase** — `OP01-002` and `EB01-020` — which
+     * is exactly the size where two implementers choose differently and neither
+     * finds out.
+     *
+     * False takes the whole-set reading: a candidate is different unless its
+     * colour set is identical, so red/green would count as different from red.
+     */
+    differentColorMeansNoSharedColor: boolean;
   };
 }
 

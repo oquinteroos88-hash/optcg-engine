@@ -11,6 +11,7 @@ import { canActivateBlocker, canAttack, canBeKOdInBattle, expireLegality } from 
 import { getCardDef, isCounterEvent } from '../registry.js';
 import {
   getActiveCostDon,
+  getCost,
   getOpponent,
   getPower,
   hasKeyword,
@@ -271,7 +272,7 @@ export function validatePlayCounterEvent(
   }
   // The price is the Event's printed play cost, paid with the defender's active
   // cost-area DON!!. No active-DON to rest for it means the play is unavailable.
-  if (getActiveCostDon(state, action.player).length < def.cost) {
+  if (getActiveCostDon(state, action.player).length < getCost(state, action.instanceId)) {
     return REASONS.notEnoughDon;
   }
   return null;
@@ -290,7 +291,9 @@ export function applyPlayCounterEvent(
   // [Counter] effect. The trash step comes before the trigger, so the card is
   // already in the trash when its own effect resolves — a `{ self }` ref names
   // a card in the trash, exactly as a Main-phase Event does.
-  payDonCost(draft, action.player, def.cost, events);
+  // Read while the Event is still in hand, for the reason `applyPlayCard` is.
+  const price = getCost(draft, action.instanceId);
+  payDonCost(draft, action.player, price, events);
   ps.hand = ps.hand.filter((id) => id !== action.instanceId);
   ps.trash.unshift(action.instanceId);
   emit(draft, events, {

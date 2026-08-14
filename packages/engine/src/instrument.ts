@@ -121,6 +121,9 @@ export const MARK_NAMES = [
   'op.addDonShort',
   'op.addDonNone',
   'op.reveal',
+  // The variable form: revealing cards something already chose, rather than
+  // cards a selector found. Counted apart because the two are different acts.
+  'op.revealVar',
   'op.lookAt',
   'op.lookAtNothing',
   'op.orderToBottom',
@@ -145,6 +148,11 @@ export const MARK_NAMES = [
   'keyword.banish',
   'static.powerApplied',
   'static.keywordApplied',
+  // The two aggregated readings this batch added. `costApplied` is the third
+  // thing a static can change; `powerPerApplied` is a power grant the board
+  // counts rather than the card naming.
+  'static.costApplied',
+  'static.powerPerApplied',
   'static.legalityApplied',
 
   // Modifiable legality. The two directions are counted apart because they are

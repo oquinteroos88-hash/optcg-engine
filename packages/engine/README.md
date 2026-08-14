@@ -152,13 +152,23 @@ interface Ability {
 **A script runs once; a continuous effect is simply true.** "When this is
 played, K.O. a character" mutates the state through instructions. "Your
 characters have +1000" mutates nothing at all — it is evaluated at lookup time
-inside `getPower` and `hasKeyword`. Continuous abilities never touch the stack
-and never create a `Modifier`. That is the whole point: implemented as a script
-that writes a modifier when the card enters play, the engine would then owe a
-removal when it leaves, a recalculation on every board change, and a
+inside `getPower`, `hasKeyword` and `getCost`. Continuous abilities never touch
+the stack and never create a `Modifier`. That is the whole point: implemented as a
+script that writes a modifier when the card enters play, the engine would then owe
+a removal when it leaves, a recalculation on every board change, and a
 reconciliation for every path in between. Evaluating on read has no such debt,
 and `continuous.test.ts` asserts the buff is visible *while* `state.modifiers`
 stays empty.
+
+**Three aggregated readings, and each arrived the same way.** `getPower` came
+first, `hasKeyword` the day a selector could filter on one, and `getCost` the day
+a card could change one. None of them was buildable until the question it answers
+had a single place to be asked: before `getCost`, **six** call sites read
+`CardDefinition.cost` straight — `legalActions` twice, and the validate/pay pair
+in each of the play and Counter-Event reducers. Unifying them was the whole of
+that feature; the grant that uses it is four lines. A power grant can also be
+*counted* rather than fixed (`grants.powerPer`), which changes nothing about when
+it is read: draw a card and the number is different the next time anyone asks.
 
 **`[DON!! ×N]` is a condition; `DON!! −N` is a cost.** The first asks how many
 DON!! are attached and is never paid. The second returns DON!! from the cost
@@ -1029,7 +1039,7 @@ guaranteed to make progress.
 ### The ABIL set
 
 `src/testdata/abilities.ts` adds a second synthetic set whose only purpose is to
-exercise the effect system. Between its 36 cards it covers **every `op`, every
+exercise the effect system. Between its 38 cards it covers **every `op`, every
 `Trigger`, every `Cost`, every `Condition` kind and all four keywords**, plus an
 `if` nested inside a `forEach`, a `oncePerTurn`, an `optional`, two continuous
 sources, and a K.O. that wakes an `[On K.O.]` on the card it just killed.
@@ -1316,6 +1326,24 @@ and the engine's own invariant checks stay meaningful while the position is
 staged.
 
 ## Documented ambiguities and judgement calls
+
+**`rules.differentColorMeansNoSharedColor` (default `true`).** How "a different
+color than X" reads against a two-colour card. True means the candidate must
+share **no** colour with the reference, which is the direct consequence of CR
+2-3-5 — "cards with multiple colors, such as red and green, are treated as **a
+card of every color they possess**", so a red/green candidate *is* a red card and
+is therefore not different from a red one. False takes the whole-set reading:
+different unless the colour sets are identical.
+
+It is a flag rather than a fact because the step from that sentence to the
+comparison is an inference, and **two cards in the entire game print the phrase**
+(`OP01-002` and `EB01-020`). What makes it worth recording is the measurement
+beside it: **every two-colour card in the game is a Leader** — 68 of them, and not
+one Character, Event or Stage — and a Leader is neither returned to hand nor
+played from it. So the two readings cannot disagree on any position a printed
+card can reach. The decision is written down before a bicolour Character exists
+rather than after; `finalMechanisms.test.ts` exercises both settings on the ABIL
+set's one two-colour card.
 
 **`rules.selfReturnResolvesEffect` (default `true`).** Whether an ability still
 resolves when its **own activation cost removed its source from the field**.

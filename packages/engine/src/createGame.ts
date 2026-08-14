@@ -133,6 +133,7 @@ export function createGame(opts: {
       placedRestedBecomesRested: false,
       nextTurnExcludesTurnInProgress: true,
       selfReturnResolvesEffect: true,
+      differentColorMeansNoSharedColor: true,
     },
   };
   return freeze(state, true);

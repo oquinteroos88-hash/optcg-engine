@@ -3,7 +3,7 @@ import type { AbilityContext } from './abilities/dsl.js';
 import { evalCondition } from './abilities/query.js';
 import { canActivateBlocker, canAttack } from './legality.js';
 import { getAbilities, getCardDef, isCounterEvent } from './registry.js';
-import { EFFECTIVE, getActiveCostDon, getOpponent, hasKeyword } from './selectors.js';
+import { EFFECTIVE, getActiveCostDon, getCost, getOpponent, hasKeyword } from './selectors.js';
 import type { Action, GameState, PlayerId } from './types.js';
 
 const BOARD_LIMIT = 5;
@@ -58,7 +58,10 @@ function pushMainActions(state: GameState, player: PlayerId, actions: Action[]):
       continue;
     }
     const def = getCardDef(card.cardId);
-    if (def.category === 'leader' || def.cost > activeDon) {
+    // Through `getCost`, never the printed number: a card an effect made
+    // cheaper is a card that may now be playable, and the offer is where that
+    // has to show.
+    if (def.category === 'leader' || getCost(state, instanceId) > activeDon) {
       continue;
     }
     if (def.category === 'character' && boardFull) {
@@ -193,7 +196,11 @@ function pushCounterActions(state: GameState, player: PlayerId, actions: Action[
     // A [Counter] Event is a different play: paid by its printed cost, trashed,
     // and its effect picks its own targets (CR 7-1-3-2-2). It is unpayable, so
     // never offered, when its cost exceeds the active cost-area DON!!.
-    if (def.category === 'event' && def.cost <= activeDon && isCounterEvent(card.cardId)) {
+    if (
+      def.category === 'event' &&
+      getCost(state, instanceId) <= activeDon &&
+      isCounterEvent(card.cardId)
+    ) {
       actions.push({ type: 'PLAY_COUNTER_EVENT', player, instanceId });
     }
   }

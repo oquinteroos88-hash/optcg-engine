@@ -267,6 +267,12 @@ describe('when a Character is K.O.d', () => {
       p2: {
         activeDon: 6,
         hand: ['ABIL-008'],
+        // Named so the position does not depend on the deck list: the life deal
+        // can otherwise swallow one of the five bodies below, and
+        // `takeFromDeck` does not reach the Life area. Every card added to the
+        // ABIL set reshuffles this, and the failure reads as a missing card
+        // rather than as anything about a sixth Character.
+        lifeCards: ['ABIL-005', 'ABIL-006', 'ABIL-007', 'ABIL-012', 'ABIL-014'],
         characters: [
           { cardId: 'ABIL-011' },
           { cardId: 'ABIL-010' },

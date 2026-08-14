@@ -80,13 +80,13 @@ describe('the normalized set', () => {
     // script attached to a card nobody meant to touch.
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
-      // OP-01 pile A, complete; the fifty-two pile-C cards a chosen payment,
-      // putting cards into play, the two missing rules, modifiable legality,
-      // ordering the cards you looked at, adding DON!! from the DON!! deck,
-      // reference by name, the player-chosen discard instruction, the DON!!
-      // count condition and the two new cost families freed; and the starter
-      // set.
+      // **All 121 OP-01 base cards accounted for**: 118 carry a script, are
+      // keyword-only, or print no text at all. The three that do not are
+      // declared rows with names — OP01-024, OP01-069, OP01-098. Plus the
+      // starter set. See docs/op01-closing-census.md for how the count moved
+      // from 86 to 118 across four PRs.
       'OP01-001',
+      'OP01-002',
       'OP01-003',
       'OP01-004',
       'OP01-005',
@@ -100,6 +100,7 @@ describe('the normalized set', () => {
       'OP01-015',
       'OP01-016',
       'OP01-017',
+      'OP01-019',
       'OP01-020',
       'OP01-021',
       'OP01-022',
@@ -125,6 +126,7 @@ describe('the normalized set', () => {
       'OP01-048',
       'OP01-049',
       'OP01-050',
+      'OP01-051',
       'OP01-052',
       'OP01-054',
       'OP01-055',
@@ -135,10 +137,13 @@ describe('the normalized set', () => {
       'OP01-060',
       'OP01-061',
       'OP01-062',
+      'OP01-063',
       'OP01-064',
+      'OP01-067',
       'OP01-068',
       'OP01-070',
       'OP01-071',
+      'OP01-072',
       'OP01-073',
       'OP01-074',
       'OP01-077',
@@ -146,6 +151,7 @@ describe('the normalized set', () => {
       'OP01-079',
       'OP01-080',
       'OP01-082',
+      'OP01-083',
       'OP01-084',
       'OP01-085',
       'OP01-086',
@@ -163,6 +169,7 @@ describe('the normalized set', () => {
       'OP01-101',
       'OP01-102',
       'OP01-104',
+      'OP01-105',
       'OP01-106',
       'OP01-108',
       'OP01-109',

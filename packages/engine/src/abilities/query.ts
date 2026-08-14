@@ -82,7 +82,14 @@ function zoneIds(state: GameState, player: PlayerId, selector: Selector): Instan
     case 'trash':
       return [...ps.trash];
     case 'life':
-      return [...ps.life];
+      // `count` means here what it means for `deckTop`: the first N, not a
+      // filter over the whole zone. CR 3-10-2 is why a card ever needs it — the
+      // Life area is a secret stack and "a player must select the card at the
+      // top of their Life cards unless otherwise specified", so a selector that
+      // offered every Life card would offer a choice the rules do not have.
+      // Left off, the whole area is returned, which is what a `countCards` over
+      // Life wants.
+      return selector.count === undefined ? [...ps.life] : ps.life.slice(0, selector.count);
     case 'deckTop':
       return ps.deck.slice(0, selector.count ?? 1);
   }
@@ -162,7 +169,16 @@ export function matchesPredicate(
   if (predicate.category !== undefined && !predicate.category.includes(def.category)) {
     return false;
   }
-  if (predicate.colors !== undefined && !predicate.colors.includes(def.color)) {
+  // Every colour the card has, not just the first printed one. CR 2-3-5 treats a
+  // multi-colour card as "a card of every color they possess", so a red/green
+  // card answers yes to a red filter and to a green one. Unobservable today —
+  // all 68 two-colour cards in the game are Leaders, and no filter names a
+  // Leader by colour — which is why it was right by accident before and is right
+  // on purpose now.
+  if (
+    predicate.colors !== undefined &&
+    !colorsOf(state, id).some((color) => predicate.colors?.includes(color) === true)
+  ) {
     return false;
   }
   if (predicate.types !== undefined) {
@@ -207,6 +223,53 @@ export function matchesPredicate(
   return true;
 }
 
+/**
+ * Whether `id` shares no colour with any card `name` holds.
+ *
+ * CR 2-3-5: "cards with multiple colors ... are treated as a card of every color
+ * they possess", so a red/green card *is* red — and against a red reference it
+ * is therefore not of a different colour. `rules.differentColorMeansNoSharedColor`
+ * false takes the other reading, whole-set inequality.
+ *
+ * A variable naming nothing excludes nothing: there is no colour to differ from,
+ * and an "up to 1" answered with nothing must not silently empty the next
+ * selector. That is rule 1 of the interpreter applied to a filter.
+ */
+function differsInColor(
+  state: GameState,
+  ctx: AbilityContext,
+  name: string,
+  id: InstanceId,
+): boolean {
+  const card = state.cards[id];
+  if (card === undefined) {
+    return false;
+  }
+  const mine = colorsOf(state, id);
+  for (const other of idsFromVar(ctx, name)) {
+    const theirs = colorsOf(state, other);
+    if (theirs.length === 0) {
+      continue;
+    }
+    const shares = mine.some((color) => theirs.includes(color));
+    const identical = mine.length === theirs.length && mine.every((c) => theirs.includes(c));
+    if (state.rules.differentColorMeansNoSharedColor ? shares : identical) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Every colour a card possesses. `colors` when the data has it, else `color`. */
+function colorsOf(state: GameState, id: InstanceId): string[] {
+  const card = state.cards[id];
+  if (card === undefined) {
+    return [];
+  }
+  const def = getCardDef(card.cardId);
+  return def.colors === undefined ? [def.color] : [...def.colors];
+}
+
 function matches(
   state: GameState,
   ctx: AbilityContext,
@@ -215,6 +278,12 @@ function matches(
   lens: Lens,
 ): boolean {
   if (selector.excludeSelf === true && id === ctx.source) {
+    return false;
+  }
+  if (
+    selector.differentColorFrom !== undefined &&
+    !differsInColor(state, ctx, selector.differentColorFrom, id)
+  ) {
     return false;
   }
   return matchesPredicate(state, selector, id, lens);
@@ -238,7 +307,7 @@ export function resolveSelector(
 }
 
 /** Ids a `var` holds. Scalars are not card references and yield nothing. */
-function idsFromVar(ctx: AbilityContext, name: string): InstanceId[] {
+export function idsFromVar(ctx: AbilityContext, name: string): InstanceId[] {
   const value = ctx.vars[name];
   if (Array.isArray(value)) {
     return [...value];
@@ -359,6 +428,20 @@ export function evalCondition(
       // nobody's effect.
       return cause === resolvePlayerRef(ctx, condition.by);
     }
+    case 'varMatches': {
+      // Every id the variable holds has to match, and an empty variable does
+      // not: "if the revealed card is an Event" is a question about a card, and
+      // no card is not an Event.
+      const ids = idsFromVar(ctx, condition.name);
+      if (ids.length === 0) {
+        return false;
+      }
+      return ids.every((id) => matchesPredicate(state, condition.match, id, lens));
+    }
+    case 'not':
+      // The same lens goes down, which is what keeps a negated power condition
+      // riding PR #31's anchor instead of finding its own way around it.
+      return !evalCondition(state, ctx, condition.of, lens);
     case 'and':
       return condition.of.every((sub) => evalCondition(state, ctx, sub, lens));
     case 'or':

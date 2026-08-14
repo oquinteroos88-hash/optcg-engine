@@ -281,6 +281,27 @@ export interface Selector extends CardPredicate {
   owner: 'you' | 'opponent' | 'any';
   excludeSelf?: boolean;
   count?: number;
+  /**
+   * **"…of a different color than the card this variable names"** —
+   * `OP01-002` Trafalgar Law's "a different color than the returned Character".
+   *
+   * On `Selector` and deliberately not on `CardPredicate`, which is one level
+   * up: evaluating it needs `AbilityContext` to read the variable, and
+   * `matchesPredicate` has none — it is exported for legality rules, which
+   * resolve a candidate the caller already holds and have no script frame at
+   * all. Putting it here keeps that signature untouched and makes the clause
+   * unspellable in the two places that could not honour it.
+   *
+   * **What "different color" means against a two-colour card** is settled by CR
+   * 2-3-5: "cards with multiple colors, such as red and green, are treated as **a
+   * card of every color they possess**". A red/green candidate *is* a red card,
+   * so against a red returned Character it is not of a different colour. That is
+   * the no-shared-colour reading, and it is behind
+   * `rules.differentColorMeansNoSharedColor` because the step from "is a card of
+   * every colour it has" to "is not *different* from" is an inference rather
+   * than a sentence — and exactly two cards in the game print the phrase.
+   */
+  differentColorFrom?: string;
 }
 
 /**
@@ -627,6 +648,42 @@ export type Condition =
    * sets it active) would otherwise answer "active" from the trash.
    */
   | { kind: 'selfOrientation'; orientation: Orientation }
+  /**
+   * **Whether a card a variable names matches a predicate** — `OP01-063`
+   * Arlong's "if the revealed card is an Event".
+   *
+   * The census's row 16, and it arrives as two narrow pieces rather than one
+   * comparator: this is the *condition* half, and `Selector.differentColorFrom`
+   * is the *filter* half. They ask different questions in different places and
+   * sharing a shape would have meant inventing a comparison language neither
+   * card needs.
+   *
+   * A variable holding several ids matches when **every** one of them does — the
+   * printed cards name one card each, and "all of them" is the reading that
+   * degrades sensibly rather than the one that silently passes on a longer list.
+   * A variable holding nothing does not match: there is no card to be an Event.
+   *
+   * `match` is a `CardPredicate` and not a `Selector`, because the card is
+   * already found — there is no zone left to name. Same split `LegalityClause`
+   * makes for the same reason.
+   */
+  | { kind: 'varMatches'; name: string; match: CardPredicate }
+  /**
+   * The negation of any condition — `[Opponent's Turn]`, which is
+   * `not(isYourTurn)`.
+   *
+   * A general `not` rather than an `isOpponentTurn` member, and the inventory
+   * argued it before the card existed: the member closes one card and the
+   * variant closes 77 in the full set, at the same cost. Nothing else in
+   * `Condition` needed changing for it.
+   *
+   * Negating inside static evaluation touches no recursion anchor of its own.
+   * `not` evaluates its inner condition through the same `Lens` it was handed,
+   * so a negated *power* condition rides PR #31's `WITHOUT_STATICS` anchor
+   * exactly as the un-negated one does — the guard governs, and this does not
+   * change it. Both cards in scope negate flat conditions.
+   */
+  | { kind: 'not'; of: Condition }
   | { kind: 'and'; of: Condition[] }
   | { kind: 'or'; of: Condition[] };
 
@@ -763,6 +820,27 @@ export type Instruction =
    */
   | { op: 'addDon'; count: number; orientation: Orientation }
   | { op: 'reveal'; as: string; from: Selector }
+  /**
+   * Reveals the cards a variable **already names** — `OP01-105` Bao Huang's
+   * "choose 2 cards from your opponent's hand; your opponent reveals those
+   * cards", and the middle of `OP01-063` Arlong.
+   *
+   * A second shape of the same op rather than a `Ref` on the first, and the
+   * discipline is `Audience`'s: open the door only as wide as the cards knock.
+   * A full `Ref` here would admit `{battle}`, `{self}` and `{minus}` — none of
+   * which any printed reveal names — and `{selector}` would duplicate `from`.
+   * The variable form carries no `as`, because there is nothing to bind: the
+   * ids are already in a variable and re-writing them under a second name is a
+   * second place for them to disagree.
+   *
+   * The two shapes are told apart by which key is present, the way `Ref`'s five
+   * members are.
+   *
+   * CR 11-2-1 makes a secret-to-secret move revealed whether the card says so or
+   * not; this is the other case — a reveal the card asks for outright, of cards
+   * that stay where they are.
+   */
+  | { op: 'reveal'; var: string }
   /**
    * Records the top `count` cards of the controller's deck in `vars[as]`,
    * **without moving them**.
@@ -934,6 +1012,79 @@ export interface Ability {
     power?: number;
     keyword?: Keyword;
     legality?: { effect: LegalityEffect; clause: LegalityClause };
+    /**
+     * **A change to what a card costs to play** — `OP01-067` Crocodile's "give
+     * blue Events in your hand −1 cost".
+     *
+     * The engine's third aggregated reading, after `getPower` and `hasKeyword`,
+     * and it arrived the same way both of those did: nothing could change a cost
+     * because nothing *asked* for a cost through one function. Six places read
+     * `CardDefinition.cost` directly before this — two in `legalActions`, two in
+     * the play reducer, two in the Counter-Event reducer — and unifying them
+     * behind `getCost` was the whole of the work. Adding the grant was four
+     * lines.
+     *
+     * **Negative inside, floored outside.** CR 1-3-6-2 is unusually precise: a
+     * cost "may become a negative value **only for the duration of that
+     * calculation**. Outside of such calculations, the cost of a card whose
+     * value becomes negative is treated as being 0." And CR 1-3-6-2-1 keeps the
+     * negative in play for further arithmetic — "if a card whose cost is already
+     * negative would have its cost further increased or decreased by an effect,
+     * that negative value is included in those calculations". So `getCost` sums
+     * every grant into a possibly-negative running total and clamps **once**, at
+     * the boundary. Clamping per grant would make two −1s and a +3 on a 1-cost
+     * card read 3 instead of 2.
+     *
+     * The audience is a `Selector` like any other static's, and Crocodile's
+     * names cards **in hand** — which needed nothing new: `resolveSelector`
+     * has reached `{zone: 'hand'}` since Phase 2A, and `forEachStatic` never
+     * cared which zone the cards it matches are in.
+     *
+     * **Only the continuous face is built.** `Modifier` gains no `cost` kind,
+     * because no card in scope writes one from a script: `OP01-067` is the whole
+     * of row 12 in OP-01. `setLegality`/`grants.legality` came as a pair in PR
+     * #31 because both faces had printed cards; this one does not, and a
+     * `Modifier` member no card can produce is a member the coverage sweep would
+     * correctly report as dead.
+     */
+    cost?: number;
+    /**
+     * **Power that counts something** — "+1000 power for every card in your
+     * hand" (`OP01-072` Smiley), "for every **2** Events in your trash"
+     * (`OP01-083` Mr.1).
+     *
+     * A separate field rather than making `power` a union, because the two say
+     * different things and a card may print both: `power` is a fixed number the
+     * card names, this is an arithmetic the board decides. Ten cards in the full
+     * set scale this way.
+     *
+     * `value` per `per` matches, floored — `Math.floor(count / per) * value`.
+     * `per` defaults to 1, which is Smiley; Mr.1 passes 2. The floor is not a
+     * choice: CR 8-4-4 and the printed "for every 2" describe complete groups,
+     * and a partial group is not a group. One Event in the trash is +0.
+     *
+     * **Evaluated at read time, like every static.** Nothing is written to
+     * `state.modifiers`; draw a card and Smiley is bigger the next time anyone
+     * asks. That is the property the tests pin, because it is the one a
+     * modifier-writing implementation would silently lose.
+     *
+     * **The counting selector must not filter on power**, and it does not have
+     * to be forbidden for the reason it might look: `forEachStatic` already
+     * evaluates a static's own selectors through `WITHOUT_STATICS`, so a count
+     * that asked about power would get the without-statics reading and
+     * terminate. It would also silently answer a different question than the
+     * same predicate asks anywhere else — the exact cost PR #31 declared for
+     * that anchor. Both cards here count with flat selectors (the hand, the
+     * trash), so the case is unreached; it is written down rather than gated.
+     */
+    powerPer?: {
+      /** What to count. Flat predicates only — see the note above. */
+      of: Selector;
+      /** Power per complete group. */
+      value: number;
+      /** Group size; defaults to 1. `OP01-083` is the only card that sets it. */
+      per?: number;
+    };
   };
 }
 

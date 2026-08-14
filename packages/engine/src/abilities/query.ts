@@ -305,6 +305,26 @@ export function evalCondition(
       }
       return true;
     }
+    case 'donOnField': {
+      // Every DON!! that is not still in the DON!! deck. CR 3-1-2 makes the cost
+      // area part of the field and CR 6-5-5-1 leaves a *given* DON!! on the card
+      // it was given to, so both count; CR 4-4-2 makes given DON!! neither
+      // active nor rested, which is why nothing here filters on orientation.
+      //
+      // A flat read of `location`, with no `Lens` and no re-entry: DON!! carry no
+      // abilities, so this is safe to evaluate inside static evaluation — which
+      // `OP01-109` Who's.Who does on every power lookup.
+      const count = state.players[ctx.controller].don.filter(
+        (don) => don.location.kind !== 'donDeck',
+      ).length;
+      if (condition.min !== undefined && count < condition.min) {
+        return false;
+      }
+      if (condition.max !== undefined && count > condition.max) {
+        return false;
+      }
+      return true;
+    }
     case 'varTrue':
       return ctx.vars[condition.name] === true;
     case 'selfOrientation': {

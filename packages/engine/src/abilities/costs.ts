@@ -57,7 +57,10 @@ export function canPayCosts(
   }
   let restTotal = 0;
   let returnTotal = 0;
-  let discardTotal = 0;
+  let handTotal = 0;
+  let characterTotal = 0;
+  let activeCharacterTotal = 0;
+  let lifeTotal = 0;
   let trashSelf = false;
   let restSelf = false;
   for (const cost of costs) {
@@ -69,10 +72,29 @@ export function canPayCosts(
         returnTotal += cost.count;
         break;
       case 'discardHand':
-        discardTotal += cost.count;
+        handTotal += cost.count;
         if (discardCandidates(state, ctx, cost).length < cost.count) {
           return false;
         }
+        break;
+      // Shares the hand pool with `discardHand` and is counted into the same
+      // total: two costs that each take from the hand must not both count the
+      // same card, which is the reason that total exists at all.
+      case 'bottomDeckHand':
+        handTotal += cost.count;
+        break;
+      case 'returnCharacters':
+        characterTotal += cost.count;
+        break;
+      // Its own pool, because only an **active** Character can pay it —
+      // `restSelf`'s rule applied to somebody else's card. A rested Character is
+      // still a Character a `returnCharacters` could take, so the two totals are
+      // deliberately separate rather than one "characters" number.
+      case 'restCharacters':
+        activeCharacterTotal += cost.count;
+        break;
+      case 'lifeToHand':
+        lifeTotal += cost.count;
         break;
       case 'trashSelf':
         trashSelf = true;
@@ -82,13 +104,30 @@ export function canPayCosts(
         break;
     }
   }
+  if (state.players[ctx.controller].characters.length < characterTotal) {
+    return false;
+  }
+  if (activeCharacterTotal > 0) {
+    const active = state.players[ctx.controller].characters.filter(
+      (id) => state.cards[id]?.orientation === 'active',
+    ).length;
+    if (active < activeCharacterTotal) {
+      return false;
+    }
+  }
+  // CR 1-2-1-1-1 makes the defeat condition "0 Life cards **and** your Leader
+  // takes damage", so paying down to zero is legal and only the payment itself
+  // has to be possible. A player with one Life card may spend it.
+  if (state.players[ctx.controller].life.length < lifeTotal) {
+    return false;
+  }
   if (getActiveCostDon(state, ctx.controller).length < restTotal) {
     return false;
   }
   if (costAreaCount(state, ctx.controller) < restTotal + returnTotal) {
     return false;
   }
-  if (state.players[ctx.controller].hand.length < discardTotal) {
+  if (state.players[ctx.controller].hand.length < handTotal) {
     return false;
   }
   if (trashSelf && !isOnField(state, ctx.source)) {

@@ -432,13 +432,134 @@ export type Cost =
    * `canPayCosts` counts *matching* cards, so an ability whose filter no hand
    * card satisfies is never offered.
    */
-  | { kind: 'discardHand'; count: number; filter?: CardFilter };
+  | { kind: 'discardHand'; count: number; filter?: CardFilter }
+  /**
+   * "Place N card(s) from your hand at the **bottom of your deck**" —
+   * `OP01-011` Gordon.
+   *
+   * `discardHand`'s sibling and not a variant of it: the two take from the same
+   * zone and put the card in different places, and a card that goes under the
+   * deck is a card its owner can draw again. Trashing it would be a different
+   * price on the same sentence.
+   *
+   * **No ordering, because the printed count is one.** "Place them at the bottom
+   * in any order" is a real mechanism — PR #32 built it as `orderToBottom` — and
+   * it does not arise here: this cost form is printed on **exactly one card in
+   * the game** and it names one card. A second copy of a single card has one
+   * arrangement, so there is nothing to ask. The day a card prints two, this
+   * grows the question rather than inventing an order for the player.
+   */
+  | { kind: 'bottomDeckHand'; count: number }
+  /**
+   * "Return N Character(s) to your hand" — `OP01-047` Trafalgar Law.
+   *
+   * **Your own Characters**, and the card is the only one in the game that says
+   * so this way. Every other card with this cost prints "return 1 **of your
+   * Characters** to the **owner's** hand" (17 of them); `OP01-047` prints
+   * "return 1 Character to **your** hand", which is OP-01 wording that later
+   * sets standardised. Two independent readings land in the same place: "your
+   * hand" is only true of a card you own, and `ZoneRef` has no owner field
+   * because a card always returns to *its owner's* zone — so a selector that
+   * offered the opponent's Character would move it to the opponent's hand and
+   * contradict the printed sentence.
+   *
+   * **It can name the source itself.** Nothing in the text excludes it, and the
+   * exclusion is a thing cards say when they mean it — `OP08-047` prints
+   * "return 1 of your Characters **other than this Character**". So Law paying
+   * with Law is legal, and the script then runs with its source in the hand.
+   * That is behind `rules.selfReturnResolvesEffect`; see `types.ts`.
+   */
+  | { kind: 'returnCharacters'; count: number }
+  /**
+   * "Rest N of your Characters" — `OP01-055` You Can Be My Samurai!!.
+   *
+   * `restSelf`'s sibling, and the pair is the whole reason both exist: that one
+   * rests **the source** and can only be printed on a card that is on the field.
+   * `OP01-055` is an **Event**, which is in the trash by the time its effect
+   * resolves (CR 8-4-2), so there is no source to rest and the cost has to name
+   * other cards.
+   *
+   * Only **active** Characters can pay, for `restSelf`'s reason: resting is a
+   * state change and a card already rested has none to make. With fewer than
+   * `count` active, CR 8-3-1-3 makes the whole cost unpayable — "if it is not
+   * possible to pay some or all of the activation cost, the activation cost to
+   * activate the effect cannot be paid at all" — so `canPayCosts` refuses it and
+   * the ability never reaches `legalActions`.
+   */
+  | { kind: 'restCharacters'; count: number }
+  /**
+   * "Add N card(s) from your Life area to your hand" — `OP01-008` Cavendish and
+   * `OP01-013` Sanji, the **only two cards in the game** that word it this way
+   * against 75 that say "the top of your Life cards".
+   *
+   * **The top card, and the player does not choose.** CR 3-10-2 settles it for
+   * every wording at once: the Life area is a secret area and "when moving a
+   * card from their Life area to another area, a player must select the card at
+   * the top of their Life cards unless otherwise specified". Neither card
+   * otherwise-specifies. So this is the one new cost in this batch that opens no
+   * choice at all.
+   *
+   * **It does not fire the card's `[Trigger]`.** CR 2-11-1 defines `[Trigger]`
+   * as "an effect that can be activated **instead of the player adding the card
+   * from their Life area to their hand on taking damage**", and CR 4-6-3 offers
+   * it only for a card added to hand "during this procedure" — the damage
+   * procedure of CR 4-6-2. A cost payment is not damage, so the card arrives in
+   * hand as an ordinary card. That also keeps PR #29's declared divergence (a
+   * life card with no zone while its `[Trigger]` resolves) out of this batch
+   * entirely: no `[Trigger]` resolves, so there is no such window.
+   *
+   * **Paying your last Life card is legal and does not lose the game.** The
+   * defeat condition is CR 1-2-1-1-1, "when you have 0 Life cards **and your
+   * Leader takes damage**", repeated as CR 9-2-1-1 in rule processing. Reaching
+   * zero is not itself a condition, so a player may pay down to nothing and the
+   * game continues — until the next damage.
+   */
+  | { kind: 'lifeToHand'; count: number };
 
 export type Condition =
   | { kind: 'donAttached'; min: number }
   | { kind: 'isYourTurn' }
   | { kind: 'lifeAtMost'; player: PlayerRef; value: number }
   | { kind: 'countCards'; selector: Selector; min?: number; max?: number }
+  /**
+   * **How many DON!! cards you have on your field** — "if you have 8 or more
+   * DON!! cards on your field".
+   *
+   * `countCards`' sibling in shape and deliberately not `countCards` itself.
+   * DON!! are not in any `Selector` zone and are not going into one: PR #13
+   * settled that they are **fungible**, operated by quantity rather than as
+   * selectable entities, and `orientDon` and `addDon` both take a number for
+   * that reason. A question that only ever needs a *count* does not need them
+   * to become selectable — so this is a condition that counts, with the same
+   * optional `min`/`max` bounds `countCards` has carried since Phase 2A.
+   *
+   * **"On your field" is the cost area plus what is given.** CR 3-1-2 collects
+   * the Leader, Character, Stage and cost areas under "the field"; CR 3-9-1 puts
+   * DON!! cards in the cost area; and CR 6-5-5-1 has giving place a DON!!
+   * "underneath your Leader or a Character card ... such that it remains
+   * visible", which leaves it on the field in the Leader or Character area. So
+   * the count is every DON!! whose `location` is not `donDeck`.
+   *
+   * **Orientation does not enter it.** The printed sentence says "DON!! cards on
+   * your field", not "active DON!!", and CR 4-4-2 makes given DON!! "neither
+   * active nor rested" — a count that filtered on orientation could not include
+   * them at all, which is the opposite of what the cards mean. `OP01-091` King
+   * asks for 10, and with a 10-card DON!! deck (CR 5-1-2) that is *every DON!!
+   * deployed*, rested and given ones included.
+   *
+   * **No `player` field**, and that is `addDon`'s precedent rather than an
+   * oversight: an op or a condition that can only ever read its own controller's
+   * zone should not be able to say otherwise, right or wrong. 16 cards in the
+   * full set do ask about the **opponent's** DON!! count, and that is one of the
+   * three DON!! forms PR #33 deslindó and left declared — no card in scope
+   * prints it, and the day one does this grows one field.
+   *
+   * Read flat. DON!! carry no abilities and no statics, so evaluating this
+   * inside `forEachStatic` re-enters nothing — which is why it needs no `Lens`
+   * anchor where `power` and `keyword` do. `OP01-109` Who's.Who is a `static`
+   * gated on exactly this count and is the card that proves it.
+   */
+  | { kind: 'donOnField'; min?: number; max?: number }
   /**
    * Whether a `confirm` answered yes. Not in the Phase 2A brief's Condition
    * list, and added because without it `confirm` is unreachable: the op writes

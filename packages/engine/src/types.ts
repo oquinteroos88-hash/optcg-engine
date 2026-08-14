@@ -158,6 +158,41 @@ export interface GameState {
      * opponent's turn dies at the end of it — behaving as `endOfTurn`.
      */
     nextTurnExcludesTurnInProgress: boolean;
+    /**
+     * Whether an ability still resolves when **its own activation cost removed
+     * its source from the field**.
+     *
+     * True. `OP01-047` Trafalgar Law is the card that reaches it: its `[On Play]`
+     * costs "return 1 Character to your hand", nothing excludes Law itself, and
+     * a card that excludes itself says so (`OP08-047` prints "other than this
+     * Character"). So Law may pay with Law, and the "play a Character with a cost
+     * of 3 or less" that follows runs from the hand.
+     *
+     * **The Comprehensive Rules point both ways, which is why this is a flag.**
+     * CR 8-1-3-1-3 says an auto effect "will not activate and cannot be resolved
+     * ... if the card that fulfilled the activation timing of that auto effect
+     * moves to another area **before that effect is activated**", and CR 8-4-1
+     * orders payment (8-4-1-3) ahead of activation (8-4-1-4) — read together,
+     * self-payment would fizzle the ability. But CR 8-3-1-3-1 describes the same
+     * sequence as "you have fulfilled the conditions to pay the activation cost,
+     * **activated the effect**, and become unable to pay the activation cost
+     * while in the process of paying", which puts activation *before* the
+     * payment finishes and leaves 8-1-3-1-3 talking about a card removed by
+     * something else in between.
+     *
+     * True is the reading that matches everything this engine already does. A
+     * script whose source has left keeps running — `OP01-007` Caribou's
+     * `[On K.O.]` resolves from the trash and `OP01-079`'s does too — and "no
+     * instruction can abort its script" has been the interpreter's rule since
+     * Phase 2A. It is also the reading that makes the printed card mean
+     * something: a Law that fizzled when it paid with itself would be a cost the
+     * card offers and a player can never take.
+     *
+     * False makes an ability whose cost removed its own source resolve nothing,
+     * and the selector still offers the source — the difference is in what
+     * happens after, not in what may be chosen.
+     */
+    selfReturnResolvesEffect: boolean;
   };
 }
 

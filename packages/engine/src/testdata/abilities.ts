@@ -1128,6 +1128,103 @@ export const ABIL_CARDS: CardDefinition[] = [
       },
     ],
   }),
+
+  /**
+   * The DON!! count condition and the four costs of the same batch, on **one**
+   * card.
+   *
+   * Six abilities, which is more than any other card here carries, and the
+   * reason is the standing rule rather than convenience: a new `ABIL-` id
+   * reshuffles every seeded scenario in the package, so a batch that needs six
+   * new shapes buys one id and not six. `ABIL-018` set the precedent at four.
+   *
+   * Five of the six are `[Activate: Main] [Once Per Turn]`, and that is
+   * deliberate too: nothing fires them incidentally, so a staged position that
+   * is about something else never trips over one. The sixth has to be a
+   * `static`, because a continuous effect gated on a count is the only shape
+   * that can be watched turning on and off without anything being played.
+   */
+  character('ABIL-035', 'Paymaster', 2, 2000, 1000, {
+    abilities: [
+      /**
+       * `OP01-109` Who's.Who's shape: a continuous buff gated on the DON!!
+       * count, read on every power lookup.
+       *
+       * The gate is `donOnField` alone rather than Who's.Who's three conditions,
+       * because the other two — `[DON!! x1]` and `[Your Turn]` — already have
+       * their own cards here and mixing them in would make a failing test say
+       * "the static is off" without saying which clause turned it off.
+       */
+      {
+        id: 'ABIL-035-static',
+        trigger: 'static',
+        condition: { kind: 'donOnField', min: 8 },
+        script: [],
+        affects: { self: true },
+        grants: { power: 1000 },
+      },
+      /**
+       * `OP01-095` Kyoshirou's shape: the same count as an ordinary activation
+       * condition. The pair matters — the condition is evaluated in two very
+       * different places, once inside `forEachStatic` and once in `legalActions`,
+       * and one card holding both is where they can be watched agreeing.
+       */
+      {
+        id: 'ABIL-035-count',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        condition: { kind: 'donOnField', min: 8 },
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      /** `OP01-011` Gordon: a hand card under the deck, not into the trash. */
+      {
+        id: 'ABIL-035-bottomDeck',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        cost: [{ kind: 'bottomDeckHand', count: 1 }],
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      /**
+       * `OP01-047` Law: a Character back to hand, and **the source is a
+       * candidate**. Paying with this card is the case
+       * `rules.selfReturnResolvesEffect` decides, and it is reachable here
+       * because `Paymaster` is a Character that can name itself.
+       */
+      {
+        id: 'ABIL-035-return',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        cost: [{ kind: 'returnCharacters', count: 1 }],
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+      /**
+       * `OP01-055` You Can Be My Samurai!!: two of your Characters rested. Two
+       * rather than one because the printed card says two, and because a cost
+       * that takes more than one card is where a partial payment would show.
+       */
+      {
+        id: 'ABIL-035-rest',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        cost: [{ kind: 'restCharacters', count: 2 }],
+        script: [{ op: 'draw', player: 'you', count: 2 }],
+      },
+      /**
+       * `OP01-008` Cavendish and `OP01-013` Sanji: the top Life card into your
+       * hand, with no choice and no `[Trigger]`. The only cost in this batch
+       * that does not suspend.
+       */
+      {
+        id: 'ABIL-035-life',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        cost: [{ kind: 'lifeToHand', count: 1 }],
+        script: [
+          { op: 'addPower', target: { self: true }, value: 2000, duration: 'endOfTurn' },
+        ],
+      },
+    ],
+  }),
 ];
 
 registerCardSet(ABIL_CARDS);

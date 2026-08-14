@@ -94,6 +94,46 @@ describe('the choice overlay', () => {
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
+  it('renders a whole-deck search — forty-odd candidates — without breaking', () => {
+    // `OP01-069` and `OP01-098` search the **whole deck**, which makes their
+    // choice roughly ten times wider than anything the UI had ever been handed:
+    // every other `selectCards` in the game offers single digits. The overlay
+    // was written against a hand, and "does it still work at forty" is the one
+    // question that could not be answered by reading it.
+    //
+    // The answer is that the layout needed a ceiling and a scroll — a
+    // `max-height` on the dialog and `overflow-y` on the candidate list, so the
+    // prompt stays at the top and Confirmar stays reachable at the bottom. That
+    // part is CSS and lives in `ChoiceOverlay.module.css`. What a test can see
+    // is the rest of it: every candidate renders, once each, and the answer is
+    // still submittable.
+    const wide = JSON.parse(JSON.stringify(cardsChoice)) as GameState;
+    const pending = wide.pending;
+    expect(pending).toBeDefined();
+    if (pending === null) {
+      throw new Error('expected an open choice');
+    }
+    const deck = wide.players[pending.player].deck;
+    // Forty in this position, which is the order of magnitude a real search
+    // faces: fifty minus the opening hand and the life cards.
+    expect(deck.length).toBeGreaterThanOrEqual(40);
+    pending.candidates = [...deck];
+    pending.min = 0;
+    pending.max = 1;
+
+    loadState(wide);
+    render(<GameScreen />);
+    expect(screen.getByRole('dialog', { name: 'Elección' })).toBeDefined();
+    // One tile per candidate inside the dialog — a wrapped flex row, not a grid
+    // that silently drops the overflow.
+    const dialog = screen.getByRole('dialog', { name: 'Elección' });
+    expect(dialog.querySelectorAll('[aria-label]').length).toBeGreaterThanOrEqual(deck.length);
+    // And the answer still goes back: an "up to 1" confirmed empty is exactly
+    // what a search that finds nothing looks like.
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it('cannot be escaped: neither Escape nor a click on the table closes it', () => {
     loadState(cardsChoice);
     render(<GameScreen />);

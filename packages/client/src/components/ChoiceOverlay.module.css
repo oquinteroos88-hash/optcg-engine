@@ -18,6 +18,13 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   max-width: min(720px, 92vw);
+  /* A search of the whole deck offers **forty-odd** candidates where every other
+     choice in the game offers single digits (`OP01-069`, `OP01-098`). Without a
+     ceiling the dialog simply grows past the viewport and the Confirmar button
+     goes off the bottom of the screen — a question with no reachable answer.
+     The cap and the scroll below are the whole fix: no grid, no pagination, no
+     second layout for one card type. */
+  max-height: 92vh;
 }
 
 .who {
@@ -56,6 +63,14 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   justify-content: center;
+  /* The candidates are the only part that may grow without bound, so they are
+     the only part that scrolls: the prompt stays readable at the top and
+     Confirmar stays reachable at the bottom however many cards there are.
+     `min-height: 0` is what lets a flex child actually shrink to its scroll
+     container — without it the list wins the layout and the cap above does
+     nothing. */
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .actions {

@@ -510,7 +510,8 @@ export type Condition =
   | { kind: 'or'; of: Condition[] };
 
 export type Instruction =
-  // Suspend execution and wait for the controller.
+  // Suspend execution and wait for a player. Usually the controller — `discard`
+  // is the one that can ask the other side.
   | { op: 'select'; as: string; from: Selector; min: number; max: number; prompt: string }
   | { op: 'confirm'; as: string; prompt: string }
   // Mutate the state.
@@ -521,7 +522,57 @@ export type Instruction =
   | { op: 'grantKeyword'; target: Ref; keyword: Keyword; duration: Duration }
   | { op: 'moveCard'; target: Ref; to: ZoneRef; position?: 'top' | 'bottom' }
   | { op: 'draw'; player: PlayerRef; count: number }
-  | { op: 'discard'; player: PlayerRef; count: number }
+  /**
+   * Trashes `count` cards from a hand, **chosen by a player**.
+   *
+   * The oldest divergence in the project, closed. Phase 2A took from the front
+   * of the hand and wrote the debt down; PR #28 bought the **cost** half
+   * (`Cost.discardHand`), and this is the instruction half. There is no
+   * deterministic form left beside it, deliberately: **no printed card in the
+   * game means "trash the leftmost card in your hand"**, so an op that did that
+   * was correct for zero cards and available to every author.
+   *
+   * **Two players, not one, and they are independent.** Three printed shapes
+   * exist and the third is what forces the pair:
+   *
+   * | Printed | `chooser` | `owner` | Cards in the set |
+   * | --- | --- | --- | --- |
+   * | "trash N cards from your hand" | `you` | `you` | 142 |
+   * | "your opponent trashes N cards from their hand" | `opponent` | `opponent` | 21 |
+   * | "your opponent **chooses** N cards from **your** hand" | `opponent` | `you` | **1** |
+   *
+   * That last row is `OP01-038` Kanjuro and it is the **only card in the entire
+   * game** that separates the two. One card would normally be a declared row by
+   * this project's standard — but that standard prices a *mechanism* built for
+   * one asker, and this is one `PlayerRef` on an instruction being built anyway
+   * for the other 163. Collapsing them to a single "whose hand" field would make
+   * Kanjuro unspellable and would have to be undone the first time a card prints
+   * the mirror ("choose 1 card from your opponent's hand and trash it" — which
+   * no card prints today, and which this op can already say).
+   *
+   * **The chooser does not see the hand, and the engine shows it anyway.** The
+   * hand is a secret area (CR 3-1-5), CR 11-3-1 confines looking to "the player
+   * of that effect" unless the card says otherwise, and CR 8-4-4-2 spells out
+   * the consequence: choosing from a secret area, "players cannot guarantee that
+   * the chosen card meets the required conditions". So Kanjuro's opponent points
+   * at a face-down card. This engine is perfect-information by declared design,
+   * so `PendingChoice.candidates` carries real ids to the chooser — the first
+   * time that leak is *reachable* rather than theoretical. Filed with the
+   * per-player-view debt in `docs/op01-inventory.md`; **not** modelled as a
+   * random pick, because the rules say the opponent chooses and a die roll is a
+   * different game.
+   *
+   * **Mandatory, and short hands are not a special case.** No printed form says
+   * "may". CR 8-4-4-1 takes "as many as they can, up to the number specified",
+   * and CR 1-3-2 performs "as many of the actions as possible" — so a hand
+   * shorter than `count` trashes what there is and an empty one trashes nothing
+   * and asks nothing.
+   *
+   * No filter. Every printed card in all three shapes says "card" with no
+   * restriction, so there is nothing for a `CardFilter` to carry and the op does
+   * not offer one. `Cost.discardHand` has one because its cards print one.
+   */
+  | { op: 'discard'; chooser: PlayerRef; owner: PlayerRef; count: number }
   | { op: 'giveDon'; target: Ref; count: number }
   /**
    * Turns up to `count` of a player's cost-area DON!! to `orientation`.

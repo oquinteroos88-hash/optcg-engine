@@ -165,15 +165,32 @@ describe('a card an effect plays', () => {
     // ABIL-002 draws 1 and discards 1 on entry. It fires because the Q&A says
     // it must, and it fires *after* the summoning script finishes, because a
     // trigger raised mid-resolution queues underneath the running item.
+    //
+    // Its discard asks now, so the [On Play] suspends rather than completing in
+    // one step. The order is what this case is about and the order is unchanged:
+    // the choice belongs to the ability that queued underneath, which is the
+    // proof it ran second.
     const staged = withSummoner(['ABIL-002']);
-    const done = summon(staged, 'ABIL-002');
+    const asking = summon(staged, 'ABIL-002');
 
-    const ids = done.log
+    const ids = asking.log
       .filter((event) => event.type === 'cardPlayed' || event.type === 'abilityTriggered')
       .map((event) => (event.type === 'abilityTriggered' ? event.abilityId : 'played'));
     expect(ids).toEqual([SUMMON, 'played', 'ABIL-002-onPlay']);
-    expect(done.log.some((event) => event.type === 'cardDrawn')).toBe(true);
-    assertSettled(done);
+    expect(asking.log.some((event) => event.type === 'cardDrawn')).toBe(true);
+
+    const chosen = asking.pending?.candidates[0];
+    if (chosen === undefined) {
+      throw new Error('expected a candidate');
+    }
+    assertSettled(
+      applyOk(asking, {
+        type: 'ANSWER_CHOICE',
+        player: 'p1',
+        choiceId: asking.pending?.id ?? '',
+        answer: { kind: 'cards', selected: [chosen] },
+      }).state,
+    );
   });
 });
 

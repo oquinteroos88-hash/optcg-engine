@@ -76,16 +76,56 @@ export const ABIL_CARDS: CardDefinition[] = [
     ],
   }),
 
-  // --- draw / discard ----------------------------------------------------
+  /* --- draw / discard, and all three printed shapes of the chosen discard ---
+   *
+   * Three abilities on one card rather than three cards, and that is the
+   * standing rule: a new `ABIL-` id changes `abilityDecks.ts`'s deck list and
+   * reshuffles every seeded scenario in the package, so coverage goes onto an
+   * existing card wherever it can.
+   *
+   * Between them they hold every combination the two `PlayerRef`s can take that
+   * a printed card uses. The fourth — `chooser: 'you', owner: 'opponent'`, "you
+   * choose a card from your opponent's hand and trash it" — is expressible and
+   * **no card in the game prints it**; it is left unwritten rather than given a
+   * synthetic card, because the set exists to exercise the engine against shapes
+   * the game actually has.
+   */
   character('ABIL-002', 'Scavenger', 2, 2000, 1000, {
     abilities: [
       {
+        /** "Draw 1 card and trash 1 card from your hand" — the controller both
+         *  owns the hand and picks. 142 cards in the set print this shape. */
         id: 'ABIL-002-onPlay',
         trigger: 'onPlay',
         script: [
           { op: 'draw', player: 'you', count: 1 },
-          { op: 'discard', player: 'you', count: 1 },
+          { op: 'discard', chooser: 'you', owner: 'you', count: 1 },
         ],
+      },
+      {
+        /** "Your opponent trashes 1 card from their hand" — `OP01-102` Jack and
+         *  `OP01-114` X.Drake, and 21 cards in the set. The chooser and the
+         *  owner move together, which is what makes it look like one field.
+         *
+         *  `activateMain` rather than the `whenAttacking` the printed pair use,
+         *  and the reason is this card and not this shape: `ABIL-002` is a plain
+         *  2-cost body that staged positions all over the package use as a
+         *  attacker, so a `whenAttacking` here would open a choice in a dozen
+         *  tests that are about something else. An activated ability fires only
+         *  when something asks for it. `oncePerTurn` for `ABIL-029`'s reason. */
+        id: 'ABIL-002-main',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [{ op: 'discard', chooser: 'opponent', owner: 'opponent', count: 1 }],
+      },
+      {
+        /** "Your opponent chooses 1 card from your hand; trash that card" —
+         *  `OP01-038` Kanjuro's shape, and the reason the two fields are two.
+         *  The only card in the game that separates them, so the engine keeps
+         *  its own copy rather than depending on the card package for it. */
+        id: 'ABIL-002-onKO',
+        trigger: 'onKO',
+        script: [{ op: 'discard', chooser: 'opponent', owner: 'you', count: 1 }],
       },
     ],
   }),

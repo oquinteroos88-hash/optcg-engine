@@ -81,9 +81,24 @@ describe('ABIL-001 — optional onPlay, select, ko', () => {
     expect(targeting.pending?.kind).toBe('selectCards');
     expect(targeting.pending?.candidates).toEqual([victim]);
 
-    const done = answer(targeting, 'p1', { kind: 'cards', selected: [victim] });
-    expect(done.players.p2.characters).toEqual([]);
-    expect(done.players.p2.trash[0]).toBe(victim);
+    const killed = answer(targeting, 'p1', { kind: 'cards', selected: [victim] });
+    expect(killed.players.p2.characters).toEqual([]);
+    expect(killed.players.p2.trash[0]).toBe(victim);
+
+    // The victim is `ABIL-002`, and its `[On K.O.]` is Kanjuro's shape: the
+    // ability's controller is **p2**, so `owner: 'you'` is p2's hand and
+    // `chooser: 'opponent'` is p1 — the player who just killed it picks which
+    // card p2 loses. The K.O. therefore does not settle here, and the choice
+    // belongs to the player who does *not* control the effect.
+    expect(killed.pending?.player).toBe('p1');
+    expect(killed.pending?.candidates).toEqual(killed.players.p2.hand);
+    const chosen = killed.pending?.candidates[0];
+    if (chosen === undefined) {
+      throw new Error('expected a candidate');
+    }
+    const done = answer(killed, 'p1', { kind: 'cards', selected: [chosen] });
+    expect(done.players.p2.trash).toContain(chosen);
+    expect(done.players.p2.hand).not.toContain(chosen);
     assertSettled(done);
   });
 
@@ -104,14 +119,44 @@ describe('ABIL-002 — draw then discard', () => {
     const deckBefore = staged.players.p1.deck.length;
     const drawnCard = staged.players.p1.deck[0];
 
-    const done = applyOk(staged, { type: 'PLAY_CARD', player: 'p1', instanceId: card }).state;
+    // The discard **asks** now, which is the whole of what this PR changed
+    // about this card: the deterministic front-of-hand take was a divergence
+    // from the moment it was written and no printed card ever wanted it.
+    const asking = applyOk(staged, { type: 'PLAY_CARD', player: 'p1', instanceId: card }).state;
+    expect(asking.pending?.kind).toBe('selectCards');
+    expect(asking.pending?.player).toBe('p1');
+    const chosen = asking.pending?.candidates[0];
+    if (chosen === undefined) {
+      throw new Error('expected a candidate');
+    }
+    const done = answer(asking, 'p1', { kind: 'cards', selected: [chosen] });
 
     // -1 for the card played, +1 drawn, -1 discarded.
     expect(done.players.p1.hand).toHaveLength(handBefore - 1);
     expect(done.players.p1.deck).toHaveLength(deckBefore - 1);
     expect(done.players.p1.hand).toContain(drawnCard);
-    expect(done.players.p1.trash).toHaveLength(1);
+    expect(done.players.p1.trash).toEqual([chosen]);
     assertSettled(done);
+  });
+
+  it('takes the card the player picked, not the one at the front', () => {
+    // The property the deterministic op could not have: the same position
+    // answered two ways ends in two different trashes. Without it "chosen" is a
+    // word in a comment.
+    const staged = buildScenario({ decks, p1: { activeDon: 3, hand: ['ABIL-002'] } });
+    const card = lastInHand(staged, 'p1');
+    const asking = applyOk(staged, { type: 'PLAY_CARD', player: 'p1', instanceId: card }).state;
+    const candidates = asking.pending?.candidates ?? [];
+    const [first, second] = candidates;
+    if (first === undefined || second === undefined) {
+      throw new Error('expected at least two candidates');
+    }
+    expect(answer(asking, 'p1', { kind: 'cards', selected: [first] }).players.p1.trash).toEqual([
+      first,
+    ]);
+    expect(answer(asking, 'p1', { kind: 'cards', selected: [second] }).players.p1.trash).toEqual([
+      second,
+    ]);
   });
 });
 

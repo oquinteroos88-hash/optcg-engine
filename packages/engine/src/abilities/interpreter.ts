@@ -731,22 +731,6 @@ function execute(
       draw(draft, playerOf(item, instruction.player), instruction.count, events);
       return;
     }
-    case 'discard': {
-      // Front of the hand, deterministically.
-      // TODO phase 2B: let the player choose which cards a discard takes.
-      const player = playerOf(item, instruction.player);
-      const ps = draft.players[player];
-      for (let i = 0; i < instruction.count; i += 1) {
-        const id = ps.hand.shift();
-        if (id === undefined) {
-          return;
-        }
-        mark('op.discard');
-        ps.trash.unshift(id);
-        emit(draft, events, { type: 'cardDiscarded', player, instanceId: id });
-      }
-      return;
-    }
     case 'giveDon': {
       for (const id of targets(draft, item, instruction.target)) {
         giveDon(draft, item, id, instruction.count, events);
@@ -809,6 +793,7 @@ function execute(
     case 'play':
     case 'orderToBottom':
     case 'orderToDeckEnds':
+    case 'discard':
     case 'if':
     case 'forEach':
       throw new Error(`Engine bug: ${instruction.op} is control flow, not a mutation`);
@@ -1184,17 +1169,117 @@ function partitionInstruction(
   return true;
 }
 
+/**
+ * Trashes the cards a player chose out of `owner`'s hand.
+ *
+ * `payChosenDiscard`'s twin for the instruction half, and deliberately not the
+ * same function: that one is a **payment** — it advances `costsPaid`, it is
+ * always the controller's own hand, and it marks `cost.discardHand`. This one is
+ * an effect resolving, the hand is whichever the instruction named, and the
+ * player who *chose* is not necessarily the player who *loses* the card.
+ *
+ * The event carries the **owner**, never the chooser. `cardDiscarded.player` has
+ * meant "whose hand this left" since Phase 0, and it is the reading the printed
+ * observers want: the four cards in the full set that watch a discard all say
+ * "when a card is trashed from **your** hand", which is a fact about the owner.
+ */
+function trashChosenFromHand(
+  draft: GameState,
+  owner: PlayerId,
+  chosen: readonly InstanceId[],
+  events: GameEvent[],
+): void {
+  const ps = draft.players[owner];
+  for (const id of chosen) {
+    const at = ps.hand.indexOf(id);
+    if (at === -1) {
+      throw new Error('Engine bug: discard names a card that is not in the owner’s hand');
+    }
+    ps.hand.splice(at, 1);
+    ps.trash.unshift(id);
+    mark('op.discard');
+    emit(draft, events, { type: 'cardDiscarded', player: owner, instanceId: id });
+  }
+}
+
+/**
+ * The prompt the chooser sees, derived rather than printed on the instruction.
+ *
+ * Same reason `discardPrompt` derives the cost's: a prompt written by hand can
+ * drift from what the instruction does. It also has to read correctly from
+ * **two** sides — the same op says "Trash 1 card from your hand" to a player
+ * emptying their own hand and "Choose 1 card from your opponent's hand to trash"
+ * to Kanjuro's opponent — and deriving is what makes that automatic instead of
+ * something a card author has to remember.
+ */
+function discardInstructionPrompt(count: number, chooserOwnsIt: boolean): string {
+  const cards = `${count} card${count === 1 ? '' : 's'}`;
+  return chooserOwnsIt
+    ? `Trash ${cards} from your hand`
+    : `Choose ${cards} from your opponent's hand to trash`;
+}
+
+/**
+ * "Trash N cards from a hand, chosen by a player" — the instruction half of the
+ * oldest divergence in the project.
+ *
+ * **The only instruction that can open a choice to the player who does not
+ * control the effect.** Every other `openChoice` in this file passes
+ * `item.controller`; this one passes whoever the card named. The machinery
+ * underneath needed nothing new — `openChoice` already moves priority to the
+ * asked player, `checkEffectShape` already asserts the two agree, and
+ * `validateAnswerChoice` already refuses an answer from anyone else with
+ * `notYourChoice` — but this is the first script that uses it, so it is the
+ * first time a controller can be left holding exactly `[CONCEDE]` by their own
+ * card's effect.
+ *
+ * Nothing is asked when the hand is empty: CR 1-3-2 performs "as many of the
+ * actions as possible", which for a discard with nothing to discard is none, and
+ * an unanswerable choice would be a game that cannot continue.
+ */
+function discardInstruction(
+  draft: GameState,
+  item: StackItem,
+  instruction: Instruction & { op: 'discard' },
+  events: GameEvent[],
+): boolean {
+  const owner = playerOf(item, instruction.owner);
+  const chooser = playerOf(item, instruction.chooser);
+  const hand = draft.players[owner].hand;
+  // CR 8-4-4-1: as many as they can, up to the number specified. A short hand
+  // trashes what there is rather than nothing.
+  const count = Math.min(instruction.count, hand.length);
+  if (count === 0) {
+    mark('choice.noCandidates');
+    return false;
+  }
+  openChoice(draft, events, {
+    player: chooser,
+    kind: 'selectCards',
+    prompt: discardInstructionPrompt(count, chooser === owner),
+    candidates: [...hand],
+    // Mandatory: no printed form of this sentence says "may".
+    min: count,
+    max: count,
+    sink: { kind: 'discard', owner },
+  });
+  return true;
+}
+
 /** Opens the choice a suspending instruction needs, or resolves it trivially. */
 function suspend(
   draft: GameState,
   item: StackItem,
   instruction: Instruction & {
-    op: 'select' | 'confirm' | 'play' | 'orderToBottom' | 'orderToDeckEnds';
+    op: 'select' | 'confirm' | 'play' | 'orderToBottom' | 'orderToDeckEnds' | 'discard';
   },
   events: GameEvent[],
 ): boolean {
   if (instruction.op === 'play') {
     return playInstruction(draft, item, instruction, events);
+  }
+  if (instruction.op === 'discard') {
+    return discardInstruction(draft, item, instruction, events);
   }
   if (instruction.op === 'orderToBottom') {
     return orderInstruction(draft, item, instruction, events);
@@ -1340,7 +1425,8 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
     instruction.op === 'confirm' ||
     instruction.op === 'play' ||
     instruction.op === 'orderToBottom' ||
-    instruction.op === 'orderToDeckEnds'
+    instruction.op === 'orderToDeckEnds' ||
+    instruction.op === 'discard'
   ) {
     if (suspend(draft, item, instruction, events)) {
       return;
@@ -1591,6 +1677,24 @@ export function applyAnswer(
       throw new Error('Engine bug: answered a partition with no open frame');
     }
     partitionFrame.index += 1;
+    return;
+  }
+
+  if (pending.sink.kind === 'discard') {
+    if (answer.kind !== 'cards') {
+      throw new Error('Engine bug: a discard answered with a non-cards answer');
+    }
+    // The answer is the trashing, the way an ordering's answer is the placement.
+    // The owner comes off the sink rather than from a second reading of the
+    // instruction, so the cards cannot leave a different hand than the question
+    // was about — and the chooser, who may be the other player entirely, has
+    // already been checked by `validateAnswerChoice`.
+    trashChosenFromHand(draft, pending.sink.owner, answer.selected, events);
+    const discardFrame = item.cursor[item.cursor.length - 1];
+    if (discardFrame === undefined) {
+      throw new Error('Engine bug: answered a discard with no open frame');
+    }
+    discardFrame.index += 1;
     return;
   }
 

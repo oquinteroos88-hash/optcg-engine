@@ -1009,6 +1009,89 @@ export const OP01_BP_WARLORD: Decklist = {
   ],
 };
 
+/**
+ * Leader `OP01-003` Monkey.D.Luffy, red/green — and **the Leader is the case**.
+ *
+ * `OP01-024`'s immunity is to "＜Strike＞ attribute **Characters**", and the
+ * noun is the half a test could easily not check. `OP01-003` is a ＜Strike＞
+ * Leader, it is one of only two Leaders `OP01-024` can legally be played under,
+ * and it K.O.s the card the immunity is supposed to protect. That is not a
+ * constructed corner — it is the ordinary game this deck deals.
+ *
+ * So the deck is three attackers and nothing else: `OP01-018` Hajrudin is a
+ * 6000 ＜Strike＞ body (the immunity holds), `OP01-023` Marco is a 5000
+ * ＜Special＞ one (it does not), and the Leader is the third. Everything else is
+ * cheap bodies of both colours, because `OP01-024` costs 2 and its own
+ * `[Activate: Main]` needs **rested** DON!! on the board before its `[DON!! x2]`
+ * gate is even open.
+ */
+export const OP01_RG_STRIKE: Decklist = {
+  id: 'OP01-RG-STRIKE',
+  name: 'OP-01 red/green (test fixture, Luffy — the attribute and the immunity)',
+  packId: '569101',
+  leader: 'OP01-003',
+  cards: [
+    { cardId: 'OP01-024', qty: 4 }, // Monkey.D.Luffy — the immunity, cost 2
+    // The two attackers the immunity answers differently.
+    { cardId: 'OP01-018', qty: 4 }, // Hajrudin — red, ＜Strike＞, 6000, vanilla
+    { cardId: 'OP01-023', qty: 4 }, // Marco — red, ＜Special＞, 5000, vanilla
+    // Cheap bodies, both colours, so the board fills and the DON!! flow early.
+    { cardId: 'OP01-010', qty: 4 }, // Komachiyo — red, cost 1
+    { cardId: 'OP01-012', qty: 4 }, // Sai — red, cost 2
+    { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — red, [Rush] only, cost 3
+    { cardId: 'OP01-036', qty: 4 }, // Otsuru — green, cost 1
+    { cardId: 'OP01-053', qty: 4 }, // Wire — green, cost 2
+    { cardId: 'OP01-043', qty: 4 }, // Shinobu — green, cost 3
+    { cardId: 'OP01-045', qty: 4 }, // Jean Bart — green, cost 4
+    { cardId: 'OP01-037', qty: 4 }, // Kawamatsu — green, [Trigger] Play this card
+    // The K.O. that is **not** a battle, which is the other half of the
+    // immunity's reading: CR 10-2-1-3 splits "by an effect" from "due to the
+    // result of a battle" and `OP01-024` prints only the second. X.Drake takes
+    // a rested Character costing 4 or less out of a script, so the card the
+    // Damage Step cannot touch dies to this without the gate being consulted.
+    { cardId: 'OP01-054', qty: 4 }, // X.Drake — green, [On Play] K.O. a rested 4-drop
+    { cardId: 'OP01-009', qty: 2 }, // Carrot — red, [Trigger] Play this card
+  ],
+};
+
+/**
+ * Leader `OP01-061` Kaido, blue/purple — the deck the two searches need, and
+ * they need one each of two different things.
+ *
+ * A search is only a search if the thing being searched for is **in the deck and
+ * not in the hand**, so both targets sit at four copies and both searchers do
+ * too: `OP01-069` Caesar Clown looks for `[Smiley]` (`OP01-072`, blue) and
+ * `OP01-098` Kurozumi Orochi looks for `[Artificial Devil Fruit SMILE]`
+ * (`OP01-116`, purple). One deck holds all four because Kaido is the blue/purple
+ * Leader whose own type — {Animal Kingdom Pirates} — the Event already carries.
+ *
+ * **Caesar's is an `[On K.O.]`**, which is the reason the bodies are cheap and
+ * plentiful: a random game has to get a 4-cost Character onto the board and then
+ * lose it in a battle before the search happens at all.
+ */
+export const OP01_BP_SEARCH: Decklist = {
+  id: 'OP01-BP-SEARCH',
+  name: 'OP-01 blue/purple (test fixture, Kaido — the two whole-deck searches)',
+  packId: '569101',
+  leader: 'OP01-061',
+  cards: [
+    { cardId: 'OP01-069', qty: 4 }, // Caesar Clown — [On K.O.] play a [Smiley]
+    { cardId: 'OP01-072', qty: 4 }, // Smiley — what Caesar searches for
+    { cardId: 'OP01-098', qty: 4 }, // Kurozumi Orochi — [On Play] reveal a SMILE
+    { cardId: 'OP01-116', qty: 4 }, // Artificial Devil Fruit SMILE — Orochi's target
+    // Bodies. Cheap and plentiful, because both searches wait on a board.
+    { cardId: 'OP01-104', qty: 4 }, // Speed — [Trigger] Play this card, cost 2
+    { cardId: 'OP01-076', qty: 4 }, // Bellamy — vanilla, cost 2
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-081', qty: 4 }, // Mocha — vanilla, cost 3
+    { cardId: 'OP01-066', qty: 4 }, // Krieg — vanilla, cost 4
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+    { cardId: 'OP01-107', qty: 4 }, // Babanuki — vanilla, cost 5
+    { cardId: 'OP01-110', qty: 4 }, // Fukurokuju — vanilla, cost 6
+    { cardId: 'OP01-092', qty: 2 }, // Kaido — vanilla {Land of Wano} 7-drop
+  ],
+};
+
 export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
   OP01_R_ZORO,
@@ -1029,6 +1112,8 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LIFE,
   OP01_RG_SURGEON,
   OP01_BP_WARLORD,
+  OP01_RG_STRIKE,
+  OP01_BP_SEARCH,
 ]);
 
 /**

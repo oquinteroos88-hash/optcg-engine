@@ -1,6 +1,6 @@
 # OP-01 closing census — every unwritten card, re-read against today's engine
 
-> ## PRs 1 and 2 shipped: 102 of 121
+> ## PRs 1, 2 and 3 shipped: 110 of 121
 >
 > **PR 1 — reference by name** (12 cards). Row 5 was this document's headline and
 > its arithmetic held exactly: one field pair on the shared predicate, no new op
@@ -11,6 +11,11 @@
 > half, and with it the deterministic-discard divergence closes on both halves.
 > The count held; the *shape* did not. See
 > [what building row 2's open half changed](#what-building-row-2s-open-half-changed).
+>
+> **PR 3 — the DON!! count and the two new cost families** (8 cards). Rows 6,
+> 15 and 11 at once. The counts held; row 6's framing did not, and row 15's
+> `OP01-047` turned out to be the only card in the game worded the way it is. See
+> [what building rows 6, 15 and 11 changed](#what-building-rows-6-15-and-11-changed).
 >
 > Every table below is left as it was written, including the rows these PRs made
 > obsolete. This document is the record of what was true on the day it was
@@ -604,3 +609,154 @@ Hawkins standard applied to a family this document had not previously named.
 | **+ player-chosen discard (this PR)** | **102** | **19** |
 | + DON!! count condition (PR 3) | 105 | 16 |
 | + costs that move chosen cards (PR 4) | 110 | 11 |
+
+## What building rows 6, 15 and 11 changed
+
+Three rows, eight cards, and the counts held exactly. What building them produced
+is four findings, one correction and one flag.
+
+### 1. The DON!! count is a condition, not a zone
+
+The census wrote row 6 as "DON!! are not in any `Selector` zone, so 'if you have
+10 DON!! cards on your field' cannot be asked", which frames the gap as a missing
+zone. It is not: PR #13 settled that DON!! are **fungible** and are operated by
+quantity — `orientDon` and `addDon` both take a number — and a question that only
+ever needs a *count* does not need them to become selectable. `Condition.donOnField`
+is `countCards`' sibling in shape and touches no `Selector`.
+
+**"On your field" is the cost area plus what is given.** CR 3-1-2 collects the
+Leader, Character, Stage and cost areas under "the field"; CR 3-9-1 puts DON!! in
+the cost area; CR 6-5-5-1 has giving place a DON!! "underneath your Leader or a
+Character card ... such that it remains visible", which leaves it in the Leader
+or Character area. Orientation cannot enter it: the printed text says "DON!! cards
+on your field", and CR 4-4-2 makes given DON!! "neither active nor rested", so an
+orientation filter would exclude exactly the DON!! the cards mean to include.
+
+**No `player` field**, following `addDon`'s precedent — a condition that can only
+ever read its own controller's zone should not be able to say otherwise. 16 cards
+in the full set do ask about the **opponent's** DON!! count, which is one of the
+three forms PR #33 deslindó and left declared; the day one is in scope this grows
+one field.
+
+`OP01-091` King asks for **ten**, and CR 5-1-2's ten-card DON!! deck makes that
+every DON!! a player has. It is reachable in ordinary play, which the
+manifestation games measure rather than assume.
+
+### 2. Row 15 was three payments and is three `Cost` members
+
+The row read "a cost paid with other cards you choose" and the census already
+noted it covers three distinct payments. Built, they are three narrow members and
+not one generic *choose-and-do*:
+
+| Card | Member | Why it is not the one beside it |
+| --- | --- | --- |
+| `OP01-011` | `bottomDeckHand` | the card is **moved**, not trashed — its owner can draw it again |
+| `OP01-047` | `returnCharacters` | a card leaves the field for a hand, not a hand for the deck |
+| `OP01-055` | `restCharacters` | nothing changes zone at all |
+
+**`bottomDeckHand` needs no ordering**, and that is a measurement rather than a
+simplification: the form is printed on **exactly one card in the game** and it
+names one card. PR #32's `orderToBottom` is the real mechanism for the plural
+case and it does not arise here.
+
+**`restCharacters` is `restSelf`'s sibling for a card with no self.** `OP01-055`
+is an **Event**, and CR 8-4-2 trashes it as it activates — so there is no source
+to rest and the cost has to name other cards. Active only, for `restSelf`'s
+reason.
+
+### 3. `OP01-047` Law: the only card in the game worded that way
+
+The census called it "a cost that **returns a Character to hand**" and did not
+ask whose. The text says "return 1 Character to **your** hand", and a probe over
+the full set found this is the **only** card that words it that way: 17 later
+cards print "return 1 of your Characters ... to the **owner's** hand". OP-01's
+wording is what the game standardised out of.
+
+It is your own Character on two independent readings. "Your hand" is only true of
+a card you own; and `ZoneRef` carries no owner because a card always returns to
+its *owner's* zone, so offering the opponent's Character would move it to their
+hand and contradict the printed sentence.
+
+**And the source is a candidate for its own cost.** Nothing excludes it, and a
+card that means to says so — `OP08-047` prints "return 1 of your Characters
+**other than this Character**". So Law may pay with Law, and that is the one
+question in this batch the Comprehensive Rules do not settle:
+
+- **CR 8-1-3-1-3** — an auto effect "will not activate and cannot be resolved ...
+  if the card that fulfilled the activation timing of that auto effect moves to
+  another area **before that effect is activated**" — read against **CR 8-4-1**'s
+  ordering (pay at 8-4-1-3, activate at 8-4-1-4), a self-payment would fizzle.
+- **CR 8-3-1-3-1** — "you have fulfilled the conditions to pay the activation
+  cost, **activated the effect**, and become unable to pay the activation cost
+  while in the process of paying" — puts activation *before* the payment
+  finishes, which leaves 8-1-3-1-3 describing a card removed by something else.
+
+`rules.selfReturnResolvesEffect`, default **true**: it matches everything this
+engine already does — `OP01-007` Caribou's `[On K.O.]` resolves from the trash,
+and "no instruction can abort its script" has been the interpreter's rule since
+Phase 2A — and it is the reading under which the printed cost is takeable at all.
+
+### 4. The Life cost asks nothing, and fires nothing
+
+Both questions the row raised have a rule with a number, and both went the way
+the row hoped:
+
+- **The top card, no choice.** CR 3-10-2: the Life area is a secret stack and
+  "when moving a card from their Life area to another area, a player must select
+  the card at the top of their Life cards unless otherwise specified". `OP01-008`
+  and `OP01-013` are the **only two cards in the game** that say "from your Life
+  area" rather than "from the top of your Life cards" (75 do), and neither
+  otherwise-specifies — so the default rule resolves both to the same card. This
+  is the one new cost in the batch that does not suspend.
+- **No `[Trigger]`.** CR 2-11-1 defines `[Trigger]` as an effect activated
+  "instead of the player adding the card from their Life area to their hand **on
+  taking damage**", and CR 4-6-3 offers it only for a card added "during this
+  procedure" — the damage procedure of CR 4-6-2. CR 4-6-3-1 says the same from
+  the far side: a Life card that cannot be added to hand cannot activate its
+  `[Trigger]` at all. A payment is not damage.
+
+That second answer is what kept this PR small. A `[Trigger]` firing inside a
+payment would have been an open choice *within* a cost *within* an activation,
+and the nesting would have been the whole PR. It also keeps **PR #29's declared
+divergence** — a life card with no zone while its `[Trigger]` resolves — out of
+this batch entirely: no `[Trigger]` resolves, so no such window opens.
+
+**Paying the last Life card is legal and is not a loss.** CR 1-2-1-1-1 and CR
+9-2-1-1 both make the defeat condition "0 Life cards **and** your Leader takes
+damage". Reaching zero is not a condition, so a player may spend down to nothing
+and keep playing — until the next damage.
+
+### 5. One correction the build produced
+
+`OP01-055` with fewer than two active Characters is still a **legal play**. Its
+ability never opens — CR 8-3-1-3, a cost that cannot be paid in full cannot be
+paid at all — but playing an Event is CR 6-5-3-1's Main Phase action, gated on
+the card's *printed* cost; the effect's activation cost is a second question
+settled while the effect resolves. A player may burn the Event for nothing, the
+same way CR 8-3-1-4 lets them decline a payable cost. The row's phrasing implied
+the play itself would be withheld, and it is not.
+
+### What did not have to change
+
+**The sink.** Four costs can now open a choice where PR #28 had one, and
+`costsPaid` already names which one is being paid: the cost that suspended did
+not advance it. Recording the kind on the sink would record a second time
+something the stack item already says, and the two could then disagree.
+
+**The recursion guard.** `donOnField` is read flat off `DonCard.location`. DON!!
+carry no abilities and no statics, so evaluating it inside `forEachStatic` —
+which `OP01-109` does on every power lookup — re-enters nothing. It needs no
+`Lens` anchor where `power` and `keyword` both do.
+
+### The arithmetic now
+
+| After | OP-01 | Still blocked |
+| --- | --- | --- |
+| the census | 86 | 35 |
+| + reference by name (PR 1) | 98 | 23 |
+| + player-chosen discard (PR 2) | 102 | 19 |
+| **+ DON!! count and the two cost families (this PR)** | **110** | **11** |
+
+Which lands exactly on the census's own "PRs 1–4" line: **110, with 11 blocked** —
+`OP01-002`, `-019`, `-024`, `-051`, `-063`, `-067`, `-069`, `-072`, `-083`,
+`-098`, `-105`.

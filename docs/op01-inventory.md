@@ -586,16 +586,16 @@ an upper bound.
 | 3 | ~~**`orderCards`, and naming "the rest"**~~ — **closed.** Batch 9 bought the permutation, **PR #36** the top-or-bottom partition; the row bundled two shapes and both are now built | 9 | **5** → **7, done** (`OP01-088` finished when its other wall fell) | 226 |
 | 4 | ~~**Add DON!! from the DON!! deck**~~ — **bought** (batch 10). Touched was right; **freed was 8, not 5** — all three exclusions had expired | 8 | **5** → **8, done** | 141 |
 | 5 | ~~**Reference a card by name** — "other than [X]", "if your Leader is [X]", "play [X]"~~ — **bought.** One field pair on `CardFilter` (`names`/`excludeNames`) and every predicate site inherited it; the census's re-count was right and **12 were freed, not 3** | 14 → **16** | ~~**3**~~ → **12, done** | 399 |
-| 6 | **A condition on how many DON!! you have on the field** | 3 | **3** | 36 |
+| 6 | ~~**A condition on how many DON!! you have on the field**~~ — **bought.** One `Condition` member counting the cost area plus what is given; the row framed it as a missing `Selector` zone and it needed none | 3 | **3, done** | 36 |
 | 7 | ~~**Prohibitions** — "cannot"~~ — **bought** (batch 8), together with row 8, as **one** mechanism; the zero was right and stopped being right when put-into-play landed | 5 | **0** → **2** | 146 |
 | 8 | ~~**Attack-legality modifiers** — widen or narrow who may be attacked~~ — **bought** (batch 8); the count was right, 2 freed | 3 | **2, done** | 49 |
 | 9 | ~~**A trigger for something another card did**~~ — **built** (PR #30); the count was right, 2 freed | 3 | **2, done** | 11 |
 | 10 | **Scaling grants** — "+1000 for every card in your hand" | 2 | **2** | 23 |
-| 11 | **A cost paid with a Life card** | 2 | **2** | — |
+| 11 | ~~**A cost paid with a Life card**~~ — **bought.** The top card, no choice (CR 3-10-2) and no `[Trigger]` (CR 2-11-1) — the one new cost of its batch that does not suspend | 2 | **2, done** | — |
 | 12 | **Cost modification** — "give blue Events in your hand −1 cost" | 1 | **1** | 127 |
 | 13 | **Negation in `Condition`** — `[Opponent's Turn]` | 2 | **1** | 77 |
 | 14 | **`reveal` taking a `Ref`** — reveal the cards you just chose | 2 | **1** | 2 |
-| 15 | **A cost paid with other cards you choose** — rest 2 Characters, return a Character | 3 | **0** | — |
+| 15 | ~~**A cost paid with other cards you choose** — rest 2 Characters, return a Character~~ — **bought** as **three** narrow members, not one generic choose-and-do | 3 | ~~**0**~~ → **3, done** | 4 |
 | 16 | **A predicate about a card held in a variable** | 2 | **0** | — |
 | 17 | **Search the whole deck, and shuffle it** | 2 | **0** | 8 |
 | 18 | ~~**A duration longer than end of turn**~~ — **closed (PR #35)**, `endOfOpponentNextTurn` | 1 | ~~**0**~~ **1 — done** | 43 |
@@ -1302,12 +1302,12 @@ have been added to it as batches land:
 | OP01-005 | Uta | char | ~~**B**~~ **written** | `excludeNames: [Uta]` — and the copies it must refuse are in the *trash*, which is why `excludeSelf` was never the tool |
 | OP01-006 | Otama | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character} → `addPower −2000 endOfTurn` |
 | OP01-007 | Caribou | char | **A** ✅ | `onKO`; select 0–1 {field, opponent, character, powerMax 4000} → `ko` |
-| OP01-008 | Cavendish | char | **B** | a `Cost` paid by moving a Life card to hand. Body is `grantKeyword self rush endOfTurn` |
+| OP01-008 | Cavendish | char | ~~**B**~~ **written** | `lifeToHand 1`. CR 3-10-2 takes the top card and asks nothing; CR 2-11-1 keeps the `[Trigger]` out of it |
 | OP01-009 | Carrot | char | **C** ✅ | `trigger`; `play {self}`. The whole card. Freed by batch 6. Note: the `[Trigger]` text sits in `effectText`, not `triggerText` |
 | OP01-010 | Komachiyo | char | vanilla | — |
-| OP01-011 | Gordon | char | **C** | the chosen payment now exists; still blocked by the other half — a `Cost` that moves a hand card to the **bottom of the deck** |
+| OP01-011 | Gordon | char | ~~**C**~~ **written** | `bottomDeckHand 1` — **moved, not trashed**, which is the whole difference from `discardHand`. One card, so no ordering |
 | OP01-012 | Sai | char | vanilla | — |
-| OP01-013 | Sanji | char | **B** | same Life-card `Cost` as `OP01-008`; body is `addPower self` then `giveDon self 2` |
+| OP01-013 | Sanji | char | ~~**B**~~ **written** | the same cost, and the body was right: `addPower` then `giveDon`, which gives what rested DON!! there are |
 | OP01-014 | Jinbe | char | **C** ✅ | `[Blocker]` printed; `onBlock` `[DON!! x1]`; select 0–1 {hand, you, character, colors red, costMax 2} → `play`. Freed by batch 6 |
 | OP01-015 | Tony Tony.Chopper | char | ~~**C**~~ **written** | `excludeNames` on the trash selector. `ST01-006` is a second Tony Tony.Chopper and satisfies every other clause |
 | OP01-016 | Nami | char | ~~**C**~~ **written** | `lookKeepBury` with an exclusion — and **not** `SABAODY`: this one prints "type card", not "type Character card" |
@@ -1341,7 +1341,7 @@ have been added to it as batches land:
 | OP01-044 | Shachi | char | ~~**C**~~ **written** | `countCards` with `names` and `max: 0`, exactly as predicted — the negation needed no negation |
 | OP01-045 | Jean Bart | char | vanilla | — |
 | OP01-046 | Denjiro | char | ~~**B**~~ **written** | the Leader gate and `[DON!! x1]` as an `and`; the body is `orientDon`, untouched since PR #13 |
-| OP01-047 | Trafalgar Law | char | **C** | put-into-play, **and** a `Cost` that returns a Character you choose |
+| OP01-047 | Trafalgar Law | char | ~~**C**~~ **written** | `returnCharacters 1`, **your own** — the only card in the game that says "to your hand" against 17 that say "to the owner's". It may pay with itself |
 | OP01-048 | Nekomamushi | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, costMax 3} → `rest` |
 | OP01-049 | Bepo | char | ~~**C**~~ **written** | `ST02-012` is a second Bepo, {Heart Pirates}, cost 1 — a card an id-keyed filter would have offered |
 | OP01-050 | Penguin | char | ~~**C**~~ **written** | `OP01-044`'s mirror, and each closes the other's gate |
@@ -1349,7 +1349,7 @@ have been added to it as batches land:
 | OP01-052 | Raizo | char | **A** ✅ | `whenAttacking`, `oncePerTurn`, cond `countCards {field, you, character, rested} min 2` → `draw you 1` |
 | OP01-053 | Wire | char | vanilla | — |
 | OP01-054 | X.Drake | char | **A** ✅ | `onPlay`; select 0–1 {field, opponent, character, rested, costMax 4} → `ko` |
-| OP01-055 | You Can Be My Samurai!! | event | **C** | a `Cost` that rests 2 Characters **you choose** — a chosen payment and a new cost member |
+| OP01-055 | You Can Be My Samurai!! | event | ~~**C**~~ **written** | `restCharacters 2` — `restSelf`'s sibling for a card with no self, since CR 8-4-2 has trashed the Event by then |
 | OP01-056 | Demon Face | event | **A** ✅ | `mainEvent`; select 0–2 {field, opponent, character, rested, costMax 5} → `ko` |
 | OP01-057 | Paradise Waterfall | event | **A** ✅ | `counterEvent`: `addPower +2000 endOfBattle` then `setActive`. `trigger`: `ko` a rested opponent Character |
 | OP01-058 | Punk Gibson | event | **A** ✅ | as `OP01-057`, with `rest` instead of `setActive` |
@@ -1385,11 +1385,11 @@ have been added to it as batches land:
 | OP01-088 | Desert Spada | event | ~~**C**~~ **written** | both halves, one PR apart: the partition in PR #36, the `[Trigger]`'s `chooser: you, owner: you` discard here. Draw first, then trash — CR 2-8-3, so the drawn cards are candidates |
 | OP01-089 | Crescent Cutlass | event | **A** ✅ | `counterEvent`, cond `countCards {field, you, leader, types}` → select 0–1 {field, any, character, costMax 5} → `moveCard {hand}` |
 | OP01-090 | Baroque Works | event | ~~**C**~~ **written** | the one card whose excluded **name** and required **type** are the same string, and they are different fields |
-| OP01-091 | King (L) | leader | **C** | a condition on how many DON!! you have on the field. Everything else is a `static` with a selector `affects` |
+| OP01-091 | King (L) | leader | ~~**C**~~ **written** | `donOnField min 10` — every DON!! a player has (CR 5-1-2), and the grant is **negative**, which CR 1-3-6-1 allows |
 | OP01-092 | Urashima | char | vanilla | — |
 | OP01-093 | Ulti | char | **C** | the DON!! deck, and nothing else. The `restDon 1` cost already exists |
 | OP01-094 | Kaido | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 6`; `if countCards {leader, types}` → `ko {selector: {field, any, character, excludeSelf}}` |
-| OP01-095 | Kyoshirou | char | **C** | a condition on how many DON!! you have on the field, and nothing else |
+| OP01-095 | Kyoshirou | char | ~~**C**~~ **written** | the count as an ordinary activation condition — the half read in `legalActions` rather than inside static evaluation |
 | OP01-096 | King | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 2`; two selects, two `ko` |
 | OP01-097 | Queen | char | **A** ✅ | `onPlay`, `optional`, cost `returnDon 1`; `grantKeyword self rush endOfTurn`, then `addPower −2000 endOfTurn` |
 | OP01-098 | Kurozumi Orochi | char | **C** | search the whole deck by name, and `shuffle` |
@@ -1403,7 +1403,7 @@ have been added to it as batches land:
 | OP01-106 | Basil Hawkins | char | **C** | the DON!! deck **and** put-into-play |
 | OP01-107 | Babanuki | char | vanilla | — |
 | OP01-108 | Hitokiri Kamazo | char | **A** ✅ | `onKO`, `optional`, cost `returnDon 1`; select 0–1 {field, opponent, character, costMax 5} → `ko` |
-| OP01-109 | Who's.Who | char | **C** | a condition on how many DON!! you have on the field, and nothing else |
+| OP01-109 | Who's.Who | char | ~~**C**~~ **written** | the count inside a `static`, beside `[DON!! x1]` — two questions about the same resource on one card |
 | OP01-110 | Fukurokuju | char | vanilla | — |
 | OP01-111 | Black Maria | char | **A** ✅ | `onBlock`, `optional`, cost `returnDon 1` → `addPower self +1000 endOfTurn`. `[Blocker]` is printed |
 | OP01-112 | Page One | char | **A** ✅ | the same clause as `OP01-021`, written by a script instead of read off a static: `activateMain`, `oncePerTurn`, cost `returnDon 1`, `setLegality` with `endOfTurn`. The pair is what shows the mechanism has one shape. **✅ written — batch 8** |

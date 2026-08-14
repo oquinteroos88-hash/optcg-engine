@@ -80,18 +80,22 @@ describe('the normalized set', () => {
     // script attached to a card nobody meant to touch.
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
-      // OP-01 pile A, complete; the forty-four pile-C cards a chosen payment,
+      // OP-01 pile A, complete; the fifty-two pile-C cards a chosen payment,
       // putting cards into play, the two missing rules, modifiable legality,
       // ordering the cards you looked at, adding DON!! from the DON!! deck,
-      // reference by name and the player-chosen discard instruction freed; and
-      // the starter set.
+      // reference by name, the player-chosen discard instruction, the DON!!
+      // count condition and the two new cost families freed; and the starter
+      // set.
       'OP01-001',
       'OP01-003',
       'OP01-004',
       'OP01-005',
       'OP01-006',
       'OP01-007',
+      'OP01-008',
       'OP01-009',
+      'OP01-011',
+      'OP01-013',
       'OP01-014',
       'OP01-015',
       'OP01-016',
@@ -117,11 +121,13 @@ describe('the normalized set', () => {
       'OP01-042',
       'OP01-044',
       'OP01-046',
+      'OP01-047',
       'OP01-048',
       'OP01-049',
       'OP01-050',
       'OP01-052',
       'OP01-054',
+      'OP01-055',
       'OP01-056',
       'OP01-057',
       'OP01-058',
@@ -147,8 +153,10 @@ describe('the normalized set', () => {
       'OP01-088',
       'OP01-089',
       'OP01-090',
+      'OP01-091',
       'OP01-093',
       'OP01-094',
+      'OP01-095',
       'OP01-096',
       'OP01-097',
       'OP01-099',
@@ -157,6 +165,7 @@ describe('the normalized set', () => {
       'OP01-104',
       'OP01-106',
       'OP01-108',
+      'OP01-109',
       'OP01-111',
       'OP01-112',
       'OP01-113',

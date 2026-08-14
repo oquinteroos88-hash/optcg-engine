@@ -132,6 +132,7 @@ export function createGame(opts: {
       effectPlayIsPlayingACharacter: true,
       placedRestedBecomesRested: false,
       nextTurnExcludesTurnInProgress: true,
+      selfReturnResolvesEffect: true,
     },
   };
   return freeze(state, true);

@@ -3699,4 +3699,260 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
       grants: { legality: { effect: 'forbid', clause: { question: 'koInBattle' } } },
     },
   ],
+
+  /* ------------------------------------------------------------------------
+   * The DON!! count, and the two cost families that arrived with it.
+   *
+   * Eight cards across three census rows, grouped by the wall each one was
+   * standing on:
+   *
+   *   a condition on your DON!! count   `OP01-091`, `-095`, `-109`
+   *   a cost that moves chosen cards    `OP01-011`, `-047`, `-055`
+   *   a cost paid with a Life card      `OP01-008`, `-013`
+   *
+   * The three rows shipped together because they are the same size and none of
+   * them needs anything the others build. What they share is a shape rather than
+   * a mechanism: each is one narrow member added to a union that already had
+   * the machinery around it.
+   * ---------------------------------------------------------------------- */
+
+  // --- a condition on your DON!! count -------------------------------------
+  //
+  // `donOnField` counts the cost area plus what has been given, regardless of
+  // orientation — CR 3-1-2 for what "the field" is, CR 6-5-5-1 for where a given
+  // DON!! sits, CR 4-4-2 for why orientation cannot be part of it.
+
+  // OP01-091 King (Leader)
+  // "[Your Turn] If you have 10 DON!! cards on your field, give all of your
+  //  opponent's Characters −1000 power."
+  //
+  // The set's most expensive condition, and the only card that asks for **all
+  // ten**: a player has exactly ten DON!! (CR 5-1-2), so this is every one of
+  // them deployed and nothing left in the DON!! deck. It is reachable — the
+  // DON!! Phase adds one per turn — and it is a Leader, so the static is live in
+  // every game this Leader leads.
+  //
+  // A `static` with two printed conditions and no duration: `[Your Turn]` is a
+  // condition (CR 8-3-2-4), not a timing, and the count is re-read every time
+  // the question is asked. **Negative power is a real value** — CR 1-3-6-1,
+  // "power can become a negative value" — so nothing clamps the grant.
+  'OP01-091': [
+    {
+      id: 'OP01-091-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [{ kind: 'isYourTurn' }, { kind: 'donOnField', min: 10 }],
+      },
+      script: [],
+      affects: { selector: { zone: 'field', owner: 'opponent', category: ['character'] } },
+      grants: { power: -1000 },
+    },
+  ],
+
+  // OP01-095 Kyoshirou
+  // "[On Play] Draw 1 card if you have 8 or more DON!! cards on your field."
+  //
+  // The same count as an ordinary activation condition, which is the other half
+  // of the pair: `OP01-109` reads it inside static evaluation and this reads it
+  // in `legalActions` and at CR 8-4-1-1. One condition, two very different
+  // places, and they have to agree.
+  //
+  // The "if" clause trails the instruction in the printed text and is still a
+  // condition on the whole ability: CR 4-10-1 makes a failed `if` stop what
+  // follows it, and there is nothing here but the draw.
+  'OP01-095': [
+    {
+      id: 'OP01-095-onPlay',
+      trigger: 'onPlay',
+      condition: { kind: 'donOnField', min: 8 },
+      script: [{ op: 'draw', player: 'you', count: 1 }],
+    },
+  ],
+
+  // OP01-109 Who's.Who
+  // "[DON!! x1] [Your Turn] If you have 8 or more DON!! cards on your field,
+  //  this Character gains +1000 power."
+  //
+  // Three printed conditions and all three are gates on the same continuous
+  // effect, so `and`. `[DON!! x1]` asks how many DON!! are **attached to this
+  // card** and `donOnField` asks how many are on the field at all — two
+  // different questions about the same resource, and this card is where they
+  // stand next to each other.
+  //
+  // The card that proves the count is safe inside static evaluation: it is read
+  // on every power lookup, and DON!! carry no abilities for it to re-enter.
+  'OP01-109': [
+    {
+      id: 'OP01-109-static',
+      trigger: 'static',
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          { kind: 'isYourTurn' },
+          { kind: 'donOnField', min: 8 },
+        ],
+      },
+      script: [],
+      affects: { self: true },
+      grants: { power: 1000 },
+    },
+  ],
+
+  // --- a cost that moves cards the player chooses --------------------------
+
+  // OP01-011 Gordon
+  // "[On Play] You may place 1 card from your hand at the bottom of your deck:
+  //  Draw 1 card."
+  //
+  // The whole card is the cost: a hand card goes under the deck and a fresh one
+  // comes off the top. `bottomDeckHand` rather than `discardHand` because the
+  // card is **moved, not trashed** — it is still in the deck and its owner can
+  // draw it again, which is the difference between this and a discard.
+  //
+  // One card, so no ordering. "Place them at the bottom in any order" is a real
+  // mechanism (PR #32's `orderToBottom`) and this is not it: the printed count
+  // is one, and one card has one arrangement.
+  'OP01-011': [
+    {
+      id: 'OP01-011-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'bottomDeckHand', count: 1 }],
+      script: [{ op: 'draw', player: 'you', count: 1 }],
+    },
+  ],
+
+  // OP01-047 Trafalgar Law
+  // "[Blocker]" — printed keyword.
+  // "[On Play] You may return 1 Character to your hand: Play up to 1 Character
+  //  card with a cost of 3 or less from your hand."
+  //
+  // **The source is a candidate for its own cost.** Nothing in the text excludes
+  // it, and a card that means to says so — `OP08-047` prints "return 1 of your
+  // Characters **other than this Character**". So Law may pay with Law, and the
+  // play that follows resolves from the hand;
+  // `rules.selfReturnResolvesEffect` is the reading, and it is the one this
+  // engine already applies everywhere else (`OP01-007` Caribou's `[On K.O.]`
+  // resolves from the trash).
+  //
+  // **"1 Character" means one of yours**, and two independent readings agree.
+  // The printed destination is "**your** hand", which is only true of a card you
+  // own; and `ZoneRef` carries no owner because a card always returns to its
+  // *owner's* zone, so offering the opponent's Character would move it to their
+  // hand and contradict the sentence. This is also the only card in the game
+  // worded that way — 17 later cards print "1 of your Characters ... to the
+  // owner's hand", which is what OP-01's wording standardised into.
+  //
+  // Returning Law to hand and then playing a 3-cost Character is a real line:
+  // the cost is paid before the script runs (CR 8-4-1-3 before 8-4-1-5), so the
+  // board has a slot free by the time the play happens.
+  'OP01-047': [
+    {
+      id: 'OP01-047-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'returnCharacters', count: 1 }],
+      script: [
+        {
+          op: 'select',
+          as: 'recruit',
+          from: { zone: 'hand', owner: 'you', category: ['character'], costMax: 3 },
+          min: 0,
+          max: 1,
+          prompt: 'Play up to 1 Character card with a cost of 3 or less from your hand',
+        },
+        { op: 'play', target: { var: 'recruit' } },
+      ],
+    },
+  ],
+
+  // OP01-055 You Can Be My Samurai!!
+  // "[Main] You may rest 2 of your Characters: Draw 2 cards."
+  //
+  // The card `restSelf` could not express, and the reason the sibling exists: an
+  // **Event** has no self to rest. CR 8-4-2 trashes the Event as it activates,
+  // so by the time the cost is paid the source is not on the field at all — the
+  // cost has to name other cards or there is nothing to name.
+  //
+  // Two Characters, and only active ones can pay. With fewer than two active the
+  // whole cost is unpayable (CR 8-3-1-3, "if it is not possible to pay some or
+  // all of the activation cost, the activation cost to activate the effect
+  // cannot be paid at all"), so `canPayCosts` keeps the card out of
+  // `legalActions` rather than offering a play that would fizzle.
+  'OP01-055': [
+    {
+      id: 'OP01-055-main',
+      trigger: 'mainEvent',
+      optional: true,
+      cost: [{ kind: 'restCharacters', count: 2 }],
+      script: [{ op: 'draw', player: 'you', count: 2 }],
+    },
+  ],
+
+  // --- a cost paid with a Life card ----------------------------------------
+  //
+  // `lifeToHand` takes the **top** card and asks nothing: CR 3-10-2 makes the
+  // Life area a secret stack and says "a player must select the card at the top
+  // of their Life cards unless otherwise specified", and neither card
+  // otherwise-specifies. These two are the only cards in the game that word it
+  // "from your Life area" rather than "from the top of your Life cards", and the
+  // default rule resolves both to the same card.
+  //
+  // **No `[Trigger]` fires.** CR 2-11-1 makes `[Trigger]` an effect activated
+  // "instead of the player adding the card from their Life area to their hand
+  // **on taking damage**", and CR 4-6-3 offers it only during the damage
+  // procedure of CR 4-6-2. A payment is not damage.
+  //
+  // **Paying the last Life card is legal.** CR 1-2-1-1-1 makes the defeat
+  // condition "0 Life cards **and** your Leader takes damage" — reaching zero is
+  // not one, so a player may spend down to nothing and keep playing.
+
+  // OP01-008 Cavendish
+  // "[On Play] You may add 1 card from your Life area to your hand: This
+  //  Character gains [Rush] during this turn."
+  //
+  // A tempo card that pays in Life: the [Rush] lets it attack the turn it lands,
+  // and the price is a card off the top of the Life area — which also *thins*
+  // the buffer between the player and the defeat condition, so the cost is real
+  // in both directions.
+  'OP01-008': [
+    {
+      id: 'OP01-008-onPlay',
+      trigger: 'onPlay',
+      optional: true,
+      cost: [{ kind: 'lifeToHand', count: 1 }],
+      script: [
+        { op: 'grantKeyword', target: { self: true }, keyword: 'rush', duration: 'endOfTurn' },
+      ],
+    },
+  ],
+
+  // OP01-013 Sanji
+  // "[Activate: Main] [Once Per Turn] You may add 1 card from your Life area to
+  //  your hand: This Character gains +2000 power during this turn. Then, give
+  //  this Character up to 2 rested DON!! cards."
+  //
+  // The same price with two instructions after it, and the "Then" is sequence
+  // rather than dependency: CR 4-10-2 lets the clause after a `then` resolve
+  // even when the one before it could not. Both halves are unconditional here,
+  // so the ordering only decides what the board looks like in between.
+  //
+  // `giveDon` draws from **rested** DON!! only, which is the op's own rule and
+  // the printed word — an empty rested pool gives nothing rather than reaching
+  // for an active DON!! the card does not authorize.
+  'OP01-013': [
+    {
+      id: 'OP01-013-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      optional: true,
+      cost: [{ kind: 'lifeToHand', count: 1 }],
+      script: [
+        { op: 'addPower', target: { self: true }, value: 2000, duration: 'endOfTurn' },
+        { op: 'giveDon', target: { self: true }, count: 2 },
+      ],
+    },
+  ],
 });

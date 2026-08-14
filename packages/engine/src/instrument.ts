@@ -80,12 +80,28 @@ export const MARK_NAMES = [
   'ability.resolved',
   'ability.declined',
   'ability.costLostBeforeResolution',
+  // Only reachable with `rules.selfReturnResolvesEffect` false: an ability whose
+  // own activation cost removed its source from the field. `OP01-047` is the
+  // one printed route to it.
+  'ability.sourceLeftDuringPayment',
   'trigger.chained',
   'cost.returnDon',
   'cost.trashSelf',
   'cost.restSelf',
   'cost.discardHand',
   'cost.discardChoice',
+  // The three costs that ask, and the one that does not. Each choice-opening
+  // cost gets its own `*Choice` mark beside its payment mark, following
+  // `discardChoice`/`discardHand`: the pair is what tells "the price was
+  // offered" from "the price was paid" in the coverage sweep, which matters for
+  // a payment that can be left suspended.
+  'cost.bottomDeckChoice',
+  'cost.bottomDeckHand',
+  'cost.returnCharacterChoice',
+  'cost.returnCharacters',
+  'cost.restCharacterChoice',
+  'cost.restCharacters',
+  'cost.lifeToHand',
 
   // Instructions.
   'op.ko',

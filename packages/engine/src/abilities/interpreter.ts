@@ -153,6 +153,69 @@ function payChosenDiscard(
 }
 
 /**
+ * Applies whichever chosen cost the player just answered.
+ *
+ * One routine rather than four call sites, for `payChosenDiscard`'s reason:
+ * nothing else may write a payment, which is what keeps a cost identical whether
+ * it was answered in the same process or after a JSON round trip.
+ *
+ * The two `restSelf`-less costs are missing on purpose — `restDon`, `returnDon`,
+ * `trashSelf`, `restSelf` and `lifeToHand` never open a choice, so an answer can
+ * never be about them and the default throws rather than silently doing nothing.
+ */
+function payChosenCost(
+  draft: GameState,
+  player: PlayerId,
+  cost: Cost,
+  chosen: readonly InstanceId[],
+  events: GameEvent[],
+): void {
+  switch (cost.kind) {
+    case 'discardHand':
+      payChosenDiscard(draft, player, chosen, events);
+      return;
+    case 'bottomDeckHand': {
+      const ps = draft.players[player];
+      for (const id of chosen) {
+        const at = ps.hand.indexOf(id);
+        if (at === -1) {
+          throw new Error('Engine bug: bottom-deck cost names a card that is not in hand');
+        }
+        ps.hand.splice(at, 1);
+        ps.deck.push(id);
+        emit(draft, events, { type: 'cardMoved', player, instanceId: id, to: 'deck' });
+      }
+      mark('cost.bottomDeckHand');
+      return;
+    }
+    case 'returnCharacters': {
+      // Through `moveCard`, which is the routine `[On Play]`-style bounces
+      // already use: it detaches DON!!, clears modifiers and delivers the card
+      // to its **owner's** hand (CR 3-1-6). Paying with the source is allowed and
+      // is what `rules.selfReturnResolvesEffect` is about — the payment itself is
+      // the same move either way.
+      for (const id of chosen) {
+        moveCard(draft, id, { zone: 'hand' }, 'top', events);
+      }
+      mark('cost.returnCharacters');
+      return;
+    }
+    case 'restCharacters': {
+      for (const id of chosen) {
+        // Through the shared transition, so a Character rested to pay for
+        // somebody else's ability still *became rested* — the same route
+        // `restSelf` takes, and the reason `whenBecomingRested` sees both.
+        setOrientation(draft, id, 'rested', events);
+      }
+      mark('cost.restCharacters');
+      return;
+    }
+    default:
+      throw new Error(`Engine bug: ${cost.kind} does not open a choice`);
+  }
+}
+
+/**
  * Pays one entry of a checked cost list, in printed order (CR 8-3-1-1: multiple
  * actions in one activation cost "are to be carried out in order starting from
  * the text closest to the top" — the order is the card's, never the player's).
@@ -242,6 +305,90 @@ function payCost(
       // and the one a card is most likely to be written to catch.
       setOrientation(draft, item.source, 'rested', events);
       return true;
+    }
+    case 'lifeToHand': {
+      // The one new cost in this batch that asks nothing. CR 3-10-2: "when
+      // moving a card from their Life area to another area, a player must select
+      // the card at the top of their Life cards unless otherwise specified", and
+      // neither printed card otherwise-specifies — `OP01-008` and `OP01-013` say
+      // "1 card from your Life area", which the default rule resolves to the top.
+      //
+      // **No `[Trigger]`.** CR 2-11-1 makes `[Trigger]` "an effect that can be
+      // activated instead of the player adding the card from their Life area to
+      // their hand **on taking damage**", and CR 4-6-3 offers it only for a card
+      // added "during this procedure" — the damage procedure of CR 4-6-2. This is
+      // a payment, so the card arrives in hand as an ordinary card and
+      // `applyDamage`'s trigger route is not involved.
+      const ps = draft.players[item.controller];
+      for (let i = 0; i < cost.count; i += 1) {
+        const id = ps.life.shift();
+        if (id === undefined) {
+          throw new Error('Engine bug: life cost paid with an empty Life area');
+        }
+        ps.hand.push(id);
+        mark('cost.lifeToHand');
+        emit(draft, events, { type: 'cardMoved', player: item.controller, instanceId: id, to: 'hand' });
+      }
+      return true;
+    }
+    case 'bottomDeckHand': {
+      const hand = draft.players[item.controller].hand;
+      if (hand.length < cost.count) {
+        throw new Error('Engine bug: not enough hand cards at bottom-deck time');
+      }
+      mark('cost.bottomDeckChoice');
+      openChoice(draft, events, {
+        player: item.controller,
+        kind: 'selectCards',
+        prompt: `Place ${cost.count} card${cost.count === 1 ? '' : 's'} from your hand at the bottom of your deck`,
+        candidates: [...hand],
+        min: cost.count,
+        max: cost.count,
+        sink: { kind: 'cost' },
+      });
+      return false;
+    }
+    case 'returnCharacters': {
+      const characters = draft.players[item.controller].characters;
+      if (characters.length < cost.count) {
+        throw new Error('Engine bug: not enough Characters at return time');
+      }
+      // The source is **not** excluded. Nothing in `OP01-047`'s text excludes it,
+      // and a card that means to says so — `OP08-047` prints "other than this
+      // Character". What happens after it pays with itself is
+      // `rules.selfReturnResolvesEffect`.
+      mark('cost.returnCharacterChoice');
+      openChoice(draft, events, {
+        player: item.controller,
+        kind: 'selectCards',
+        prompt: `Return ${cost.count} Character${cost.count === 1 ? '' : 's'} to your hand`,
+        candidates: [...characters],
+        min: cost.count,
+        max: cost.count,
+        sink: { kind: 'cost' },
+      });
+      return false;
+    }
+    case 'restCharacters': {
+      const active = draft.players[item.controller].characters.filter(
+        (id) => draft.cards[id]?.orientation === 'active',
+      );
+      if (active.length < cost.count) {
+        throw new Error('Engine bug: not enough active Characters at rest time');
+      }
+      // Active only, for `restSelf`'s reason: resting is a state change and a
+      // card already rested has none to make.
+      mark('cost.restCharacterChoice');
+      openChoice(draft, events, {
+        player: item.controller,
+        kind: 'selectCards',
+        prompt: `Rest ${cost.count} of your Characters`,
+        candidates: active,
+        min: cost.count,
+        max: cost.count,
+        sink: { kind: 'cost' },
+      });
+      return false;
     }
     case 'discardHand': {
       const candidates = discardCandidates(draft, ctxOf(item), cost);
@@ -1381,6 +1528,19 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
       }
       return;
     }
+    // Every cost is paid; the effect activates (CR 8-4-1-4) and resolves
+    // (8-4-1-5). The one case where that is a judgement rather than a step is a
+    // cost that removed its **own source** from the field — `OP01-047` Law
+    // paying "return 1 Character to your hand" with Law. CR 8-1-3-1-3 read
+    // against CR 8-4-1's ordering says such an effect never activates; CR
+    // 8-3-1-3-1 describes activation as already having happened by the time a
+    // payment is in progress. `rules.selfReturnResolvesEffect` picks, and the
+    // default keeps the printed card meaning something.
+    if (!draft.rules.selfReturnResolvesEffect && costs.length > 0 && !isOnField(draft, item.source)) {
+      mark('ability.sourceLeftDuringPayment');
+      draft.stack.pop();
+      return;
+    }
     item.status = 'running';
     mark('ability.resolved');
     emit(draft, events, {
@@ -1702,10 +1862,25 @@ export function applyAnswer(
     if (answer.kind !== 'cards') {
       throw new Error('Engine bug: cost answered with a non-cards answer');
     }
+    // **The sink did not have to grow, and `costsPaid` is why.** Four costs can
+    // now open a choice where PR #28 had one, so the answer has to know which
+    // price it is paying — and that is exactly what `costsPaid` already names:
+    // the cost that suspended did not advance it, so it is still pointing at
+    // itself. Recording the kind on the sink would be recording a second time
+    // something the stack item already says, and the two could then disagree.
+    // `abilityOf` can return null for a source that has left the field, and a
+    // cost that removes its own source makes that reachable — `OP01-047` paying
+    // with itself is exactly it. The definition is still findable because
+    // `getAbilities` reads the registry rather than the board, so the null here
+    // means the *instance* is gone, which a payment in progress cannot survive.
+    const paying = abilityOf(draft, item)?.cost?.[item.costsPaid];
+    if (paying === undefined) {
+      throw new Error('Engine bug: a cost answer with no cost at the cursor');
+    }
+    payChosenCost(draft, item.controller, paying, answer.selected, events);
     // The same rule the script cursor lives by, one level up: the cost that
     // opened this choice did not advance `costsPaid`, so the answer both pays
     // and advances. Between the two there is no half-paid state to serialize.
-    payChosenDiscard(draft, item.controller, answer.selected, events);
     item.costsPaid += 1;
     return;
   }

@@ -48,7 +48,18 @@ function toCounterStep(hand: string[], activeDon: number): GameState {
     p1: { characters: [{ cardId: 'ABIL-005' }] },
     // clearHand so the defender's hand is exactly `hand`: the dealt opening hand
     // can itself contain an ABIL-016, which would make the offer counts noise.
-    p2: { hand, activeDon, clearHand: true },
+    //
+    // `lifeCards` for the same reason one step further out. The **life deal**
+    // can also swallow an ABIL-016, and then a case asking for two in hand gets
+    // one — which is a failure about a shuffle rather than about Counter Events.
+    // Naming the life area makes the position independent of the deck list, so
+    // the next card added to the ABIL set cannot move it again.
+    p2: {
+      hand,
+      activeDon,
+      clearHand: true,
+      lifeCards: ['ABIL-006', 'ABIL-007', 'ABIL-010', 'ABIL-012', 'ABIL-013'],
+    },
   });
   const attacking = applyOk(staged, {
     type: 'DECLARE_ATTACK',

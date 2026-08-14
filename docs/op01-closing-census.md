@@ -1,5 +1,13 @@
 # OP-01 closing census — every unwritten card, re-read against today's engine
 
+> ## OP-01 is 121 of 121, and both sets are complete
+>
+> The three rows this document declared were **reversed on 14 August 2026**, and
+> the starters' last row with them. Nothing below is edited: the reversal is
+> [an appendix at the foot of the page](#appendix--the-three-declarations-reversed-14-august-2026),
+> with its date and its reason, so the original "declined" stays legible beside
+> it. Read the page as it was written and the appendix as what happened next.
+
 > ## OP-01 is closed: 118 of 121, in four PRs
 >
 > **PR 1 — reference by name** (12 cards). Row 5 was this document's headline and
@@ -904,3 +912,86 @@ and reasons instead of a queue. The engine that got here has 45 test files and
 Nothing in this document is edited to agree with the build. The tables above the
 line are what was true on the day they were counted, and this section is what
 happened next.
+
+## Appendix — the three declarations, reversed (14 August 2026)
+
+**OP-01 is 121 of 121.** `OP01-024`, `OP01-069` and `OP01-098` are written, and
+so is `ST02-010` Basil Hawkins, the starters' one declared row. Both sets are
+complete: **155 cards, all of them working.**
+
+This appendix is an appendix and not an edit. Everything above it — including
+"the three, and why each stays" three sections up, and the row-by-row verdicts in
+the census table — is left exactly as written. That is this document's policy and
+it is the reason the policy exists: **a census edited after the fact to agree
+with the build is a census nobody can check the build against.** The declarations
+were the right call on the day they were made, and the way to record that they
+are no longer the right call is to stack, not to overwrite.
+
+### The reason, which is not a change of standard
+
+The standard was the Hawkins standard, stated in `docs/starter-card-inventory.md`
+and applied here four times: *a mechanism with one card asking and no second
+asker is a declared row, not a build.*
+
+Read carefully, that standard prices an **opportunity cost**. It is not a claim
+that a one-asker mechanism is unbuildable, or wrong, or bad value in isolation —
+it is a claim that the effort belongs to the twelve cards waiting behind it
+instead. Every time this project applied it, the sentence had an unstated second
+half: *…because there is something better to build next.*
+
+There is no longer anything next. Four PRs took OP-01 from 86 to 118 and one
+took the starters to 33 of 34, and after them the queue is these four cards and
+nothing else. A rule that reads "spend the effort on the larger group" returns a
+different answer when the remainder **is** the larger group — in fact when it is
+the only group. So the standard did not move; the board it measures did, and this
+is what it now says.
+
+Stated as the arithmetic the rest of this document is written in:
+
+| | Cards blocked behind the next capability | Verdict for a one-asker mechanism |
+| --- | --- | --- |
+| at the census | 35 | **declare** — the effort belongs to the 35 |
+| after PRs 1–4 | 11 | **declare** — still a queue |
+| after PRs 5–7 | 3 (+1 starter) | **build** — the remainder is the queue |
+
+### What each one cost, against what the census predicted
+
+| Card | The census's wall | What it actually took |
+| --- | --- | --- |
+| `OP01-024` | an attribute filter **and** a targeted `koInBattle` — "two capabilities for one card" | Both, and the count was exactly right. One optional field on `CardFilter`, one optional field on a `LegalityClause` member, and `clauseHolds` learning that two questions have a pair instead of one |
+| `OP01-069`, `OP01-098` | "search the whole deck and shuffle", 8 cards in the set | One `Selector` zone and one op. The op is the half the row under-described: the shuffle is not bookkeeping, it is CR 11-4-1 and it is what makes the search legal |
+| `ST02-010` | PR #35: "two new capabilities for one card in 2665" | **One.** The moment is a new `Trigger` member; the question the ruling said `Condition` could not ask is `Condition.varMatches` over the trigger's seed, and `varMatches` shipped for `OP01-063` Arlong one PR after the ruling was written |
+
+That last row is the counting rule's second clause one final time, and it is the
+one this document has now watched happen six times: *a row's wall is a claim about
+every other gap, and every closed gap since it was written can falsify it.* PR
+#35 was right that `Condition` could not see the battle. It stopped being right
+four PRs later, and nothing re-read the row until the row was the last one left.
+
+### Two things the build found that the census could not
+
+**The noun in `OP01-024` is load-bearing, and it is reachable.** "cannot be
+K.O.'d in battle by ＜Strike＞ attribute **Characters**" leaves a ＜Strike＞
+*Leader* free to K.O. it — and `OP01-003` Monkey.D.Luffy is a ＜Strike＞ Leader
+in one of the two colours `OP01-024` can be played in. This is not a corner case
+constructed for a test; it is an ordinary game of the set, and a `category`
+clause is what keeps it right.
+
+**The attribute filter reaches four sites and only one had a card.** The field
+enters `CardFilter` beside `types` and `names`, which means a script `Selector`,
+`Condition.countCards`, a static's `Audience` and a `LegalityClause`'s target all
+answer to it — and `OP01-024` needs exactly the last of those. That is the shape
+that left `names` untested in a legality clause for two PRs until `OP01-051` Kid
+found it, so all four are written now rather than when a future card discovers
+one is missing.
+
+### What is left
+
+Nothing, for these two sets. The rows this document opened and the rows the
+starter inventory opened are all closed, and what remains is what it always was:
+sets this repo has not started, and the standing divergences the engine declares
+rather than hides — the per-player view chief among them, which
+[`op01-inventory.md`](op01-inventory.md) now records a fourth reachable card for.
+The whole-deck search is the first mechanism in the engine that makes a player
+learn forty cards, and the shuffle after it is the first that takes knowledge
+back.

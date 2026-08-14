@@ -133,6 +133,16 @@ describe('the OP-01 test decks are legal', () => {
       // The top-or-bottom partition, the campaign's last capability.
       'OP01-073',
       'OP01-077',
+      // The DON!! count condition and the two new cost families - eight cards
+      // across three census rows.
+      'OP01-008',
+      'OP01-011',
+      'OP01-013',
+      'OP01-047',
+      'OP01-055',
+      'OP01-091',
+      'OP01-095',
+      'OP01-109',
       // The player-chosen discard instruction - the census's four, and the
       // last half of the deterministic-discard divergence.
       'OP01-038',

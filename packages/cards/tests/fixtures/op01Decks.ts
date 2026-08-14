@@ -834,6 +834,102 @@ export const OP01_G_KANJURO: Decklist = {
   ],
 };
 
+/* ------------------------- the DON!! count and the two new cost families (8) */
+
+/**
+ * Two more decks, and the fifteen above stay untouched — the same trade the last
+ * two batches made, for the same reason: a seed measured against a 50-card
+ * fixture is a fact about that shuffle, and cutting a filler to make room forces
+ * a corpus re-search that cannot tell a regression from a reshuffle.
+ *
+ * Two because the eight cards do not share a colour, and one of them is a
+ * **Leader**: `OP01-091` King's static is only live in a game King is leading,
+ * which is the same constraint `OP01_R_ZORO` and `OP01_G_ODEN` were built under.
+ */
+
+/**
+ * Leader `OP01-091` King, mono-purple — the DON!! count, at both of its lines.
+ *
+ * The deck is built around a **resource threshold** rather than around an
+ * effect, which is new here. King asks for 10 DON!! on the field and Who's.Who
+ * for 8, and the DON!! Phase supplies one per turn (CR 6-4) — so a deck that
+ * only ever gains at that rate reaches 8 on turn 8 and 10 on turn 10, which is
+ * past where most random games end. Four of its lines add DON!! out of the DON!!
+ * deck (`OP01-093`, `OP01-106`, `OP01-113`, `OP01-115`, all written in batch 10)
+ * and that is what makes the thresholds reachable in ordinary play rather than
+ * only in a staged position.
+ *
+ * `OP01-099` Kurozumi Semimaru is here for its board presence rather than its
+ * static — it is a cheap {Kurozumi Clan} body — and `OP01-100` is the inert one
+ * beside it.
+ */
+export const OP01_P_KING: Decklist = {
+  id: 'OP01-P-KING',
+  name: 'OP-01 mono-purple (test fixture, King — the DON!! count)',
+  packId: '569101',
+  leader: 'OP01-091',
+  cards: [
+    { cardId: 'OP01-095', qty: 4 }, // Kyoshirou — [On Play] draw at 8 DON!!
+    { cardId: 'OP01-109', qty: 4 }, // Who's.Who — static +1000 at 8 DON!!
+    // The DON!! engine. Without these the thresholds are theoretical.
+    { cardId: 'OP01-093', qty: 4 }, // Ulti — rest a DON!!, add a rested one
+    { cardId: 'OP01-106', qty: 4 }, // Basil Hawkins — [On Play] add; [Trigger] play self
+    { cardId: 'OP01-113', qty: 4 }, // Holedem — [On K.O.] add a rested one
+    { cardId: 'OP01-115', qty: 4 }, // Elephant's Marchoo — K.O., then add an active one
+    // Bodies, cheap enough that the board fills while the DON!! pile grows.
+    { cardId: 'OP01-104', qty: 4 }, // Speed — [Trigger] Play this card
+    { cardId: 'OP01-099', qty: 4 }, // Kurozumi Semimaru — cost 2
+    { cardId: 'OP01-100', qty: 4 }, // Kurozumi Higurashi — [Blocker] only, cost 2
+    { cardId: 'OP01-103', qty: 4 }, // Scratchmen Apoo — vanilla, cost 4
+    { cardId: 'OP01-107', qty: 4 }, // Babanuki — vanilla, cost 5
+    { cardId: 'OP01-110', qty: 4 }, // Fukurokuju — vanilla, cost 6
+    { cardId: 'OP01-092', qty: 2 }, // Urashima — vanilla, cost 7
+  ],
+};
+
+/**
+ * Leader `OP01-003` Monkey.D.Luffy, red/green — the two new cost families.
+ *
+ * Red carries the Life cost (`OP01-008`, `OP01-013`) and the bottom-deck cost
+ * (`OP01-011`); green carries the two that move Characters (`OP01-047`,
+ * `OP01-055`). No OP-01 Leader is red **and** green except the two red/green
+ * ones, so this is the only shape that holds all five.
+ *
+ * Every remaining slot is inert, which is deliberate and unusually strict here:
+ * the manifestation union for this deck should be the five cards and nothing
+ * else, because what is being measured is that five *costs* got paid — and a
+ * filler with an ability of its own would put entries in that union which say
+ * nothing about this batch.
+ *
+ * The curve is cheap for two reasons at once. `OP01-047` plays a Character
+ * costing 3 or less out of hand, so the deck has to hold some; and `OP01-055`
+ * needs **two active Characters** before it can be played at all, which a deck
+ * of expensive bodies would reach far too late.
+ */
+export const OP01_RG_LIFE: Decklist = {
+  id: 'OP01-RG-LIFE',
+  name: 'OP-01 red/green (test fixture, Luffy — the two new cost families)',
+  packId: '569101',
+  leader: 'OP01-003',
+  cards: [
+    { cardId: 'OP01-008', qty: 4 }, // Cavendish — Life card: gains [Rush]
+    { cardId: 'OP01-013', qty: 4 }, // Sanji — Life card: +2000, then 2 rested DON!!
+    { cardId: 'OP01-011', qty: 4 }, // Gordon — a hand card under the deck: draw 1
+    { cardId: 'OP01-047', qty: 4 }, // Trafalgar Law — return a Character: play a 3-drop
+    { cardId: 'OP01-055', qty: 4 }, // You Can Be My Samurai!! — rest 2: draw 2
+    // Inert bodies only. Four of them cost 3 or less, which is what `OP01-047`
+    // is allowed to put down and what `OP01-055` needs standing.
+    { cardId: 'OP01-010', qty: 4 }, // Komachiyo — vanilla, cost 1
+    { cardId: 'OP01-012', qty: 4 }, // Sai — vanilla, cost 2
+    { cardId: 'OP01-023', qty: 4 }, // Marco — vanilla, cost 3
+    { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — [Rush] only, cost 3
+    { cardId: 'OP01-036', qty: 4 }, // Otsuru — vanilla, cost 1
+    { cardId: 'OP01-043', qty: 4 }, // Shinobu — vanilla, cost 3
+    { cardId: 'OP01-045', qty: 4 }, // Jean Bart — vanilla, cost 4
+    { cardId: 'OP01-053', qty: 2 }, // Wire — vanilla, cost 2
+  ],
+};
+
 export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_RG_LUFFY,
   OP01_R_ZORO,
@@ -850,6 +946,8 @@ export const OP01_TEST_DECKS: readonly Decklist[] = Object.freeze([
   OP01_BP_PACIFISTA,
   OP01_BP_JACK,
   OP01_G_KANJURO,
+  OP01_P_KING,
+  OP01_RG_LIFE,
 ]);
 
 /**

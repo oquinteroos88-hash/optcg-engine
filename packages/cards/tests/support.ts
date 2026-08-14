@@ -19,6 +19,8 @@ import {
   OP01_BP_PACIFISTA,
   OP01_BP_JACK,
   OP01_G_KANJURO,
+  OP01_P_KING,
+  OP01_RG_LIFE,
   assertFixtureDecksAreLegal,
 } from './fixtures/op01Decks.js';
 
@@ -223,6 +225,24 @@ export function op01KanjuroScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): Gam
 
 export const OP01_JACK_DECKS = { p1: OP01_JACK_DECK, p2: OP01_JACK_DECK };
 export const OP01_KANJURO_DECKS = { p1: OP01_KANJURO_DECK, p2: OP01_KANJURO_DECK };
+
+/* ---------------- the DON!! count and the two new cost families (8) ------- */
+
+const OP01_KING_DECK = toEngineDecklist(OP01_P_KING);
+const OP01_LIFE_DECK = toEngineDecklist(OP01_RG_LIFE);
+
+/** Mono-purple, King-led. The only deck where King's own static is live. */
+export function op01KingScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_KING_DECK, p2: OP01_KING_DECK } });
+}
+
+/** Red/green, Luffy-led. The Life cost, the bottom-deck cost and the two that move Characters. */
+export function op01LifeScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_LIFE_DECK, p2: OP01_LIFE_DECK } });
+}
+
+export const OP01_KING_DECKS = { p1: OP01_KING_DECK, p2: OP01_KING_DECK };
+export const OP01_LIFE_DECKS = { p1: OP01_LIFE_DECK, p2: OP01_LIFE_DECK };
 
 export function applyOk(state: GameState, action: Action): { state: GameState; events: GameEvent[] } {
   const result = applyAction(state, action);

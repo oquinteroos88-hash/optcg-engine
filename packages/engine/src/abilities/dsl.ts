@@ -183,6 +183,52 @@ export type Trigger =
    * *leaving*, and CR 3-7-6-1-1 makes it "processing a rule".
    */
   | 'whenOpponentPlaysCharacter'
+  /**
+   * **Both cards in a battle, at the Damage Step** — "if this Character battles
+   * your opponent's Character".
+   *
+   * `ST02-010` Basil Hawkins is the one card in all 2665 whose text matches "if
+   * this Character battles", and this exists because PR #35's ruling named
+   * exactly what was missing and then declined to build it. The ruling is in
+   * `docs/starter-card-inventory.md` and it is not re-derived here; what follows
+   * is only the two things it fixed and what each one decides about this member.
+   *
+   * **The moment is the Damage Step, and the ruling settled that by elimination.**
+   * Hawkins carries no activation-timing marker — CR 8-1-3-1-1 lists them and it
+   * has none — and CR 8-3-3 governs its "If" as a condition, so the moment is
+   * the battle itself. The engine's two nearest timings are CR 7-1-1-3's
+   * `[When Attacking]` at declaration and the blocker's `[On Block]`, and the
+   * ruling rejected the first outright rather than as an approximation: **CR
+   * 7-1-2-2 makes a `[Blocker]` the new target of the attack**, so a card that
+   * declared against the Leader can end up battling a Character, and a
+   * declaration-time reading both misses that case and fires before the battle it
+   * names has happened. The Damage Step is where neither is true — CR 7-1-4-1
+   * compares "the power of the attacking card and the card being attacked", and
+   * those two cards are final by then because the Block and Counter Steps are
+   * over.
+   *
+   * **A battle that ends early never reaches it**, and that is the rule rather
+   * than a consequence of where the call sits: CR 7-1-1-4, 7-1-2-3 and 7-1-3-3
+   * route a battle whose participant left the field straight to End of the
+   * Battle, skipping the Damage Step. No power was compared, so nothing battled.
+   *
+   * **Both participants, and `[Your Turn]` is what excludes blocking.** The
+   * ruling settled that half by rule and not by inference — CR 8-3-2-4 meets
+   * `[Your Turn]` "during your turn" and CR 7-1-2-1 makes blocking "the player
+   * being attacked"'s act — so Hawkins blocking is a condition that fails, not a
+   * trigger that never fired. Firing on the attacker alone would have put that
+   * ruling in the engine, where no card could see it; firing on both puts it in
+   * the card, where the printed marker is.
+   *
+   * **The other card comes in as `BATTLE_OPPONENT_VAR`**, seeded the way
+   * `KO_CAUSE_VAR` is, and that is the second capability the ruling asked for
+   * arriving at no cost: "your opponent's **Character**" is `Condition.varMatches`
+   * over the seed, and `varMatches` was built for `OP01-063` Arlong one PR
+   * earlier. The ruling said `Condition` "cannot see the battle at all" and it was
+   * right on the day it was written; a seeded variable is how every other fact a
+   * trigger knows and an ability cannot look up already reaches a condition.
+   */
+  | 'whenBattling'
   | 'activateMain'
   | 'trigger'
   | 'counterEvent'
@@ -1196,6 +1242,24 @@ export const KO_CAUSE_VAR = 'koCause';
 
 /** The `KO_CAUSE_VAR` value for a K.O. that was not caused by any effect. */
 export const KO_BY_BATTLE = 'battle';
+
+/**
+ * The reserved variable a `whenBattling` trigger is seeded with: **the other
+ * card in the battle**, as a one-element id list.
+ *
+ * `KO_CAUSE_VAR`'s sibling and the third reserved name in the DSL. It holds ids
+ * rather than a player, so the two conditions that read a variable of ids —
+ * `varMatches` and, through `Selector.differentColorFrom`, a filter — reach it
+ * with nothing added. That is the whole reason it is a variable and not a new
+ * `Condition` member that peers at `state.battle`: the battle is closed by the
+ * time a queued ability resolves, and a fact carried on the stack item survives
+ * both that and a JSON round trip. A member reading the live battle would answer
+ * a different question depending on when it was asked.
+ *
+ * A list of one, never a bare id, so `idsFromVar` and `varMatches`'s "every id
+ * matches" reading are the same code they are everywhere else.
+ */
+export const BATTLE_OPPONENT_VAR = 'battleOpponent';
 
 /**
  * Printed keyword spellings. `CardDefinition.keywords` stores the printed form

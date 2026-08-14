@@ -50,7 +50,7 @@ export type {
   VarValue,
   ZoneRef,
 } from './abilities/dsl.js';
-export { KEYWORDS, LOOP_VAR, PRINTED_KEYWORD } from './abilities/dsl.js';
+export { BATTLE_OPPONENT_VAR, KEYWORDS, LOOP_VAR, PRINTED_KEYWORD } from './abilities/dsl.js';
 export { deadMarks, mark, markCounts, marksEnabled, MARK_NAMES, resetMarks } from './instrument.js';
 export type { MarkCount, MarkName } from './instrument.js';
 export { next, nextInt, shuffle } from './rng.js';

@@ -39,12 +39,25 @@ const TRIGGER_COPIES_NEEDED = 2;
  */
 const PAIRED: readonly CardId[] = [
   'ABIL-003',
+  // Named when the name-reference cards took the set from 31 playable to 34 and
+  // the free second copies fell from 19 to 16. Both were paired by list order
+  // alone until then, which is the accident the list above exists to replace:
+  // `ABIL-009` is staged twice by `abilityTable` and `conditionPower`,
+  // `ABIL-011` by `playIntoField`'s full-board entry.
+  'ABIL-009',
+  'ABIL-011',
   'ABIL-015',
   'ABIL-016',
   'ABIL-021',
   'ABIL-022',
   'ABIL-023',
   'ABIL-029',
+  // Two `Signal Flag`s of the *same* card number on the field at once, which is
+  // the case `excludeSelf` and `excludeNames` answer differently.
+  'ABIL-033',
+  // And two of the *other* number: `ABIL-034`'s gate wants one on the field
+  // while a second waits in hand, which is one position holding both copies.
+  'ABIL-032',
 ];
 
 const DECK_SIZE = 50;

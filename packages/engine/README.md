@@ -217,6 +217,60 @@ type card from your hand" is a different price from "trash 1 card" — and
 `canPayCosts` counts *matching* cards, so an ability nothing in hand can pay
 never appears in `legalActions`.
 
+### Reference by name: one field, five printed shapes
+
+`CardFilter` carries `names` and `excludeNames`, and every predicate in the DSL
+inherits them — a script's `Selector`, a `static`'s `Audience`, a `countCards`
+condition, a `discardHand` cost's filter, and `LegalityClause.attack.target`.
+That is not a convenience; it is the finding
+`docs/op01-closing-census.md` was written to test. Six printed shapes reference a
+card by name, and **five of them differ only in where the predicate is read**:
+
+| Printed | Where the predicate lives | Field |
+| --- | --- | --- |
+| "…other than [X]" | a script `Selector` | `excludeNames` |
+| "play / add [X]" | a script `Selector` | `names` |
+| "if your Leader is [X]" | `Condition.countCards` over the Leader slot | `names` |
+| "if you don't have [X]" | the same, with `max: 0` | `names` |
+| a static's "other than your [X]" | `Audience`'s selector | `excludeNames` |
+
+The alternative — a named variant per operation (`PLAY_NAMED_CARD_FROM_HAND`,
+`REST_NAMED_CARD`, …) — multiplies the op list by every mechanic that can carry
+a name. Five shapes entering through one field is the measurement that says the
+name is a property of a *card*, not a mode of an *action*.
+
+**A name is not an instance.** `Selector.excludeSelf` drops the one card whose
+ability is running; `excludeNames` drops every card with the name. Both exist
+because neither can be written in terms of the other: `OP01-005` Uta reaches into
+a trash where the other copies of [Uta] are different instances, and `OP01-099`
+Kurozumi Semimaru needs each of two copies on the field to exempt **both**.
+
+**A name is not a card number.** CR 2-1-2 makes a bracketed name refer to "cards
+with the card name specified in the brackets"; CR 2-14-2 caps deck copies by
+*card number*. Nine names in OP-01 alone sit on two numbers, and three of the
+twelve cards this field was built for reach across sets — `ST01-006` is a second
+`Tony Tony.Chopper`, `ST01-007` a second `Nami`, `ST02-012` a second `Bepo`.
+
+**Nothing reads `CardDefinition.name` except `hasName`.** It is a question, not a
+getter, and the shape is `hasKeyword`'s for `hasKeyword`'s reason: CR 2-1-3 lets
+a card gain a name from its own text — "Also treat this card's name as [X]" —
+and the word is *also*. Eight cards in the game print it and `EB04-038` adds two
+names at once, so a card can answer to three names simultaneously. A
+`cardName(state, id): string` could not hold that, and every comparison against
+it would have to be found and changed the day the alias is built. With the
+question there is one place to hook it and no caller moves. The alias itself is
+not built — OP-01 cannot make it observable (`OP01-121` Yamato is a Character and
+the set's three Leader-name gates ask about the Leader), and the census filed it
+as its own row.
+
+The match is **exact**. CR 2-1-2-1 defines a substring form — "part of a card
+name in " " quotation marks" — and exactly one card in the game prints it
+(`OP16-015`). One asker and no second is a declared row here, not a capability.
+
+CR 2-1-3's sentence appears verbatim twice more, for types (CR 2-4-4) and
+attributes (CR 2-5-7), so `types` in `matchesPredicate` carries the same latent
+hole. Recorded rather than closed: no card in scope prints a granted type.
+
 ### The interpreter is a program counter
 
 An effect that needs an answer has to stop *without the engine holding a live
@@ -954,7 +1008,7 @@ guaranteed to make progress.
 ### The ABIL set
 
 `src/testdata/abilities.ts` adds a second synthetic set whose only purpose is to
-exercise the effect system. Between its 26 cards it covers **every `op`, every
+exercise the effect system. Between its 35 cards it covers **every `op`, every
 `Trigger`, every `Cost`, every `Condition` kind and all four keywords**, plus an
 `if` nested inside a `forEach`, a `oncePerTurn`, an `optional`, two continuous
 sources, and a K.O. that wakes an `[On K.O.]` on the card it just killed.
@@ -965,6 +1019,22 @@ package, so `ABIL-018` carries four abilities and the `ABIL-024` Stage two — t
 `restSelf` cost sits on the Stage because that is the shape the real card has
 (`ST01-017`), and because it lets one test rest the source and still read its
 continuous effect.
+
+**`ABIL-032` and `ABIL-033` are the exception, and the exception is the point.**
+They are two card numbers printing one name, `Signal Flag`, which is the single
+thing reference-by-name cannot be tested without: CR 2-1-2 matches names and CR
+2-14-2 counts numbers, so the set has to hold a case where the two disagree.
+`ABIL-032` is deliberately vanilla — every claim about it is a claim about its
+name, so it must have no behaviour to be mistaken for one. `ABIL-034` Boatswain
+carries the inclusion half and the `max: 0` gate, and is *not* a Signal Flag,
+because a card gating on its own name closes its own condition the moment it
+lands.
+
+Three new ids took the set from 31 playable to 34 and the deck's free second
+copies from 19 to 16, which starved `ABIL-009` and `ABIL-011` of pairs that list
+order had been supplying by accident. Both are now named in `PAIRED` — the list
+that exists so a needed pair is a stated requirement rather than a coincidence of
+ordering.
 
 It registers through the public registry exactly like the TEST set, and lives in
 `testdata/abilityDecks.ts` so that **`testdata/decks.ts` has no import path to

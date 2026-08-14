@@ -206,6 +206,46 @@ export interface CardFilter {
   types?: string[];
   costMax?: number;
   costMin?: number;
+  /**
+   * Card names, matched exactly — "play up to 1 **[Penguin]** from your hand".
+   *
+   * CR 2-1-2 is the whole reading: "Some text will include text in brackets
+   * without a clarifying noun afterwards. This refers to cards with the card
+   * name specified in the brackets." A name is printed data like `types` and
+   * `colors`, so it belongs beside them, and the list is an *or* like theirs —
+   * one card, several acceptable names.
+   *
+   * **A name is not an id.** Nine names in OP-01 alone sit on two card numbers
+   * (`Roronoa Zoro` is both `OP01-001` and `OP01-025`), and three of the twelve
+   * cards this field was built for reach across sets: `ST01-006` is a second
+   * `Tony Tony.Chopper`, `ST01-007` a second `Nami`, `ST02-012` a second `Bepo`.
+   * A filter here names *every* card with the name and never a card number.
+   * CR 2-14-2 keeps the two apart from the other end — deck construction counts
+   * "cards with the same card number", not the same name.
+   *
+   * **Not asked of `CardDefinition.name` directly**, ever: `hasName` is the one
+   * place that reads it, for the reason spelled out there.
+   */
+  names?: string[];
+  /**
+   * Card names that disqualify — "…Character card **other than [Uta]**".
+   *
+   * Its own field rather than a polarity on `names`, following `excludeSelf`,
+   * which is the engine's existing spelling for an exclusion: nothing in a
+   * predicate is a tagged union, everything is conjunctive, and a card is free
+   * to print both halves at once. Six OP-01 cards print this form and none
+   * prints the pair, but a union would make the pair *unspellable* to buy
+   * nothing.
+   *
+   * **It is not `excludeSelf`, and the difference is the whole point.**
+   * `excludeSelf` drops one *instance* — the card whose ability is running.
+   * This drops every card with the name, and both halves of that matter: the
+   * copies of [Uta] in `OP01-005`'s trash are other instances that `excludeSelf`
+   * would happily offer, and `OP01-099`'s static must exempt **both** Kurozumi
+   * Semimaru on the field from each other's rule, which `excludeSelf` cannot say
+   * from either side.
+   */
+  excludeNames?: string[];
 }
 
 /**

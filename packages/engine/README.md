@@ -85,7 +85,8 @@ GameState
 ├── log: GameEvent[]
 └── rules: { firstPlayerCannotAttackTurnOne, doubleAttackCanWinFromOneLife,
               playFromEffectPaysCost, effectPlayIsPlayingACharacter,
-              placedRestedBecomesRested }
+              placedRestedBecomesRested, nextTurnExcludesTurnInProgress,
+              selfReturnResolvesEffect }
 ```
 
 Ordering conventions, all load-bearing for replay compatibility:
@@ -170,9 +171,29 @@ all, re-checked at the moment of payment, and never paid halfway. An
 `activateMain` ability whose cost cannot be met does not appear in
 `legalActions`.
 
-`Cost` has five members: `restDon`, `returnDon`, `trashSelf`, `restSelf` and
-`discardHand`. Four of them spend a pool — DON!!, or the hand — and
-`trashSelf`/`restSelf` spend the source itself. `restSelf` is the only one whose
+`Cost` has nine members, and they sort into three groups by what they spend:
+
+| Spends | Members |
+| --- | --- |
+| a pool | `restDon`, `returnDon`, `discardHand`, `bottomDeckHand`, `lifeToHand` |
+| the source itself | `trashSelf`, `restSelf` |
+| other cards you choose | `returnCharacters`, `restCharacters` |
+
+Four of them open a choice during the payment — `discardHand`, `bottomDeckHand`,
+`returnCharacters`, `restCharacters` — and the machinery is PR #28's unchanged:
+the entry that suspends does not advance `costsPaid`, the answer does, and the
+answer handler learns *which* price it is paying by reading the cost list at that
+cursor. The sink never had to grow a field for it.
+
+`lifeToHand` is the one member that names cards and still asks nothing, because
+CR 3-10-2 already chose: "a player must select the card at the top of their Life
+cards unless otherwise specified". It also fires no `[Trigger]` — CR 2-11-1 binds
+that to adding a Life card to hand *on taking damage*.
+
+The last two are the third group's whole point: `restSelf` rests **the source**
+and can only be printed on a card that is on the field, while `OP01-055` is an
+Event that CR 8-4-2 has already trashed by the time its cost is paid. `restSelf`
+is the only one whose
 payability turns on the source's **orientation**: a rested card has no resting
 left to do, so it cannot pay (CR 8-3-1-3, the same rule that stops a rested card
 attacking under 7-1-1-1), and the ability disappears from `legalActions` until
@@ -1008,7 +1029,7 @@ guaranteed to make progress.
 ### The ABIL set
 
 `src/testdata/abilities.ts` adds a second synthetic set whose only purpose is to
-exercise the effect system. Between its 35 cards it covers **every `op`, every
+exercise the effect system. Between its 36 cards it covers **every `op`, every
 `Trigger`, every `Cost`, every `Condition` kind and all four keywords**, plus an
 `if` nested inside a `forEach`, a `oncePerTurn`, an `optional`, two continuous
 sources, and a K.O. that wakes an `[On K.O.]` on the card it just killed.
@@ -1295,6 +1316,29 @@ and the engine's own invariant checks stay meaningful while the position is
 staged.
 
 ## Documented ambiguities and judgement calls
+
+**`rules.selfReturnResolvesEffect` (default `true`).** Whether an ability still
+resolves when its **own activation cost removed its source from the field**.
+`OP01-047` Trafalgar Law is the one printed route: its `[On Play]` costs "return
+1 Character to your hand", nothing excludes Law itself, and a card that means to
+exclude itself says so (`OP08-047` prints "other than this Character").
+
+The Comprehensive Rules point both ways, which is what makes it a flag rather
+than a comment. CR 8-1-3-1-3 says an auto effect "will not activate and cannot be
+resolved ... if the card that fulfilled the activation timing of that auto effect
+moves to another area **before that effect is activated**", and CR 8-4-1 orders
+payment (8-4-1-3) ahead of activation (8-4-1-4) — together, a self-payment
+fizzles. But CR 8-3-1-3-1 describes the same sequence as "you have fulfilled the
+conditions to pay the activation cost, **activated the effect**, and become
+unable to pay the activation cost while in the process of paying", which puts
+activation before the payment finishes and leaves 8-1-3-1-3 describing a card
+removed by something *else* in between.
+
+True is the reading that matches everything this engine already does — a script
+whose source has left keeps running, and `OP01-007` Caribou's `[On K.O.]`
+resolves from the trash — and the only one under which the printed cost is a cost
+a player can take. `false` drops the effect after the payment; the cost is still
+paid, and the selector still offers the source either way.
 
 **`rules.firstPlayerCannotAttackTurnOne` (default `true`).** Public sources
 contradict each other about whether the "cannot attack on your first turn"

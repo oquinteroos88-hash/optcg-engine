@@ -14,6 +14,9 @@ import {
   OP01_RG_LAW,
   OP01_R_ZORO,
   OP01_RG_LUFFY,
+  OP01_RG_HEARTS,
+  OP01_G_AKAZAYA,
+  OP01_BP_PACIFISTA,
   assertFixtureDecksAreLegal,
 } from './fixtures/op01Decks.js';
 
@@ -160,6 +163,46 @@ export function op01CrocodileScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): G
 export function op01Scenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
   return buildScenario({ ...spec, decks: { p1: OP01_TABLE_DECK, p2: OP01_TABLE_DECK } });
 }
+
+/* ------------------------------------------------- reference by name (12) */
+
+const OP01_HEARTS_DECK = toEngineDecklist(OP01_RG_HEARTS);
+const OP01_AKAZAYA_DECK = toEngineDecklist(OP01_G_AKAZAYA);
+const OP01_PACIFISTA_DECK = toEngineDecklist(OP01_BP_PACIFISTA);
+
+/**
+ * Red/green, Law-led. Nine of the twelve name cards, and the **closed** side of
+ * the Leader-name gate — Trafalgar Law is not [Kouzuki Oden].
+ */
+export function op01HeartsScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_HEARTS_DECK, p2: OP01_HEARTS_DECK } });
+}
+
+/** Mono-green, Oden-led. The **open** side of the same gate, and nothing else. */
+export function op01AkazayaScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_AKAZAYA_DECK, p2: OP01_AKAZAYA_DECK } });
+}
+
+/** Blue/purple, Crocodile-led. The inclusion form, and `OP01-099`'s static. */
+export function op01PacifistaScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_PACIFISTA_DECK, p2: OP01_PACIFISTA_DECK } });
+}
+
+/**
+ * The three manifestation pairings, and all three are **mirrors**.
+ *
+ * Every other batch pairs its new deck against an older one, and says why: an
+ * exact union is only exact if it names everything, so the far side's abilities
+ * are listed too and a card that stopped firing over there is a regression the
+ * file can see. This batch has three decks of its own and no older deck holds
+ * any of its cards, so a mirror is the pairing that makes the union *smaller* —
+ * it names this batch and its supporting cast and nothing else. The regression
+ * cover the mixed pairings buy is already bought here by the other nine
+ * fixtures, which this batch did not touch.
+ */
+export const OP01_HEARTS_DECKS = { p1: OP01_HEARTS_DECK, p2: OP01_HEARTS_DECK };
+export const OP01_AKAZAYA_DECKS = { p1: OP01_AKAZAYA_DECK, p2: OP01_AKAZAYA_DECK };
+export const OP01_PACIFISTA_DECKS = { p1: OP01_PACIFISTA_DECK, p2: OP01_PACIFISTA_DECK };
 
 export function applyOk(state: GameState, action: Action): { state: GameState; events: GameEvent[] } {
   const result = applyAction(state, action);

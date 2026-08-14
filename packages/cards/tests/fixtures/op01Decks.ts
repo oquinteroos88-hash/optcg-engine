@@ -628,7 +628,13 @@ export const OP01_RG_HEARTS: Decklist = {
     { cardId: 'OP01-046', qty: 2 }, // Denjiro — cost 5
     // Targets, chosen for what each of the above has to find.
     { cardId: 'OP01-025', qty: 4 }, // Roronoa Zoro — {Straw Hat Crew}, red, cost 3
-    { cardId: 'OP01-023', qty: 4 }, // Marco — red, cost 3, for Uta to recover
+    { cardId: 'OP01-023', qty: 2 }, // Marco — red, cost 3, for Uta to recover
+    // Two Okiku, and they are here for `OP01-040`'s **second** half. That half
+    // sets a {The Akazaya Nine} Character costing 3 or less active and never
+    // asked about the Leader at all — so it has to be watchable in the deck
+    // where the gate is shut, or the claim that only one half needed the name
+    // is untested.
+    { cardId: 'OP01-035', qty: 2 }, // Okiku — {The Akazaya Nine}, green, cost 3
     { cardId: 'OP01-010', qty: 4 }, // Komachiyo — red, cost 1
     { cardId: 'OP01-012', qty: 4 }, // Sai — red, cost 2
     { cardId: 'OP01-045', qty: 4 }, // Jean Bart — {Heart Pirates}, cost 4, not [Bepo]

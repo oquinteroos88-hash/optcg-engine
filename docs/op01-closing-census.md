@@ -1,5 +1,18 @@
 # OP-01 closing census — every unwritten card, re-read against today's engine
 
+> ## PR 1 shipped: reference by name, and the census's twelve are written
+>
+> **OP-01 is 98 of 121.** Row 5 was this document's headline and its arithmetic
+> held exactly: twelve cards, one field pair on the shared predicate, no new op
+> and no new condition kind. What the census could not predict is in
+> [what building it changed](#what-building-row-5-changed), at the bottom — three
+> findings, one of which changes the shape it recommended.
+>
+> Every table below is left as it was written, including the rows this PR made
+> obsolete. This document is the record of what was true on the day it was
+> counted, and a census edited after the fact to agree with the build is a census
+> nobody can check the build against.
+
 A census, not a plan and not an implementation. No `Ability` is written here, no
 op is designed, no engine file is touched. The question it answers is narrow and
 was overdue: **which OP-01 cards are still unwritten, and what exactly is
@@ -350,3 +363,94 @@ row stays declared and stays out of this set's arithmetic. And nothing among the
 35 makes the Phase 2A `TODO` on **chosen order for simultaneous triggers**
 observable: none of them fires two abilities whose order changes an outcome, so
 that TODO's status is unchanged by this census.
+
+## What building row 5 changed
+
+The census recommended **"one optional `name?: string[]` on `CardFilter`"**. It
+shipped as **two** fields, `names` and `excludeNames`, and the name lookup
+shipped as a **question** rather than a getter. Both departures are things
+building found and counting could not.
+
+### 1. The field is a pair, because `excludeSelf` already decided the shape
+
+A single `name` list with a polarity would have been the only tagged union in
+`CardFilter`, where everything else is a plain optional and everything is
+conjunctive. `Selector.excludeSelf` is the engine's existing spelling for an
+exclusion and it is its own field, not a mode of another one. Following it costs
+one extra optional and buys the case a union forbids: a card printing an
+inclusion *and* an exclusion at once. None of the twelve does. That is the point
+— a union would have made the pair unspellable in exchange for nothing.
+
+### 2. The alias is not a getter, and `EB04-038` is why
+
+The census filed the alias as its own row and said to build it *with* the filter
+or ship subtly wrong. Building the filter showed the seam is cheaper than that
+and the row is safer than it looked: **CR 2-1-3 is additive.** Every one of the
+eight cards printing it says "**Also** treat this card's name as [X]", and
+`EB04-038` Rosinante & Law adds *two* names at once, so that card answers to
+three simultaneously.
+
+A `cardName(state, id): string` cannot hold that, and every `=== name`
+comparison against it would have to be found and rewritten on the day the alias
+lands — the hunt the function existed to prevent. `hasName(state, id, name)`
+holds it by construction: the alias is one addition inside the function and no
+caller moves. So the alias stays declared, deliberately and now cheaply, and the
+census's "build them together or ship wrong" is superseded by "build the reader
+as a question and the order stops mattering".
+
+The same sentence appears twice more in the rules — CR 2-4-4 for types, CR 2-5-7
+for attributes, word for word. `types` in `matchesPredicate` therefore carries
+the identical latent hole. Recorded, not closed: no card in scope prints a
+granted type.
+
+### 3. A sixth printed shape, with one asker in the entire game
+
+CR **2-1-2-1** defines a *substring* form the census's six did not separate out:
+"Some text will include part of a card name in " " quotation marks." A probe over
+the full set finds **exactly one card that prints it** — `OP16-015`, "If your
+Leader's card name includes "Ace"". One asker and no second is the Hawkins
+standard, so the field matches exactly and this is a declared row. The 101 other
+quoted-substring cards in the set are all the *type* form (CR 2-4-3-1), which is
+a different field and a different row.
+
+### What the probe found
+
+Every bracketed name on the twelve **resolves exactly** against
+`cards.en.json` — no punctuation drift, no whitespace, nothing needing
+normalization, including the two that looked most likely to have it
+(`Tony Tony.Chopper`, `Kouzuki Oden`). The resolution is pinned as a guard
+rather than left as a fact: a name matching nobody narrows a filter silently, so
+`abilCardShapes.test.ts` walks every ability structurally and fails on a name no
+card carries.
+
+The name/number distinction is **not hypothetical in this repo**. Three of the
+twelve exclude a name that a second registered card also carries — `ST01-006` is
+a second Tony Tony.Chopper, `ST01-007` a second Nami, `ST02-012` a second Bepo —
+and each of those three satisfies *every other clause* of the selector that
+excludes it. Nine more names sit on two card numbers inside OP-01 alone. CR
+2-14-2 is the rule from the other side: deck construction counts "cards with the
+same card number", never the same name.
+
+### Did the one-field bet hold at all three sites?
+
+Yes, and nothing was extended to make it. The five shapes enter at three places
+where the shared predicate is read — a script `Selector`, `Condition.countCards`,
+and a static's `Audience` — and all three inherit the pair from `CardFilter`
+without any of them learning a word. `matchesPredicate` gained six lines and is
+the only place that changed. `Cost.discardHand`'s filter and
+`LegalityClause.attack.target` got the field for free and no card in scope uses
+either yet.
+
+### The arithmetic now
+
+| After | OP-01 | Still blocked |
+| --- | --- | --- |
+| the census | 86 | 35 |
+| **+ reference by name (this PR)** | **98** | **23** |
+| + player-chosen discard (PR 2) | 102 | 19 |
+| + DON!! count condition (PR 3) | 105 | 16 |
+| + costs that move chosen cards (PR 4) | 110 | 11 |
+
+The three cards the census listed as *also* needing this field — `OP01-051`,
+`OP01-069`, `OP01-098` — each have their name half written and are still blocked
+on their second wall, exactly as predicted.

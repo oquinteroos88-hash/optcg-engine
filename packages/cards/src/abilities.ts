@@ -1,3 +1,4 @@
+import { BATTLE_OPPONENT_VAR } from '@optcg/engine';
 import type { Ability, CardCategory, CardId, Condition, Instruction } from '@optcg/engine';
 
 /**
@@ -4296,6 +4297,226 @@ export const CARD_ABILITIES: Readonly<Record<CardId, readonly Ability[]>> = Obje
           ],
         },
       ],
+    },
+  ],
+
+  /* ------------------------------------------------------------------------
+   * The last four — and with them both sets are complete.
+   *
+   * Three cards the closing census declared and one the starter inventory did,
+   * written together because the reason each was declined has stopped applying.
+   * That reason was always the same standard, and it is worth stating plainly
+   * rather than quietly reversing: **a mechanism with one card asking and no
+   * second asker is a declared row, not a build.**
+   *
+   * The standard priced *opportunity cost* — a capability built for one card is
+   * a capability not built for the twelve waiting behind it — and the queue it
+   * was pricing against is now empty. There is no next row. So the same
+   * arithmetic that said "declare" while 35 cards were blocked says "build" when
+   * these four are the whole remainder, and nothing about the standard changed
+   * except the board it was measuring. The reversal is recorded with its date
+   * and its reason in `docs/op01-closing-census.md`, appended rather than edited
+   * into the tables above it — that document's policy is to stack, never to
+   * rewrite, so the original "declined" stays legible beside it.
+   *
+   * Four capabilities, one per card, and two of them turned out to be one field:
+   *
+   *   filter by attribute            `CardFilter.attributes`
+   *   a targeted `koInBattle`        `LegalityClause`, the second question with a pair
+   *   search the whole deck          `Selector` zone `deck`, plus `shuffleDeck`
+   *   the moment a card battles      the `whenBattling` trigger
+   * ---------------------------------------------------------------------- */
+
+  // OP01-024 Monkey.D.Luffy
+  // "[DON!! x2] This Character cannot be K.O.'d in battle by ＜Strike＞ attribute
+  //  Characters."
+  // "[Activate: Main] [Once Per Turn] Give this Character up to 2 rested DON!!
+  //  cards."
+  //
+  // The census's two-walls-one-card, and both walls are one line each here. The
+  // interesting half is not the attribute — it is that the prohibition has to
+  // name **the other card in the battle**, which is the shape `attack` has had
+  // since PR #31 and `koInBattle` did not.
+  //
+  // A `static`, because `[DON!! x2]` is a condition re-read whenever the
+  // question is asked (CR 8-1-3-3), and `affects: {self: true}` because the
+  // printed subject is "This Character".
+  //
+  // **"by ＜Strike＞ attribute Characters" excludes a Leader, and that is
+  // reachable rather than pedantic.** `OP01-003` Monkey.D.Luffy is a red/green
+  // Leader with the ＜Strike＞ attribute and is one of the two Leaders this
+  // card's own colour can be played under — so a game where the immunity holds
+  // against a Character and fails against the Leader swinging the same attribute
+  // is an ordinary game, not a constructed one. `category: ['character']` is the
+  // printed noun and it is load-bearing.
+  //
+  // **Only the battle.** CR 10-2-1-3 makes "cannot be K.O.'d" valid "when the
+  // card is K.O.'d by an effect **or** due to the result of a battle", and this
+  // card prints the narrower half; a `ko` instruction never asks this question
+  // and kills it. Same reading `OP01-099` got, now with a target on it.
+  //
+  // The `[Activate: Main]` is `OP01-013`'s second half without the Life cost and
+  // without a "you may" — so it is not `optional`, and `giveDon` draws from
+  // rested DON!! only, which is the printed word and the op's own rule.
+  'OP01-024': [
+    {
+      id: 'OP01-024-static',
+      trigger: 'static',
+      condition: { kind: 'donAttached', min: 2 },
+      script: [],
+      affects: { self: true },
+      grants: {
+        legality: {
+          effect: 'forbid',
+          clause: {
+            question: 'koInBattle',
+            target: { category: ['character'], attributes: ['Strike'] },
+          },
+        },
+      },
+    },
+    {
+      id: 'OP01-024-main',
+      trigger: 'activateMain',
+      oncePerTurn: true,
+      script: [{ op: 'giveDon', target: { self: true }, count: 2 }],
+    },
+  ],
+
+  // OP01-069 Caesar Clown
+  // "[On K.O.] Play up to 1 [Smiley] from your deck, then shuffle your deck."
+  //
+  // The first card in the repo that reads a whole deck. `zone: 'deck'` is the
+  // search — every card in it, filtered by the predicate — where `deckTop` is a
+  // window; the two are different zones because they are different acts, and the
+  // shuffle is what tells them apart in the rules (CR 11-4-1).
+  //
+  // **The name is the whole filter.** "[Smiley]" is CR 2-1-2's bracketed name and
+  // nothing else is printed, so nothing else is written: both cards in the game
+  // called Smiley (`OP01-072` and `OP10-009`) are Characters, and a `category`
+  // clause here would be a restriction the card does not print, kept honest by
+  // `play` refusing a non-Character on its own.
+  //
+  // **"Up to 1" is `min: 0`, and it means the player may decline a deck full of
+  // them.** Nothing in the text obliges the find — CR 8-4-4-1's "as many as they
+  // can, up to the number specified" is the shortfall rule, not a compulsion —
+  // and a player who searches and takes nothing has still read their deck.
+  //
+  // **The shuffle is unconditional**, because "then" is sequence and not
+  // dependency (CR 4-10-2). That is the branch worth naming: choose zero, shuffle
+  // anyway. A deck with no [Smiley] in it opens no choice at all and shuffles
+  // just the same.
+  'OP01-069': [
+    {
+      id: 'OP01-069-onKO',
+      trigger: 'onKO',
+      script: [
+        {
+          op: 'select',
+          as: 'smiley',
+          from: { zone: 'deck', owner: 'you', names: ['Smiley'] },
+          min: 0,
+          max: 1,
+          prompt: 'Play up to 1 [Smiley] from your deck',
+        },
+        { op: 'play', target: { var: 'smiley' } },
+        { op: 'shuffleDeck' },
+      ],
+    },
+  ],
+
+  // OP01-098 Kurozumi Orochi
+  // "[On Play] Reveal up to 1 [Artificial Devil Fruit SMILE] from your deck and
+  //  add it to your hand. Then, shuffle your deck."
+  //
+  // `OP01-069`'s twin on the other side of the search: same zone, same "up to 1",
+  // same unconditional shuffle — and a different destination, which is why the
+  // script has three instructions where Caesar's has two.
+  //
+  // **The reveal is a real step and not a flourish.** The card moves from the
+  // deck to the hand, which is secret area to secret area, and CR 11-2-1 makes
+  // such a move revealed whether the card asks or not; this card asks outright.
+  // `reveal` takes the variable the select bound, which is the shape PR #40
+  // built for `OP01-105` — the cards are already chosen, so there is nothing for
+  // a second selector to find.
+  //
+  // Finding nothing reveals nothing and says nothing: an empty reveal is not a
+  // reveal, and the op is silent for it rather than logging a public act that did
+  // not happen.
+  //
+  // The named card is `OP01-116`, an **Event**, and it is the only card in the
+  // game with the name — so the filter is a name and nothing else, exactly as
+  // Caesar's is, and for once the card it finds could not be played even if the
+  // text said so.
+  'OP01-098': [
+    {
+      id: 'OP01-098-onPlay',
+      trigger: 'onPlay',
+      script: [
+        {
+          op: 'select',
+          as: 'smile',
+          from: { zone: 'deck', owner: 'you', names: ['Artificial Devil Fruit SMILE'] },
+          min: 0,
+          max: 1,
+          prompt: 'Reveal up to 1 [Artificial Devil Fruit SMILE] from your deck',
+        },
+        { op: 'reveal', var: 'smile' },
+        { op: 'moveCard', target: { var: 'smile' }, to: { zone: 'hand' } },
+        { op: 'shuffleDeck' },
+      ],
+    },
+  ],
+
+  // ST02-010 Basil Hawkins
+  // "[DON!! x1] [Once Per Turn] [Your Turn] If this Character battles your
+  //  opponent's Character, set this card as active."
+  //
+  // **The last card of either inventory, and the ruling that decided it was made
+  // in PR #35 and is not re-derived here.** It is in
+  // `docs/starter-card-inventory.md` under "The Hawkins ruling, made"; what
+  // follows is only how each of its findings lands in this script.
+  //
+  // - **Blocking does not count**, by rule: CR 8-3-2-4 meets `[Your Turn]`
+  //   "during your turn" and CR 7-1-2-1 makes blocking "the player being
+  //   attacked"'s act. So the printed marker is a `Condition` here and the
+  //   exclusion is the card's, not the engine's — `whenBattling` fires on both
+  //   participants and this condition is what turns the blocking case off.
+  // - **The moment is the battle, not the declaration.** The ruling rejected the
+  //   `[When Attacking]` reading as wrong rather than rough, because CR 7-1-2-2
+  //   lets a `[Blocker]` become the target: a Hawkins that declared against the
+  //   Leader can end up battling a Character. `whenBattling` fires at the Damage
+  //   Step (CR 7-1-4-1), where the pair is final.
+  // - **"your opponent's Character" is `varMatches` over the seeded battle
+  //   opponent**, and this is the part the ruling could not have predicted: it
+  //   said `Condition` "cannot see the battle at all", which was true when it was
+  //   written and stopped being true one PR later. `varMatches` arrived for
+  //   `OP01-063` Arlong, and a trigger seeding what it knows is how `koCause`
+  //   already reaches a condition. The second of the ruling's two capabilities
+  //   cost nothing.
+  //
+  // The noun needs no "opponent's" clause of its own: `[Your Turn]` leaves only
+  // the attacking case, and CR 7-1-1-2 draws an attack's target from the
+  // opponent's board. So `category: ['character']` is the whole question, and a
+  // battle against the Leader fails it.
+  'ST02-010': [
+    {
+      id: 'ST02-010-whenBattling',
+      trigger: 'whenBattling',
+      oncePerTurn: true,
+      condition: {
+        kind: 'and',
+        of: [
+          { kind: 'donAttached', min: 1 },
+          { kind: 'isYourTurn' },
+          {
+            kind: 'varMatches',
+            name: BATTLE_OPPONENT_VAR,
+            match: { category: ['character'] },
+          },
+        ],
+      },
+      script: [{ op: 'setActive', target: { self: true } }],
     },
   ],
 });

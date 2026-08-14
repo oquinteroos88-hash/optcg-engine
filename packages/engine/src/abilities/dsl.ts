@@ -204,6 +204,25 @@ export interface CardFilter {
   category?: CardCategory[];
   colors?: Color[];
   types?: string[];
+  /**
+   * Printed attributes, matched by sharing — "＜Strike＞ attribute Characters".
+   *
+   * `types`' shape exactly, because it is `types`' question: both are printed
+   * lists on the card and both are asked "is one of mine one of yours". A card
+   * with `＜Slash＞＜Strike＞` answers a `＜Strike＞` filter yes, which is CR
+   * 2-5-7 read the way CR 2-3-5 is read for colours — a card is *of* every
+   * attribute it possesses, and seventeen cards in the game possess two.
+   *
+   * **One card in OP-01 asks and six in the set**, and it enters here rather
+   * than on `Selector` for the reason `names` did: the shared predicate is read
+   * at four sites — a script `Selector`, `Condition.countCards`, a static's
+   * `Audience`, and a `LegalityClause`'s target — and a field added here is
+   * answered at all four without any of them learning a word. `OP01-024` needs
+   * exactly the fourth of those, which is the site the other three would have
+   * left untested; `tests/lastFourMechanisms.test.ts` writes all four at once
+   * rather than waiting for a card to find the gap.
+   */
+  attributes?: string[];
   costMax?: number;
   costMin?: number;
   /**

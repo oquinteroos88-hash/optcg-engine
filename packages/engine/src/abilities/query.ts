@@ -187,6 +187,16 @@ export function matchesPredicate(
       return false;
     }
   }
+  // Sharing, not equality — the same reading `types` and `colors` get, and the
+  // one CR 2-5-7 requires: seventeen cards print two attributes and each of them
+  // answers to both. Absent in the definition is the empty list, which is an
+  // Event or a Stage and matches no attribute filter at all.
+  if (predicate.attributes !== undefined) {
+    const attributes = def.attributes ?? [];
+    if (!predicate.attributes.some((wanted) => attributes.includes(wanted))) {
+      return false;
+    }
+  }
   if (predicate.costMax !== undefined && def.cost > predicate.costMax) {
     return false;
   }

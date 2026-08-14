@@ -44,6 +44,24 @@ export interface CardDefinition {
   keywords: string[];
   /** Card types ("Straw Hat Crew"). Optional so Phase 0 definitions still compile. */
   types?: readonly string[];
+  /**
+   * Printed attributes — `＜Strike＞`, `＜Slash＞`, `＜Special＞`, `＜Ranged＞`,
+   * `＜Wisdom＞`. Optional so Phase 0 definitions still compile; absent is the
+   * empty list, which is what an Event or a Stage prints.
+   *
+   * **A list, and the plural is not decorative.** Seventeen cards in the game
+   * print two — every one of them a "&" pairing (`ST12-001` Roronoa Zoro &
+   * Sanji is `＜Slash＞＜Strike＞`) — so the field reads like `types` and
+   * `colors` rather than like `name`: a card *has* an attribute filter's
+   * attribute when it shares one, never when the list is equal. CR 2-5-7 says
+   * the same from the other side, word for word with CR 2-1-3 for names and CR
+   * 2-4-4 for types: a card can be *given* an attribute by text, and gaining
+   * one does not lose the printed ones.
+   *
+   * The data has carried this since the ingest (`EnglishCardDefinition`); the
+   * engine did not know about it until a card asked, which is `OP01-024`.
+   */
+  attributes?: readonly string[];
   /** Card effects. Absent on every vanilla card. */
   abilities?: readonly Ability[];
 }

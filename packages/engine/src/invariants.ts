@@ -22,7 +22,28 @@ export function checkInvariants(state: GameState): string[] {
   checkBattleShape(state, violations);
   checkStateShape(state, violations);
   checkEffectShape(state, violations);
+  checkKnowledgeShape(state, violations);
   return violations;
+}
+
+/**
+ * `knownBy` stays canonical: real instances, non-empty entries, p1 before p2.
+ * The canonical form is what lets two equal states serialize byte-for-byte
+ * equal, which the view's determinism inherits.
+ */
+function checkKnowledgeShape(state: GameState, violations: string[]): void {
+  for (const [id, players] of Object.entries(state.knownBy)) {
+    if (state.cards[id] === undefined) {
+      violations.push(`knowledgeShape: knownBy names unknown instance ${id}`);
+    }
+    if (players.length === 0) {
+      violations.push(`knowledgeShape: knownBy[${id}] is empty — the key should be absent`);
+    }
+    const canonical = PLAYER_IDS.filter((p) => players.includes(p));
+    if (players.length !== canonical.length || players.some((p, i) => p !== canonical[i])) {
+      violations.push(`knowledgeShape: knownBy[${id}] is not canonical: ${players.join(',')}`);
+    }
+  }
 }
 
 export function assertInvariants(state: GameState): void {

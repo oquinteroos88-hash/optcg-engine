@@ -61,6 +61,20 @@ export interface GameState {
    */
   resume: ResumeStep[];
   rng: { seed: number; cursor: number };
+  /**
+   * Remembered entitlement: which players have legitimately seen which card
+   * instance, beyond what its current zone shows. Written by the acts that
+   * teach — reveal (CR 11-2-1/11-2-2), look (11-3-1), search (8-4-4-4) — and
+   * at every zone **departure**, which is what lets a card leave an open area
+   * without the players forgetting its face. Erased by exactly one thing: a
+   * shuffle (3-2-4), for every card inside the shuffled deck. `visibility.ts`
+   * is the only reader and the only writer.
+   *
+   * A card with nothing remembered about it has **no key** here — never an
+   * empty array — and entries hold the canonical p1-before-p2 order, so equal
+   * states serialize byte-for-byte equal.
+   */
+  knownBy: Record<InstanceId, PlayerId[]>;
   log: GameEvent[];
   rules: {
     firstPlayerCannotAttackTurnOne: boolean;

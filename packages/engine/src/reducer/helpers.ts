@@ -6,6 +6,7 @@ import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { dropLegalityNaming } from '../legality.js';
 import type { CardInstance, GameState, InstanceId, Orientation, PlayerId } from '../types.js';
+import { rememberDeparture } from '../visibility.js';
 
 /** CR 3-7-6: "Up to 5 Character cards can be placed in the Character area." */
 export const BOARD_LIMIT = 5;
@@ -187,6 +188,10 @@ export function detachFromField(draft: GameState, id: InstanceId, events: GameEv
   const card = mustGetCard(draft, id);
   const controller = card.controller;
   const ps = draft.players[controller];
+  // Departure is the moment sight becomes memory: the field showed this card
+  // to both players, and wherever it goes next, neither forgets its face
+  // until a shuffle takes it (see `rememberDeparture`).
+  rememberDeparture(draft, id, 'characters', controller);
 
   let returned = 0;
   for (const donId of card.attachedDon) {
@@ -414,6 +419,9 @@ export function removeFromNonFieldZone(draft: GameState, id: InstanceId): boolea
   for (const zone of ['hand', 'deck', 'trash', 'life'] as const) {
     const index = ps[zone].indexOf(id);
     if (index !== -1) {
+      // Whoever this zone showed the card to keeps it — recorded before the
+      // splice, while "which zone" still has an answer.
+      rememberDeparture(draft, id, zone, card.owner);
       ps[zone].splice(index, 1);
       return true;
     }

@@ -104,6 +104,8 @@ export function createGame(opts: {
 
   const matchId = `optcg-${opts.seed}`;
   const started: GameEvent = { type: 'gameStarted', matchId, firstPlayer: opts.firstPlayer };
+  // `knownBy` starts empty: every card is where a zone accounts for it, and
+  // sight becomes memory only when a card leaves a zone that showed it.
   const state: GameState = {
     version: 1,
     matchId,
@@ -124,6 +126,7 @@ export function createGame(opts: {
     pending: null,
     resume: [],
     rng,
+    knownBy: {},
     log: [started],
     rules: {
       firstPlayerCannotAttackTurnOne: true,

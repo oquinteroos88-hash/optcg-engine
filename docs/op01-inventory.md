@@ -1378,6 +1378,33 @@ design and unreachable since it was written. It is reachable now.
 The pointer is beside the op, next to `reveal`'s. Three reachable cards became
 **four**, and the fourth is the one that makes the model two-directional.
 
+### Since built — PR #43, and all four treatments are the ones these sections named
+
+The mine is closed the way it was mapped. `playerView(state, player)` exists, a
+pure derivation of the state that already existed, and the four reachable cards
+each got exactly the treatment their row asked for:
+
+| Card | The piece | Built as |
+| --- | --- | --- |
+| `OP01-038` Kanjuro | `PendingChoice.candidates` over a secret area | **opaque handles** — a `blind` choice whose chooser sees a count and answers `{ kind: 'handles' }`; answering by handle is translated to the id answer before the reducer moves anything, so hot-seat and multiplayer produce the same state by construction |
+| `OP01-073` / `OP01-077` (and the family) | `deckPartitioned` | **redacted to two lengths** for the rival, faces kept for the partitioner — the first event whose shape is public while its contents are private, exactly as PR #36 wrote it up |
+| `OP01-063` Arlong, `OP01-105` Bao Huang | `cardsRevealed` | **applied** — `GameState.knownBy` records who learned what, a reveal widens it to both players, and the record survives the card's next move because the physical game does not erase memories |
+| `OP01-069` Caesar, `OP01-098` Orochi | the search, and `deckShuffled` | **applied in both directions** — a deck search marks the whole deck known to the searcher (CR 8-4-4-4) and `shuffleDeck` empties `knownBy` for that deck, the sentence the original `PlayerView` sketch wrote before it was reachable |
+
+Two corrections the build made to these sections' own text, recorded rather
+than edited away:
+
+- **CR v1.2.0 has no section 11-4.** The "search then shuffle" sentence quoted
+  above as 11-4-1 is not in the current revision; the shuffle's erasure now
+  cites 3-2-2 + 3-2-4, and the search's privacy 11-3-1 + 8-4-4-4.
+- **"Add to hand" without "reveal" hides nothing.** CR 11-2-1 reveals every
+  effect- or cost-move between two secret areas, instructions or no
+  instructions — so the searcher's found card is the opponent's to see too,
+  and the cards that print "reveal it and add it" are printing the rule.
+
+The visibility table, the handle design and the leak-test arbiter are in
+`packages/engine/README.md`, under "The per-player view".
+
 ## A fourth: two cards are illegal to model in deck construction
 
 `packages/cards/src/decklists.ts` enforces `MAX_COPIES = 4` with no per-card

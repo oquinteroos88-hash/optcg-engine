@@ -29,6 +29,14 @@ import type {
   ResumeStep,
   StackItem,
 } from '../types.js';
+import { PLAYER_IDS } from '../types.js';
+import {
+  forgetShuffled,
+  rememberDeckSearched,
+  rememberLooked,
+  rememberRevealed,
+  zoneOf,
+} from '../visibility.js';
 import { canPayCosts, discardCandidates } from './costs.js';
 import type {
   Ability,
@@ -184,6 +192,11 @@ function payChosenCost(
         }
         ps.hand.splice(at, 1);
         ps.deck.push(id);
+        // CR 11-2-1: a card an effect or cost moves from one secret area to
+        // another "must always be revealed, even if there are no instructions
+        // to reveal it" — so the paid card's face is both players' to keep
+        // until a shuffle takes the deck back.
+        rememberRevealed(draft, [id]);
         emit(draft, events, { type: 'cardMoved', player, instanceId: id, to: 'deck' });
       }
       mark('cost.bottomDeckHand');
@@ -633,6 +646,12 @@ function moveCard(
   if (card === undefined) {
     return;
   }
+  // Read before anything moves: CR 11-2-1 reveals a card an effect carries
+  // from one secret area to another ("Add … from your deck to your hand" is
+  // the rule's own example), and the question "was the source secret?" stops
+  // having an answer once the splice below has happened. Field and trash are
+  // open, so only hand/deck/life on *both* ends triggers it.
+  const fromSecret = ['hand', 'deck', 'life'].includes(zoneOf(draft, id).zone);
   if (isOnField(draft, id)) {
     detachFromField(draft, id, events);
   } else if (!removeFromNonFieldZone(draft, id)) {
@@ -640,6 +659,9 @@ function moveCard(
     return;
   }
   mark('op.moveCard');
+  if (fromSecret && to.zone !== 'trash') {
+    rememberRevealed(draft, [id]);
+  }
   const ps = draft.players[card.owner];
   switch (to.zone) {
     case 'hand':
@@ -918,6 +940,8 @@ function execute(
         return;
       }
       mark('op.lookAt');
+      // CR 11-3-1: the look is the looker's alone.
+      rememberLooked(draft, looked, item.controller);
       emit(draft, events, {
         type: 'cardsLookedAt',
         player: item.controller,
@@ -950,6 +974,11 @@ function execute(
       const shuffled = shuffle(ps.deck, draft.rng);
       ps.deck = shuffled.items;
       draft.rng = shuffled.rng;
+      // The sentence the original PlayerView sketch wrote before it was
+      // reachable: `knownBy` empties on a shuffle. CR 3-2-4 randomizes an area
+      // neither player may inspect (3-2-2), so whatever a search or a reveal
+      // taught anyone about these cards is unlearnable now.
+      forgetShuffled(draft, item.controller);
       mark('op.shuffleDeck');
       emit(draft, events, {
         type: 'deckShuffled',
@@ -982,11 +1011,10 @@ function execute(
         return;
       }
       mark('from' in instruction ? 'op.reveal' : 'op.revealVar');
-      // **Where hidden information will start.** Revealing is the act that makes
-      // a card known to a player who could not see it, so a per-player view has
-      // to record *who learned what* here rather than merely withholding ids.
-      // Filed with the rest of that debt in `docs/op01-inventory.md`; nothing is
-      // built for it, and this comment is the pointer the mine asked for.
+      // The record the mine asked for: revealing is the one act that widens
+      // what a player knows (CR 11-2-2 turns the card back face-down, but the
+      // memory is the players'), and `knownBy` is where who-learned-what lives.
+      rememberRevealed(draft, revealed);
       emit(draft, events, {
         type: 'cardsRevealed',
         player: item.controller,
@@ -1468,6 +1496,11 @@ function discardInstruction(
     min: count,
     max: count,
     sink: { kind: 'discard', owner },
+    // Kanjuro's shape: a chooser picking out of a hand they may not view
+    // (CR 3-4-3), which CR 8-4-4-2 calls choosing "unrevealed cards in a
+    // secret area". The chooser answers by opaque handle in a per-player
+    // view; the candidates stay real ids because hot-seat plays face-up.
+    ...(chooser === owner ? {} : { blind: true as const }),
   });
   return true;
 }
@@ -1505,7 +1538,21 @@ function suspend(
     });
     return true;
   }
+  // A selector over the deck is a search: CR 8-4-4-4 has its player "check the
+  // cards' faces", so the whole deck — not the matches — becomes known to them,
+  // and it does even when nothing matches, because the deck was read either
+  // way. Marked before the candidate check for exactly that reason.
+  if (instruction.from.zone === 'deck') {
+    for (const owner of PLAYER_IDS) {
+      if (instruction.from.owner === 'any' || playerOf(item, instruction.from.owner) === owner) {
+        rememberDeckSearched(draft, owner, item.controller);
+      }
+    }
+  }
   const candidates = resolveSelector(draft, ctxOf(item), instruction.from, EFFECTIVE);
+  // Offering is showing: whatever zone the candidates came from, the player
+  // being asked sees their faces (CR 11-3-1 keeps that private to them).
+  rememberLooked(draft, candidates, item.controller);
   // Rule 3: a mandatory "choose 2" with one candidate takes the one. The
   // requirement shrinks to what exists rather than cancelling the effect.
   const max = Math.min(instruction.max, candidates.length);
@@ -1602,6 +1649,13 @@ function stepStack(draft: GameState, events: GameEvent[]): void {
     }
     item.status = 'running';
     mark('ability.resolved');
+    // Activating from a secret zone shows the card: CR 10-1-5-1 has a life
+    // card's [Trigger] "reveal that card and activate" — declining reveals
+    // nothing (10-1-5-2), which is why this sits on the activation and not on
+    // the offer. Field sources are already open; marking them is a no-op.
+    if (['hand', 'deck', 'life'].includes(zoneOf(draft, item.source).zone)) {
+      rememberRevealed(draft, [item.source]);
+    }
     emit(draft, events, {
       type: 'abilityTriggered',
       player: item.controller,

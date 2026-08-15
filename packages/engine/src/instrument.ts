@@ -76,6 +76,10 @@ export const MARK_NAMES = [
   // places without asking rather than letting a client answer for the player.
   'choice.orderTrivial',
   'choice.answered',
+  // A blind choice answered by opaque handle rather than by id — the
+  // multiplayer alphabet for Kanjuro's shape (CR 8-4-4-2). Hot-seat never
+  // produces it, so a sweep that reaches it is a test driving the handles.
+  'choice.answeredByHandle',
   'ability.activated',
   'ability.resolved',
   'ability.declined',

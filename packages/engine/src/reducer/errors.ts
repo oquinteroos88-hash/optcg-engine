@@ -59,6 +59,12 @@ export const REASONS = {
   choiceCandidateUnknown: 'choiceCandidateUnknown',
   choiceDuplicateSelection: 'choiceDuplicateSelection',
   choiceOptionOutOfRange: 'choiceOptionOutOfRange',
+  // A `handles` answer to a choice that is not blind: handles exist so a
+  // chooser can answer without seeing (CR 8-4-4-2); a choice whose candidates
+  // are the chooser's to see is answered by id.
+  choiceNotBlind: 'choiceNotBlind',
+  // A handle outside 0..handleCount-1, or not an integer.
+  choiceHandleOutOfRange: 'choiceHandleOutOfRange',
 } as const;
 
 export type ReasonCode = (typeof REASONS)[keyof typeof REASONS];

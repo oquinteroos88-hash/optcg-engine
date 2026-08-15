@@ -22,7 +22,28 @@ export function checkInvariants(state: GameState): string[] {
   checkBattleShape(state, violations);
   checkStateShape(state, violations);
   checkEffectShape(state, violations);
+  checkKnowledgeShape(state, violations);
   return violations;
+}
+
+/**
+ * `knownBy` stays canonical: real instances, non-empty entries, p1 before p2.
+ * The canonical form is what lets two equal states serialize byte-for-byte
+ * equal, which the view's determinism inherits.
+ */
+function checkKnowledgeShape(state: GameState, violations: string[]): void {
+  for (const [id, players] of Object.entries(state.knownBy)) {
+    if (state.cards[id] === undefined) {
+      violations.push(`knowledgeShape: knownBy names unknown instance ${id}`);
+    }
+    if (players.length === 0) {
+      violations.push(`knowledgeShape: knownBy[${id}] is empty — the key should be absent`);
+    }
+    const canonical = PLAYER_IDS.filter((p) => players.includes(p));
+    if (players.length !== canonical.length || players.some((p, i) => p !== canonical[i])) {
+      violations.push(`knowledgeShape: knownBy[${id}] is not canonical: ${players.join(',')}`);
+    }
+  }
 }
 
 export function assertInvariants(state: GameState): void {
@@ -429,6 +450,11 @@ function checkEffectShape(state: GameState, violations: string[]): void {
   }
   if (pending.min > pending.max) {
     violations.push(`effectShape: choice ${pending.id} has min ${pending.min} > max ${pending.max}`);
+  }
+  // A blind choice is a card selection or it is nothing: handles resolve into
+  // `candidates`, and the other kinds have no candidates to hide.
+  if (pending.blind === true && pending.kind !== 'selectCards') {
+    violations.push(`effectShape: blind choice ${pending.id} must be selectCards, is ${pending.kind}`);
   }
   if (
     pending.kind === 'selectCards' ||

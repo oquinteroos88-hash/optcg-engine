@@ -1744,3 +1744,155 @@ Still true from Phase 0, and now a real move rather than a synthetic-only one: a
 Counter **Event** is played from hand for its cost (`PLAY_COUNTER_EVENT`), its
 `counterEvent` effect resolving from the trash, and a life card's `[Trigger]`
 fires.
+
+## The per-player view — PR #43
+
+Hidden-information views stopped being out of scope. `playerView(state, player)`
+is a **pure derivation** of the `GameState` that already exists — never a second
+state, nothing to keep synchronized — and everything it decides, it decides by
+asking one module one question.
+
+### The one question, and where it lives
+
+`src/visibility.ts` answers "does player X know which card instance Y is?", and
+it is the only place that does. The answer has two halves:
+
+- **Where the card is now.** CR 3-1-5 splits every area into open and secret,
+  per area and with no exceptions per card:
+
+  | Area | Who sees faces | Rule |
+  | --- | --- | --- |
+  | Leader / Character / Stage | both | 3-6-2, 3-7-2, 3-8-2 |
+  | Trash (contents *and* order) | both | 3-5-2 |
+  | Cost area, DON!! deck | both | 3-9-2, 3-3-2 |
+  | Hand | its owner | 3-4-2; the other player may not look, 3-4-3 |
+  | Deck | nobody | 3-2-2 |
+  | Life | **nobody — the owner included** | 3-10-2 |
+
+  Counts of every area are public at all times (CR 3-1-4), which is why every
+  redaction below can keep a length while dropping the faces.
+
+- **What a player has legitimately seen.** `GameState.knownBy` records
+  entitlement per instance. It widens at five acts and narrows at exactly one:
+
+  | Act | Who learns | Rule |
+  | --- | --- | --- |
+  | `reveal` | both players | 11-2-2 turns the card back face-down; the memory is the players' |
+  | a look (`lookAt`, or being offered candidates) | the looker | 11-3-1 |
+  | a deck search | the searcher, the **whole** deck | 8-4-4-4 has them "check the cards' faces" |
+  | an effect/cost move between two secret areas | both players | **11-2-1** — see below |
+  | activating from a secret zone (a life `[Trigger]`) | both players | 10-1-5-1 reveals to activate; declining reveals nothing, 10-1-5-2 |
+  | **a shuffle** | **everyone forgets that deck** | 3-2-4 randomizes what 3-2-2 lets nobody inspect |
+
+  Movement never narrows knowledge — the physical game does not erase memories,
+  so a Character bounced off the field is a card both players can still name in
+  its owner's hand. `rememberDeparture` turns zone-derived sight into memory at
+  the two removal chokepoints, the moment a card leaves the zone that showed
+  it, which makes that a property of the engine rather than a discipline at
+  forty call sites — and keeps the bookkeeping O(cards moved): the first cut
+  swept every card at every action boundary and nearly doubled the cost of
+  `applyAction`, measured at 244µs → 472µs per action, which pushed the
+  client's clicked-through full game past its own timeout.
+
+**CR 11-2-1 reversed an expectation.** The open question was whether "search
+and add to hand" *without* a printed "reveal" hides the card from the opponent.
+It does not: a card an effect or cost moves from one secret area to another
+"must always be revealed, even if there are no instructions to reveal it" — the
+rule's own example is "Add Monkey.D.Luffy from your deck to your hand". The
+cards that print "reveal it and add it" are printing the rule, not adding to
+it. `moveCard` and the `bottomDeckHand` cost enforce it; rule moves (a draw,
+4-5-1; damage to hand, 10-1-5-2) stay unrevealed because they take an unseen
+top card and select nothing.
+
+**A note on citations.** This section is checked against CR **v1.2.0**
+(2026-01-16), which has no section 11-4 — the "search then shuffle" sentence
+older notes cite as 11-4-1 is not in this revision, so the shuffle's erasure
+cites 3-2-2 + 3-2-4 instead. And the early-battle-end sentence appears at
+7-1-1-4 and then **twice as 7-1-2-3**: the official document numbers the Block
+Step's copy and the Counter Step's copy identically. 7-1-3-3 does not exist and
+is never cited here.
+
+### What never leaves, without exception
+
+The `rng` — seed and cursor; the seed *is* both decks' order. The **matchId**,
+because `createGame` derives it as `optcg-` plus the seed and any identifier
+derived from the seed is enumerable back to it; naming the match is the
+transport's job. The order of any deck — every known-contents list the view
+carries is sorted, because a set is what the viewer owns. And the
+`InstanceId`/`CardId` of any card the viewer does not know: an unknown
+instance's id appears nowhere, not even as a record key, because instance ids
+are assigned in decklist order at creation and an id *is* a card name to anyone
+holding the decklist.
+
+### The blind choice and its handles
+
+`OP01-038` Kanjuro has the opponent choose from a hand they may not view
+(CR 3-4-3, 8-4-4-2). A view that only withheld the candidate ids would leave
+the chooser unable to answer, because `ANSWER_CHOICE` names cards by id — so a
+blind choice offers **opaque handles**: the chooser's view carries a
+`handleCount`, and `{ kind: 'handles', selected: [i] }` answers by index.
+
+**Tokens per choice, not positions — and the rules decide it.** The physical
+question was whether the chooser may track "the card that stayed" between two
+choices, the way backs in a fan could be tracked. CR 3-4-2 answers: the owner
+"can freely view the contents and change the order" of their own hand, so a
+position carries no information a chooser is entitled to keep, and CR 3-1-8
+hides placement order even when several cards enter a secret area at once. No
+`rules` flag was needed; the rules are not silent.
+
+The handle order is `blindHandleOrder`: candidates sorted by a keyed hash whose
+salt includes **every** candidate id. Candidate order would leak the owner's
+draw history; a plain id sort is statistically invertible by a chooser who
+knows part of the hand. With the full-set salt, a chooser missing even one
+candidate cannot compute any hash, and every hypothesis about the missing card
+sees an independent shuffle — the posterior is as flat as a fanned hand of
+backs. Handle answers are translated to the exact `cards` answer they name
+*before* the reducer moves anything, so hot-seat by id and multiplayer by
+handle produce the same state by construction. Rejections carry reasons:
+`choiceHandleOutOfRange`, `choiceNotBlind`, and the cardinality and duplicate
+codes the id path already had.
+
+### The redacted log
+
+`src/viewEvents.ts` mirrors `GameEvent` name for name, and `redactEvent`
+switches over the union **with no `default`** — the next event added to
+`events.ts` does not compile until its visibility is declared. The rows that
+were not obvious:
+
+- **`deckPartitioned` → two lengths.** The shape is public at a real table (the
+  opponent watches three cards go up and two down); the faces are not. The
+  partitioner keeps the ids, sorted.
+- **A foreign yes/no offer is dropped whole, answer included.** The engine only
+  opens a `[Trigger]` opt-in when the life card *has* a trigger, so the offer's
+  existence tells the rival the hidden card is a trigger card — and a declined
+  trigger is exactly what 10-1-5-2 keeps unrevealed. `abilityDeclined` for a
+  source the viewer cannot name drops with it.
+- **The log is memoryless.** Redaction consults *current* entitlement, so a
+  revealed card shuffled back shows as `null` even in the reveal that showed
+  it. Old ids in old events would let a reader track an instance through the
+  shuffle that erased it; a live client keeps its own memories.
+- **The `lifeTaken` window, under divergence #29.** The engine sends the life
+  card to the hand and offers the `[Trigger]` from there; the real game
+  activates it from no area at all (10-1-5-3). What the rival sees does not
+  depend on which: count on the damage (10-1-5-2), identity from the moment of
+  activation (10-1-5-1). The divergence stands, stated, unresolved.
+
+Foreign `pending` redacts to `{ id, player, kind }` — the rival knows *that* a
+choice is open and of what kind, never *between what*. That a hidden trigger's
+wait is observable at all is accepted as the digital twin of thinking time at a
+table; its durable record is not, which is why the log drops what the live
+field may briefly show.
+
+### The arbiter
+
+`tests/informationLeak.test.ts` sweeps every state of every game, both
+players: `JSON.stringify(playerView(state, p))` must not contain, as a quoted
+string, the id of any card `p` does not know — with the unknown list computed
+**from the opposite side** (the secret zones minus the raw `knownBy` record),
+never through `visibility.ts`. If the view and the test derived from the same
+function, a bug in the function would pass green. Sabotaging the view to leak
+one hand produced 13,494 findings before reverting, which is the test proving
+it can fail. `tests/playerView.test.ts` carries the targeted cases: the
+`knownBy` lifecycle end to end, Kanjuro by handle against Kanjuro by id,
+`deckPartitioned` at two lengths, and byte-for-byte determinism across
+serialization.

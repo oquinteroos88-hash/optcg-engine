@@ -30,7 +30,16 @@ import type { GameState, InstanceId, LegalityRule } from './types.js';
 interface Candidate {
   /** The card whose action is in question: the blocker, the attacker, the K.O.'d. */
   subject: InstanceId;
-  /** The other end of an `attack` question. */
+  /**
+   * The other card in the pair, for the two questions that have one: the card
+   * being attacked for `attack`, the **attacker** for `koInBattle`.
+   *
+   * The field is one because the shape is one — a battle has two cards in it and
+   * a rule about either may name the other. Which end `subject` and `target` are
+   * flips between the two questions, and it flips with the question rather than
+   * with the caller: `canAttack` is asked *of* the attacker, `canBeKOdInBattle`
+   * *of* the card about to die.
+   */
   target?: InstanceId;
 }
 
@@ -50,21 +59,29 @@ function subjectCovers(state: GameState, rule: LegalityRule, subject: InstanceId
 /**
  * Whether a clause's own conditions hold for the candidate.
  *
- * Only `attack` has any: the clause's `target` predicate describes the card
- * being attacked, which is what widens CR 7-1-1-2's "1 of their **rested**
- * Character cards" to include active ones for OP01-021 Franky. A rule whose
- * clause names a target and a question that has no target is not a match — the
- * two are asking about different things.
+ * Two of the three questions have a `target`, and they mean the same thing by
+ * it: **the other card in the pair, described rather than named.** For `attack`
+ * it is the card being attacked, which is what widens CR 7-1-1-2's "1 of their
+ * **rested** Character cards" to include active ones for `OP01-021` Franky. For
+ * `koInBattle` it is the **attacker**, which is what narrows `OP01-024`'s
+ * immunity to ＜Strike＞ Characters. `activateBlocker` has no second card and
+ * therefore no field to read.
+ *
+ * A rule whose clause names a target, asked in a position that has none, is not
+ * a match. That is unchanged and it is load-bearing in a new place: an untargeted
+ * `koInBattle` prohibition (`OP01-099`) applies to every attacker, and a targeted
+ * one applies to none until the question arrives with an attacker in hand.
  */
 function clauseHolds(state: GameState, clause: LegalityClause, candidate: Candidate): boolean {
-  if (clause.question !== 'attack' || clause.target === undefined) {
+  const wanted = clause.question === 'activateBlocker' ? undefined : clause.target;
+  if (wanted === undefined) {
     return true;
   }
   const target = candidate.target;
   if (target === undefined) {
     return false;
   }
-  return matchesPredicate(state, clause.target, target, EFFECTIVE);
+  return matchesPredicate(state, wanted, target, EFFECTIVE);
 }
 
 /**
@@ -195,17 +212,30 @@ export function canAttack(state: GameState, attacker: InstanceId, target: Instan
 }
 
 /**
- * May this Character be K.O.'d by the Damage Step?
+ * May this Character be K.O.'d by the Damage Step, by **this** attacker?
  *
  * Consulted where the K.O. is **decided** (CR 7-1-4-1-2), not where it is
  * carried out, because the two are different rules with different scopes:
  * CR 10-2-1-3 makes "cannot be K.O.'d" valid "when the card is K.O.'d by an
  * effect **or** due to the result of a battle", and every card in scope prints
  * the narrower "in battle". A card that prevented every K.O. would need a
- * second clause, not a second call site.
+ * second clause, not a second call site. **A `ko` instruction therefore does not
+ * come through here at all**, and that is the point of the narrowing rather than
+ * an omission: `OP01-024` survives a battle it lost and dies to a script.
+ *
+ * `attacker` is required rather than optional, and the choice is deliberate.
+ * The Damage Step always has one — it is the card whose power was just compared
+ * — so an optional parameter would only ever be omitted by a caller that had one
+ * and did not think to pass it, and the failure mode is silent: a targeted
+ * prohibition would simply not apply and the K.O. would go through. `canAttack`
+ * takes its pair the same way and for the same reason.
  */
-export function canBeKOdInBattle(state: GameState, card: InstanceId): boolean {
-  return decide(state, 'koInBattle', { subject: card }, true);
+export function canBeKOdInBattle(
+  state: GameState,
+  card: InstanceId,
+  attacker: InstanceId,
+): boolean {
+  return decide(state, 'koInBattle', { subject: card, target: attacker }, true);
 }
 
 /**

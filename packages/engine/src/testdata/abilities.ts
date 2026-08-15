@@ -1,3 +1,4 @@
+import { BATTLE_OPPONENT_VAR } from '../abilities/dsl.js';
 import type { Ability } from '../abilities/dsl.js';
 import type { CardDefinition } from '../registry.js';
 import { registerCardSet } from '../registry.js';
@@ -36,6 +37,11 @@ function character(
     life: 0,
     keywords: [],
     types: ['Crew'],
+    // Every Character and Leader in the real game prints an attribute, so the
+    // synthetic set prints one too — `＜Slash＞` by default and `＜Strike＞` on
+    // the two cards whose whole point is the filter. Vanilla cards carrying it
+    // is what makes an attribute filter over a staged board mean something.
+    attributes: ['Slash'],
     ...extra,
   };
 }
@@ -52,6 +58,11 @@ export const ABIL_CARDS: CardDefinition[] = [
     life: 5,
     keywords: [],
     types: ['Crew'],
+    // ＜Strike＞, and deliberately not ＜Slash＞: `OP01-024`'s immunity is to
+    // ＜Strike＞ **Characters**, so the case that proves the noun is load-bearing
+    // needs a Leader with the attribute and no immunity against it. `OP01-003`
+    // is exactly that Leader in the real set.
+    attributes: ['Strike'],
   },
 
   // --- select / ko / optional -------------------------------------------
@@ -1373,6 +1384,136 @@ export const ABIL_CARDS: CardDefinition[] = [
    * its colours.
    */
   character('ABIL-037', 'Envoy', 1, 2000, 1000, { colors: ['blue', 'green'] }),
+
+  /**
+   * **The attribute filter at every site the shared predicate is read**, on one
+   * card, deliberately.
+   *
+   * `CardFilter.attributes` enters beside `types` and `names`, and the whole
+   * claim being made for it is that the four readers of that predicate get it
+   * for free: a script `Selector`, `Condition.countCards`, a static's
+   * `Audience`, and a `LegalityClause`'s target. Only the last of those has a
+   * printed card in scope (`OP01-024`), and the lesson of `OP01-051` Kid is that
+   * the untested sites are where a shared field silently is not shared. So all
+   * four are written here at once rather than waiting for a card to find them.
+   *
+   * ＜Strike＞ itself, so the legality clause can be about somebody else.
+   *
+   * **It also carries the whole-deck search and the battle timing**, which is
+   * three mechanisms on one card and is a deck-budget decision rather than a
+   * design one. The ABIL deck is 50 cards, every card gets its first copy before
+   * any gets a second, and `PAIRED` names the eleven that a staged position needs
+   * two of at once. At 38 playable cards there are exactly eleven second copies
+   * to go round; a **thirty-ninth** card takes one away, and the one it takes is
+   * whichever `PAIRED` entry is last. That was measured rather than reasoned
+   * about — splitting this into two cards turned `keywords.test.ts` red with a
+   * message about a deck. One card, five abilities, and the budget stays whole.
+   */
+  character('ABIL-038', 'Vanguard', 2, 3000, 1000, {
+    attributes: ['Strike'],
+    abilities: [
+      /**
+       * Sites 1 and 2: a `Condition.countCards` whose selector filters on the
+       * attribute, and a script `Selector` that does the same.
+       */
+      {
+        id: 'ABIL-038-muster',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        condition: {
+          kind: 'countCards',
+          selector: { zone: 'field', owner: 'opponent', category: ['character'], attributes: ['Strike'] },
+          min: 1,
+        },
+        script: [
+          {
+            op: 'select',
+            as: 'marked',
+            from: { zone: 'field', owner: 'opponent', category: ['character'], attributes: ['Strike'] },
+            min: 1,
+            max: 1,
+            prompt: 'Rest 1 ＜Strike＞ Character',
+          },
+          { op: 'rest', target: { var: 'marked' } },
+        ],
+      },
+      /**
+       * Site 3: a static `Audience`, read by `forEachStatic` outside any script
+       * and with no zone of its own to walk.
+       */
+      {
+        id: 'ABIL-038-static-banner',
+        trigger: 'static',
+        script: [],
+        affects: {
+          selector: { zone: 'field', owner: 'you', category: ['character'], attributes: ['Strike'] },
+        },
+        grants: { power: 1000 },
+      },
+      /**
+       * Site 4: the `LegalityClause` target — `OP01-024`'s shape exactly,
+       * `[DON!! x2]` gate included, so the engine case and the card case are the
+       * same case.
+       */
+      {
+        id: 'ABIL-038-static-guard',
+        trigger: 'static',
+        condition: { kind: 'donAttached', min: 2 },
+        script: [],
+        affects: { self: true },
+        grants: {
+          legality: {
+            effect: 'forbid',
+            clause: {
+              question: 'koInBattle',
+              target: { category: ['character'], attributes: ['Strike'] },
+            },
+          },
+        },
+      },
+      /**
+       * **The whole-deck search and its shuffle** — `OP01-069` and `OP01-098`'s
+       * mechanism with a card set out of the way.
+       *
+       * It searches for "Signal Flag", which `ABIL-032` and `ABIL-033` both
+       * answer to at two different card numbers: the name-is-not-a-number
+       * property, asked of a zone holding forty cards instead of a hand holding
+       * five.
+       */
+      {
+        id: 'ABIL-038-dive',
+        trigger: 'activateMain',
+        oncePerTurn: true,
+        script: [
+          {
+            op: 'select',
+            as: 'found',
+            from: { zone: 'deck', owner: 'you', names: ['Signal Flag'] },
+            min: 0,
+            max: 1,
+            prompt: 'Add up to 1 [Signal Flag] from your deck to your hand',
+          },
+          { op: 'moveCard', target: { var: 'found' }, to: { zone: 'hand' } },
+          { op: 'shuffleDeck' },
+        ],
+      },
+      /**
+       * `ST02-010` Basil Hawkins' shape **without** its `[Your Turn]`, so the
+       * engine case can watch the trigger reach both participants — which is
+       * exactly the half the card's own condition then switches off.
+       */
+      {
+        id: 'ABIL-038-clash',
+        trigger: 'whenBattling',
+        condition: {
+          kind: 'varMatches',
+          name: BATTLE_OPPONENT_VAR,
+          match: { category: ['character'] },
+        },
+        script: [{ op: 'draw', player: 'you', count: 1 }],
+      },
+    ],
+  }),
 ];
 
 registerCardSet(ABIL_CARDS);

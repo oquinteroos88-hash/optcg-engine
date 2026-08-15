@@ -80,11 +80,12 @@ describe('the normalized set', () => {
     // script attached to a card nobody meant to touch.
     const scripted = englishCards.filter((card) => card.abilities !== undefined);
     expect(scripted.map((card) => card.cardId).sort()).toEqual([
-      // **All 121 OP-01 base cards accounted for**: 118 carry a script, are
-      // keyword-only, or print no text at all. The three that do not are
-      // declared rows with names — OP01-024, OP01-069, OP01-098. Plus the
-      // starter set. See docs/op01-closing-census.md for how the count moved
-      // from 86 to 118 across four PRs.
+      // **All 121 OP-01 base cards and all 34 starters are written.** Neither
+      // set has a declared row left: the last three OP-01 rows (OP01-024,
+      // OP01-069, OP01-098) and the last starter row (ST02-010) are in this
+      // list. See docs/op01-closing-census.md for how the count moved from 86 to
+      // 121 across five PRs, and for why the three declarations were reversed
+      // in an appendix rather than edited out of the tables that made them.
       'OP01-001',
       'OP01-002',
       'OP01-003',
@@ -104,6 +105,7 @@ describe('the normalized set', () => {
       'OP01-020',
       'OP01-021',
       'OP01-022',
+      'OP01-024',
       'OP01-026',
       'OP01-027',
       'OP01-028',
@@ -141,6 +143,7 @@ describe('the normalized set', () => {
       'OP01-064',
       'OP01-067',
       'OP01-068',
+      'OP01-069',
       'OP01-070',
       'OP01-071',
       'OP01-072',
@@ -165,6 +168,7 @@ describe('the normalized set', () => {
       'OP01-095',
       'OP01-096',
       'OP01-097',
+      'OP01-098',
       'OP01-099',
       'OP01-101',
       'OP01-102',
@@ -201,6 +205,7 @@ describe('the normalized set', () => {
       'ST02-007',
       'ST02-008',
       'ST02-009',
+      'ST02-010',
       'ST02-013',
       'ST02-014',
       'ST02-015',

@@ -183,6 +183,52 @@ export type Trigger =
    * *leaving*, and CR 3-7-6-1-1 makes it "processing a rule".
    */
   | 'whenOpponentPlaysCharacter'
+  /**
+   * **Both cards in a battle, at the Damage Step** — "if this Character battles
+   * your opponent's Character".
+   *
+   * `ST02-010` Basil Hawkins is the one card in all 2665 whose text matches "if
+   * this Character battles", and this exists because PR #35's ruling named
+   * exactly what was missing and then declined to build it. The ruling is in
+   * `docs/starter-card-inventory.md` and it is not re-derived here; what follows
+   * is only the two things it fixed and what each one decides about this member.
+   *
+   * **The moment is the Damage Step, and the ruling settled that by elimination.**
+   * Hawkins carries no activation-timing marker — CR 8-1-3-1-1 lists them and it
+   * has none — and CR 8-3-3 governs its "If" as a condition, so the moment is
+   * the battle itself. The engine's two nearest timings are CR 7-1-1-3's
+   * `[When Attacking]` at declaration and the blocker's `[On Block]`, and the
+   * ruling rejected the first outright rather than as an approximation: **CR
+   * 7-1-2-2 makes a `[Blocker]` the new target of the attack**, so a card that
+   * declared against the Leader can end up battling a Character, and a
+   * declaration-time reading both misses that case and fires before the battle it
+   * names has happened. The Damage Step is where neither is true — CR 7-1-4-1
+   * compares "the power of the attacking card and the card being attacked", and
+   * those two cards are final by then because the Block and Counter Steps are
+   * over.
+   *
+   * **A battle that ends early never reaches it**, and that is the rule rather
+   * than a consequence of where the call sits: CR 7-1-1-4, 7-1-2-3 and 7-1-3-3
+   * route a battle whose participant left the field straight to End of the
+   * Battle, skipping the Damage Step. No power was compared, so nothing battled.
+   *
+   * **Both participants, and `[Your Turn]` is what excludes blocking.** The
+   * ruling settled that half by rule and not by inference — CR 8-3-2-4 meets
+   * `[Your Turn]` "during your turn" and CR 7-1-2-1 makes blocking "the player
+   * being attacked"'s act — so Hawkins blocking is a condition that fails, not a
+   * trigger that never fired. Firing on the attacker alone would have put that
+   * ruling in the engine, where no card could see it; firing on both puts it in
+   * the card, where the printed marker is.
+   *
+   * **The other card comes in as `BATTLE_OPPONENT_VAR`**, seeded the way
+   * `KO_CAUSE_VAR` is, and that is the second capability the ruling asked for
+   * arriving at no cost: "your opponent's **Character**" is `Condition.varMatches`
+   * over the seed, and `varMatches` was built for `OP01-063` Arlong one PR
+   * earlier. The ruling said `Condition` "cannot see the battle at all" and it was
+   * right on the day it was written; a seeded variable is how every other fact a
+   * trigger knows and an ability cannot look up already reaches a condition.
+   */
+  | 'whenBattling'
   | 'activateMain'
   | 'trigger'
   | 'counterEvent'
@@ -204,6 +250,25 @@ export interface CardFilter {
   category?: CardCategory[];
   colors?: Color[];
   types?: string[];
+  /**
+   * Printed attributes, matched by sharing — "＜Strike＞ attribute Characters".
+   *
+   * `types`' shape exactly, because it is `types`' question: both are printed
+   * lists on the card and both are asked "is one of mine one of yours". A card
+   * with `＜Slash＞＜Strike＞` answers a `＜Strike＞` filter yes, which is CR
+   * 2-5-7 read the way CR 2-3-5 is read for colours — a card is *of* every
+   * attribute it possesses, and seventeen cards in the game possess two.
+   *
+   * **One card in OP-01 asks and six in the set**, and it enters here rather
+   * than on `Selector` for the reason `names` did: the shared predicate is read
+   * at four sites — a script `Selector`, `Condition.countCards`, a static's
+   * `Audience`, and a `LegalityClause`'s target — and a field added here is
+   * answered at all four without any of them learning a word. `OP01-024` needs
+   * exactly the fourth of those, which is the site the other three would have
+   * left untested; `tests/lastFourMechanisms.test.ts` writes all four at once
+   * rather than waiting for a card to find the gap.
+   */
+  attributes?: string[];
   costMax?: number;
   costMin?: number;
   /**
@@ -275,9 +340,22 @@ export interface CardPredicate extends CardFilter {
  *
  * `deckTop` is the only zone where `count` means anything: it takes the first
  * `count` cards of the deck rather than filtering the whole deck.
+ *
+ * **`deck` and `deckTop` are two zones and not one with a flag**, and the
+ * difference is a rule rather than a size. `deckTop` is CR 11-3-2's *look* — a
+ * window of N cards the effect names, where "the rest" is a meaningful set and
+ * `Ref`'s `minus` exists to name it. `deck` is a **search**: the player reads
+ * the whole deck to find one card, which is why every printed card that opens it
+ * closes with "then shuffle your deck". A `count` on `deck` would describe
+ * neither.
+ *
+ * A search is also the widest candidate list this engine produces — a 40+ card
+ * `PendingChoice` where every other one is single digits — and that is a fact
+ * about the client rather than about the engine: nothing here is bounded by how
+ * many cards a dialog can show.
  */
 export interface Selector extends CardPredicate {
-  zone: 'field' | 'hand' | 'trash' | 'deckTop' | 'life';
+  zone: 'field' | 'hand' | 'trash' | 'deck' | 'deckTop' | 'life';
   owner: 'you' | 'opponent' | 'any';
   excludeSelf?: boolean;
   count?: number;
@@ -382,7 +460,20 @@ export type Audience = { self: true } | { selector: Selector };
  *   CR 10-2-1-3 says effects reading "cannot be K.O.'d" are valid when the card
  *   is K.O.'d "by an effect **or** due to the result of a battle", so the
  *   printed "in battle" is a narrowing the clause has to keep. The unqualified
- *   form is a wider clause and no card in scope prints it.
+ *   form is a wider clause and no card in scope prints it. **It carries a
+ *   `target` too**, and that is the second question with a pair: a battle has
+ *   two cards in it, so a prohibition about one of them can be qualified by the
+ *   other. `OP01-099` prints the unqualified form and `OP01-024` the qualified
+ *   one — "cannot be K.O.'d in battle **by ＜Strike＞ attribute Characters**" —
+ *   and both are this clause, with and without the field.
+ *
+ * **`target` is not a fourth question and not a member of its own.** The census
+ * that found this hole (`docs/op01-closing-census.md`) filed it as a wall with
+ * no row precisely because it looked like one: `attack` had the field and
+ * `koInBattle` did not, so the pair-shape existed and one of the two questions
+ * that has a pair could not spell it. Adding the field is the whole of it —
+ * `clauseHolds` already asked "does this clause name the other card, and is the
+ * other card it", and it now asks that of two questions instead of one.
  *
  * The subject — *whose* cards, and which of them — is deliberately **not** in
  * the clause. It lives beside it (`LegalityRule.subject` for a written rule,
@@ -395,7 +486,8 @@ export type LegalityClause =
   | { question: 'activateBlocker' }
   /** `target` is the *other* card in the pair, never the subject. */
   | { question: 'attack'; target?: CardPredicate }
-  | { question: 'koInBattle' };
+  /** The attacker, when the prohibition is qualified by who is swinging. */
+  | { question: 'koInBattle'; target?: CardPredicate };
 
 /**
  * `forbid` narrows, `allow` widens.
@@ -870,6 +962,41 @@ export type Instruction =
    */
   | { op: 'lookAt'; as: string; count: number }
   /**
+   * Shuffles the controller's deck — "then shuffle your deck".
+   *
+   * **The other half of a search, and it is not optional decoration.** Every
+   * printed card in the game that reads the whole deck closes with this sentence,
+   * and CR 11-4-1 is why: "when a player searches their deck ... they must
+   * shuffle their deck afterwards". A search without it would leave the player
+   * knowing the order of forty cards for the rest of the game.
+   *
+   * **Unconditional, because the printed text is.** `OP01-069` says "Play up to
+   * 1 [Smiley] from your deck, **then** shuffle your deck" and `OP01-098` says
+   * "…add it to your hand. **Then**, shuffle your deck" — neither hangs the
+   * shuffle on having found anything, and CR 4-10-2 lets the clause after a
+   * "then" resolve even when the one before it did not. A player who searches and
+   * takes nothing has still read their deck, which is exactly the knowledge this
+   * erases.
+   *
+   * **It consumes the state RNG**, the same `rng` the opening shuffle draws
+   * from and the same cursor, so determinism is a property of the construction
+   * rather than a thing the tests hope for: one seed, one sequence of actions,
+   * one game. That is also why it is an op rather than something `select`
+   * quietly does — an implicit shuffle would advance the cursor from a place no
+   * card text points at.
+   *
+   * **No `player` field**, following `lookAt` and `discardHand`: every printed
+   * card says "your deck", and an op that can only ever reach its own
+   * controller's zone should not be able to say otherwise, right or wrong.
+   *
+   * **Where a per-player view starts caring.** Searching is the widest private
+   * read in the game — one player learns their whole deck — and shuffling is the
+   * act that takes it back. The original `PlayerView` sketch said `knownBy`
+   * empties on a shuffle; this is the first mechanism that makes that sentence
+   * reachable. See the note beside the op in `interpreter.ts`.
+   */
+  | { op: 'shuffleDeck' }
+  /**
    * Puts `cards` at the bottom of their owner's deck in an order the controller
    * chooses — "place the rest at the bottom of your deck in any order".
    *
@@ -1115,6 +1242,24 @@ export const KO_CAUSE_VAR = 'koCause';
 
 /** The `KO_CAUSE_VAR` value for a K.O. that was not caused by any effect. */
 export const KO_BY_BATTLE = 'battle';
+
+/**
+ * The reserved variable a `whenBattling` trigger is seeded with: **the other
+ * card in the battle**, as a one-element id list.
+ *
+ * `KO_CAUSE_VAR`'s sibling and the third reserved name in the DSL. It holds ids
+ * rather than a player, so the two conditions that read a variable of ids —
+ * `varMatches` and, through `Selector.differentColorFrom`, a filter — reach it
+ * with nothing added. That is the whole reason it is a variable and not a new
+ * `Condition` member that peers at `state.battle`: the battle is closed by the
+ * time a queued ability resolves, and a fact carried on the stack item survives
+ * both that and a JSON round trip. A member reading the live battle would answer
+ * a different question depending on when it was asked.
+ *
+ * A list of one, never a bare id, so `idsFromVar` and `varMatches`'s "every id
+ * matches" reading are the same code they are everywhere else.
+ */
+export const BATTLE_OPPONENT_VAR = 'battleOpponent';
 
 /**
  * Printed keyword spellings. `CardDefinition.keywords` stores the printed form

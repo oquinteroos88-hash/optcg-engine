@@ -23,6 +23,8 @@ import {
   OP01_RG_LIFE,
   OP01_RG_SURGEON,
   OP01_BP_WARLORD,
+  OP01_RG_STRIKE,
+  OP01_BP_SEARCH,
   assertFixtureDecksAreLegal,
 } from './fixtures/op01Decks.js';
 
@@ -263,6 +265,27 @@ export function op01WarlordScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): Gam
 
 export const OP01_SURGEON_DECKS = { p1: OP01_SURGEON_DECK, p2: OP01_SURGEON_DECK };
 export const OP01_WARLORD_DECKS = { p1: OP01_WARLORD_DECK, p2: OP01_WARLORD_DECK };
+
+/* ------------------------------------------ the last four (3 of them here) */
+
+const OP01_STRIKE_DECK = toEngineDecklist(OP01_RG_STRIKE);
+const OP01_SEARCH_DECK = toEngineDecklist(OP01_BP_SEARCH);
+
+/**
+ * Red/green, Luffy-led. `OP01-024`'s immunity, and the ＜Strike＞ **Leader**
+ * that goes through it.
+ */
+export function op01StrikeScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_STRIKE_DECK, p2: OP01_STRIKE_DECK } });
+}
+
+/** Blue/purple, Kaido-led. Both whole-deck searches and both of their targets. */
+export function op01SearchScenario(spec: Omit<ScenarioSpec, 'decks'> = {}): GameState {
+  return buildScenario({ ...spec, decks: { p1: OP01_SEARCH_DECK, p2: OP01_SEARCH_DECK } });
+}
+
+export const OP01_STRIKE_DECKS = { p1: OP01_STRIKE_DECK, p2: OP01_STRIKE_DECK };
+export const OP01_SEARCH_DECKS = { p1: OP01_SEARCH_DECK, p2: OP01_SEARCH_DECK };
 
 export function applyOk(state: GameState, action: Action): { state: GameState; events: GameEvent[] } {
   const result = applyAction(state, action);

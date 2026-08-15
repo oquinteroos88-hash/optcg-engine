@@ -172,6 +172,11 @@ describe('the OP-01 test decks are legal', () => {
       'OP01-074',
       'OP01-090',
       'OP01-099',
+      // The last four - and after them nothing in either set is a declared row.
+      // `ST02-010` is the fourth and is a starter, so it is not in this list.
+      'OP01-024',
+      'OP01-069',
+      'OP01-098',
     ]);
     /**
      * The one card in a fixture that is neither scripted nor inert, and the

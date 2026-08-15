@@ -7,6 +7,26 @@ can the Phase 2A DSL already say?**
 The project bet was "if the DSL holds these ~40, it holds 400". This measures
 that before the effort is spent.
 
+> ## Final state — the starters are 34 of 34 (14 August 2026)
+>
+> **`ST02-010` Basil Hawkins is written.** The last declared row in this document
+> is closed, and with OP-01 closing at 121 of 121 on the same day, **every card
+> in both sets works — 155 of 155.**
+>
+> [The Hawkins ruling](#the-hawkins-ruling-made) below stands unedited and every
+> one of its findings is in the script. What changed is the price, not the
+> reading: the ruling declined **two** capabilities for one card in 2665, and by
+> the time the row was the last one left it cost **one**. The moment is a new
+> `Trigger` member; the question the ruling said `Condition` could not ask is
+> `Condition.varMatches` over the trigger's seed, and `varMatches` shipped for
+> `OP01-063` Arlong one PR after the ruling was written. Nothing re-read the row
+> until the row was all that remained — which is this project's counting rule
+> catching itself one last time.
+>
+> The wider reason the four declarations were reversed together is in
+> [the census's appendix](op01-closing-census.md#appendix--the-three-declarations-reversed-14-august-2026).
+> Everything below is left as written.
+
 ## The campaign is closed, and the starters finish at 33 of 34
 
 **PR #36 built the last capability either inventory ranked** — the top-or-bottom
@@ -707,6 +727,34 @@ honest, which is the outcome the brief named and preferred.
 The row it leaves in the ranked table is gap 11, unchanged in size and sharpened
 in content: it is not one capability but two, and neither has a second card
 asking for it.
+
+### And then it was built — 14 August 2026
+
+The ruling above is not revised. Every finding in it is in the script, and two of
+them decided the shape:
+
+- **Blocking does not count**, and it is the card's own `[Your Turn]` condition
+  that says so. `whenBattling` fires on **both** participants of a battle, so a
+  Hawkins that is attacked on the opponent's turn does wake — and its condition
+  is unmet, which is the ruling's own reasoning rather than a firing-site rule
+  the card could not see.
+- **The declaration reading is wrong, not rough.** CR 7-1-2-2 lets a `[Blocker]`
+  become the target, so the trigger fires at the Damage Step (CR 7-1-4-1), where
+  the pair is final. A battle routed to End of the Battle by CR 7-1-1-4 never
+  reaches it, so nothing battled — pinned in `battleVanished.test.ts`, which
+  already owned the cards that can end a battle early.
+
+**What the ruling got wrong is its own price, and only in hindsight.** It said
+`Condition` "cannot see the battle at all", and listed everything a condition can
+reach. That was true when it was written. `Condition.varMatches` — "whether a
+card a variable names matches a predicate" — arrived for `OP01-063` Arlong in the
+closing batch, and a trigger seeding what it knows is how `koCause` has reached a
+condition since PR #34. So the second capability was already there and nothing
+re-read this row, which is the same drift that left `OP01-120` unwritten after
+PR #31 and that both inventories have now watched happen six times.
+
+Two capabilities became one, and the queue that one was being weighed against
+became empty. The row is closed and the starters are **34 of 34**.
 
 ## Recommended order of work
 

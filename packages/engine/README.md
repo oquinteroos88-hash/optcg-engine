@@ -10,14 +10,16 @@ effect system**: a declarative DSL, a resumable interpreter, player choices,
 continuous effects, and the four keywords. Real card data (2B), UI for answering
 choices (2C), networking and hidden information are still out of scope.
 
-**The starter decks are done: 33 of the 34 cards in ST-01 and ST-02 have a
-script, a printed keyword the engine applies, or no text at all.** The
-thirty-fourth, `ST02-010` Basil Hawkins, is *declared* rather than deferred —
-the ruling was made and the card needs two capabilities that exist for no other
-card in the 2665-card set, so it stays unwritten on purpose.
-`packages/cards/tests/startersComplete.test.ts` is the guard; the reasoning is
-in `docs/starter-card-inventory.md`. OP-01 stands at 82 of 121 and is the slower
-half of the same campaign.
+**Both sets are done: all 34 cards of ST-01 and ST-02 and all 121 base cards of
+OP-01 have a script, a printed keyword the engine applies, or no text at all —
+155 cards, and no declared rows left in either.** `ST02-010` Basil Hawkins was
+the last starter row and `OP01-024`, `OP01-069` and `OP01-098` the last three
+OP-01 ones; all four were built together on 14 August 2026, and the reason they
+had been declared and then were not is in
+`docs/op01-closing-census.md`'s closing appendix.
+`packages/cards/tests/startersComplete.test.ts` and
+`packages/cards/tests/schema.test.ts` are the guards; the card-by-card maps are
+`docs/starter-card-inventory.md` and `docs/op01-inventory.md`.
 
 ## Quick start
 
@@ -302,6 +304,16 @@ CR 2-1-3's sentence appears verbatim twice more, for types (CR 2-4-4) and
 attributes (CR 2-5-7), so `types` in `matchesPredicate` carries the same latent
 hole. Recorded rather than closed: no card in scope prints a granted type.
 
+`attributes` joined `types` and `names` on `CardFilter` for `OP01-024`, and reads
+exactly like them — a card answers when it **shares** an attribute, never when
+the lists match, because seventeen cards in the game print two of them and each
+answers to both. The same latent hole applies for the same reason and is likewise
+unreached: no card in scope prints a granted attribute either. What the field
+does buy is four readers for one line — a script `Selector`,
+`Condition.countCards`, a static's `Audience`, and a `LegalityClause`'s target —
+and `OP01-024` needs only the last, which is why all four are under test rather
+than the one with a card.
+
 ### The interpreter is a program counter
 
 An effect that needs an answer has to stop *without the engine holding a live
@@ -451,6 +463,33 @@ without asking, a partition of one must ask.** One permutation, two ends.
 `selectOption` remains unproduced: no op writes one, no printed card asks for
 one, and `packages/client/tests/choiceShapes.test.ts` measures the claim rather
 than asserting it in a comment.
+
+### Searching a deck, which is not looking at one
+
+`zone: 'deck'` and `zone: 'deckTop'` are two zones and not one with a flag,
+because the rules treat them as two acts. `deckTop` is CR 11-3-2's **look** — a
+window of N cards the effect names, where "the rest" is a meaningful set and
+`Ref.minus` exists to name it. `deck` is a **search**: the whole deck, filtered by
+the predicate, and `count` is deliberately not read there because a search has no
+window.
+
+| Question | Answer | Rule |
+| --- | --- | --- |
+| Does a search shuffle afterwards? | **Yes, always.** That is what makes it a search. | CR 11-4-1 |
+| Even if the player takes nothing? | Yes. "Then" is sequence, not dependency — and the deck was read either way. | CR 4-10-2 |
+| May the player take nothing? | Yes; both printed cards say "up to 1". | CR 8-4-4-1, 8-4-4-2 |
+| No matching card at all? | No choice opens, and the shuffle still happens. | rule 1 of the interpreter |
+| Whose deck? | The controller's. `shuffleDeck` has no `player` field, following `lookAt` and `discardHand`. | — |
+| Is it deterministic? | Yes, by construction: `shuffleDeck` draws from `state.rng`, the same stream and cursor `createGame` opened. | — |
+
+An **empty** deck consumes no RNG at all. One order is the only order, and
+drawing for it would make the sequence depend on a board state instead of on the
+seed — which is the property the whole engine is built around.
+
+The candidate list a search produces is the widest thing the engine hands a
+client: forty-odd cards where every other `selectCards` is single digits. Nothing
+in the engine is bounded by that; the client's overlay grew a ceiling and a
+scroll for it, which is the entire UI cost.
 
 ### Looking at a deck, and where the order goes
 
@@ -925,6 +964,20 @@ be K.O.'d" are valid when the card is K.O.'d "by an effect **or** due to the
 result of a battle", and every printed card in scope narrows it to the second.
 An unqualified immunity is a wider clause, not a second call site.
 
+**Two of the three questions have a pair, and `koInBattle` is the second.** A
+battle has two cards in it, so a rule about either may be qualified by the other:
+`attack` names the card being attacked (`OP01-021` Franky widening CR 7-1-1-2's
+target set) and `koInBattle` names the **attacker** (`OP01-024`'s "cannot be
+K.O.'d in battle by ＜Strike＞ attribute Characters"). One optional `target`
+predicate on each, one `clauseHolds`, and `canBeKOdInBattle` takes the attacker
+as a required parameter for the reason `canAttack` does — the Damage Step always
+has one, and an optional field could only ever be dropped silently.
+
+`OP01-099` prints the unqualified form and `OP01-024` the qualified one, which is
+also what the "a clause that names a target, asked with none, is not a match"
+rule is protecting: an untargeted prohibition applies to every attacker, and a
+targeted one to none until an attacker is in hand.
+
 ### Two faces, one clause
 
 A card either says this continuously or buys it for a while, and the rules keep
@@ -1287,6 +1340,8 @@ marks are never reached**:
 | `choice.orderTrivial` | An ordering with one card or none, which needs a deck down to its last two cards while the card that looks at it is still on the board. Games end on deck-out before that. `orderCards.test.ts` builds both positions directly. |
 | `choice.partitionTrivial` | The same position one card narrower — a partition with **nothing** to place, since one card still gets asked. 3 hits in 1500 ability games, against the ordering shortcut's 12. Both are built directly in their own suites. |
 | `op.lookAtNothing` | Looking at an empty deck. Same reason, one step further: a player with no deck has already lost at the next rule processing (CR 9-2-1-2). |
+| `op.shuffleEmpty` | Shuffling an empty deck — the same unreachable position, and the one shuffle that consumes no RNG. |
+| `op.revealNothing` | A reveal with nothing to reveal. Reachable (an "up to 1" declined, an empty opponent hand), and counted so the silence is a measured outcome rather than a missing event. |
 
 `battle.blocked` was dead in Phase 0 and is now reached 294 times: the ABIL set
 has real Blockers, so the redirect branch is exercised by ordinary play for the
@@ -1474,6 +1529,24 @@ so `setOrientation` owns the transition and the four callers stopped assigning
 the field. The Refresh Phase goes through the same routine and can never fire
 the trigger, because it moves cards the other way (CR 6-2-4).
 
+**The eighth is a timing the rules have and the union did not: the battle
+itself.** `whenBattling` fires from the Damage Step (CR 7-1-4-1, where "the power
+of the attacking card and the card being attacked" are compared) on **both**
+participants, each seeded with the other in `BATTLE_OPPONENT_VAR`. One card in
+all 2665 prints it — `ST02-010` Basil Hawkins — and PR #35's ruling is why it is
+not the declaration: CR 7-1-2-2 lets a `[Blocker]` become the target, so a card
+that declared against the Leader can end up battling a Character, and a
+declaration-time reading both misses that and fires before the battle happened.
+A battle routed to End of the Battle by CR 7-1-1-4 never reaches the Damage Step,
+so nothing battled — which is why the trigger sits in `resolveBattle` and not in
+`closeBattle`, the routine both exits share.
+
+Whether a card may fire while *blocking* is its own `[Your Turn]` condition's
+answer (CR 8-3-2-4 against CR 7-1-2-1), not this firing site's. The seed is a
+variable rather than a new `Condition` reading `state.battle`, because the battle
+is closed by the time a queued ability resolves and a variable survives both that
+and a JSON round trip — the same reason `koCause` is one.
+
 **The fifth prose family is not a trigger.** "When this Character is K.O.'d **by
 your opponent's effect**" (6 cards) is `onKO` with a question attached, so
 `leaveField` takes a `LeaveFieldCause` whose K.O. member *requires* a causer and
@@ -1630,6 +1703,18 @@ event down to its two lengths** rather than drop it, where every other private
 event (`cardsLookedAt`, `cardDrawn`) can simply be withheld. The client already
 renders it that way — counts only — which is the same trade `cardsLookedAt`
 makes, and it is the shape a real hidden-information layer should inherit.
+
+**And the first mechanism that takes knowledge *away*.** A `Selector` over
+`zone: 'deck'` is a **search**: its controller reads forty-odd cards, one at a
+time, and the opponent learns nothing (CR 11-3-1). Every other piece of this debt
+is about a view withholding or widening what a player knows; `shuffleDeck` is the
+only thing in the engine that *narrows* it, which is what CR 11-4-1 requires a
+search to end with — "when a player searches their deck … they must shuffle their
+deck afterwards". The original `PlayerView` sketch already said `knownBy` empties
+on a shuffle; `OP01-069` and `OP01-098` are the first cards that make that
+sentence reachable. `deckShuffled` carries no ids and never will: the new order is
+hidden from both players at a real table too, so it is the one event where this
+engine and a filtered view already agree.
 
 ## Out of scope for Phase 2A
 

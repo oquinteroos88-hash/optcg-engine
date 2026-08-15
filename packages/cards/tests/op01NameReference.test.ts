@@ -90,7 +90,7 @@ function attackLeader(state: GameState, player: PlayerId, attacker: InstanceId):
 // ===========================================================================
 
 describe('the names the scripts filter on', () => {
-  it('are exactly the ten the twelve cards print, and every one resolves', () => {
+  it('are exactly the twelve the fifteen cards print, and every one resolves', () => {
     // The registered half of the resolution guard in `abilCardShapes.test.ts`,
     // as an exact list rather than "not empty". Ten names across twelve cards:
     // `OP01-044` and `OP01-050` each print their partner's name twice (once in
@@ -108,6 +108,12 @@ describe('the names the scripts filter on', () => {
       }
     }
     expect([...referenced].sort()).toEqual([
+      // The twelfth and thirteenth names, and neither is on the twelve: the two
+      // whole-deck searches (`OP01-069`, `OP01-098`) filter their deck by a
+      // printed name and by nothing else, which is this field arriving at a
+      // fifth site — a `Selector` over a zone that did not exist when it shipped
+      // — without learning a word.
+      'Artificial Devil Fruit SMILE',
       'Baroque Works',
       'Bepo',
       // The eleventh name, and it is not on a script selector at all:
@@ -122,6 +128,7 @@ describe('the names the scripts filter on', () => {
       'Pacifista',
       'Penguin',
       'Shachi',
+      'Smiley',
       'Tony Tony.Chopper',
       'Uta',
     ]);
@@ -132,7 +139,7 @@ describe('the names the scripts filter on', () => {
     }
   });
 
-  it('names no card the twelve do not print, and no card outside the twelve names one', () => {
+  it('names no card the fifteen do not print, and no card outside them names one', () => {
     const naming = englishCards
       .filter((card) =>
         getAbilities(card.cardId).some((ability) => {
@@ -158,8 +165,12 @@ describe('the names the scripts filter on', () => {
       // The thirteenth card, added by the closing batch through a legality
       // target rather than a selector.
       'OP01-051',
+      // The fourteenth and fifteenth, added by the last four: a name is what
+      // both whole-deck searches search *for*.
+      'OP01-069',
       'OP01-074',
       'OP01-090',
+      'OP01-098',
       'OP01-099',
     ]);
   });
@@ -250,8 +261,13 @@ describe('a name is not an instance', () => {
     expect(higurashi).toBeDefined();
     // Asked through the engine's own gate — the question the Damage Step asks —
     // rather than by re-reading the static off the state.
+    // The attacker is part of the question since `OP01-024` gave `koInBattle` a
+    // `target`. `OP01-099`'s clause carries none, so it answers the same for
+    // every attacker — which is exactly what an unqualified prohibition means,
+    // and p2's Leader is as good a witness to it as any.
+    const swinging = state.players.p2.leader;
     const immune = [first, second, higurashi].filter(
-      (id): id is InstanceId => id !== undefined && !canBeKOdInBattle(state, id),
+      (id): id is InstanceId => id !== undefined && !canBeKOdInBattle(state, id, swinging),
     );
     expect(immune).toEqual([higurashi]);
   });
@@ -844,7 +860,7 @@ describe('OP01-099 Kurozumi Semimaru — the static, at the site it is read', ()
       p2: { characters: [{ cardId: 'OP01-099' }], activeDon: 6 },
     });
     const mine = characterAt(state, 'p1', 1);
-    expect(canBeKOdInBattle(state, mine)).toBe(true);
+    expect(canBeKOdInBattle(state, mine, state.players.p2.leader)).toBe(true);
   });
 });
 

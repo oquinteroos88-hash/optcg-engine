@@ -203,6 +203,29 @@ function nameReferences(ability: Ability): Array<{ where: string; name: string }
   return found;
 }
 
+/** Every string in an `attributes` filter anywhere in an ability. */
+function walkAttributes(ability: Ability, visit: (attribute: string) => void): void {
+  function walk(node: unknown): void {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    if (node === null || typeof node !== 'object') {
+      return;
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (key === 'attributes' && Array.isArray(value)) {
+        for (const attribute of value) {
+          visit(String(attribute));
+        }
+        continue;
+      }
+      walk(value);
+    }
+  }
+  walk(ability);
+}
+
 /** Names that no card in `defs` carries. Empty is the only passing answer. */
 function unresolved(
   defs: readonly { cardId: string; name: string }[],
@@ -282,6 +305,31 @@ describe('every name a script filters on resolves to a real card', () => {
       ],
     };
     expect(unresolved(englishCards, [{ id: 'TYPO', ability: correct }])).toEqual([]);
+  });
+
+  it('resolves every attribute a script filters on, for the same reason', () => {
+    // `attributes` is the second free-string field on the shared predicate, and
+    // it fails exactly the way `names` does: "＜Strke＞" matches nobody, narrows
+    // silently, and looks like a card that legitimately found no target. The
+    // walk is the same structural one, so a predicate-carrying op added tomorrow
+    // is covered without this file being touched.
+    const printed = new Set(englishCards.flatMap((card) => card.attributes));
+    const referenced = new Set<string>();
+    for (const card of englishCards) {
+      for (const ability of getAbilities(card.cardId)) {
+        walkAttributes(ability, (attribute) => referenced.add(attribute));
+      }
+    }
+    // One card asks, and it is `OP01-024`. Pinned as an exact list rather than
+    // "all resolve", so the day a second card asks it is a line in a diff.
+    expect([...referenced].sort()).toEqual(['Strike']);
+    for (const attribute of referenced) {
+      expect(printed.has(attribute), attribute).toBe(true);
+    }
+    // Not vacuous: the set really does print five attributes, and a misspelling
+    // of the one in scope really would fail.
+    expect(printed.size).toBeGreaterThan(1);
+    expect(printed.has('Strke')).toBe(false);
   });
 
   it('reaches a name nested inside an if, a forEach and a condition', () => {

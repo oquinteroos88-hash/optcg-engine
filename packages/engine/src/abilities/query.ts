@@ -90,6 +90,12 @@ function zoneIds(state: GameState, player: PlayerId, selector: Selector): Instan
       // Left off, the whole area is returned, which is what a `countCards` over
       // Life wants.
       return selector.count === undefined ? [...ps.life] : ps.life.slice(0, selector.count);
+    case 'deck':
+      // The whole deck, in deck order, and `count` is deliberately not read
+      // here: a search is not a window. CR 11-3-1 confines the looking to "the
+      // player of that effect", which is the privacy this engine declines to
+      // model and `shuffleDeck` is the thing that ends.
+      return [...ps.deck];
     case 'deckTop':
       return ps.deck.slice(0, selector.count ?? 1);
   }
@@ -184,6 +190,16 @@ export function matchesPredicate(
   if (predicate.types !== undefined) {
     const types = def.types ?? [];
     if (!predicate.types.some((wanted) => types.includes(wanted))) {
+      return false;
+    }
+  }
+  // Sharing, not equality — the same reading `types` and `colors` get, and the
+  // one CR 2-5-7 requires: seventeen cards print two attributes and each of them
+  // answers to both. Absent in the definition is the empty list, which is an
+  // Event or a Stage and matches no attribute filter at all.
+  if (predicate.attributes !== undefined) {
+    const attributes = def.attributes ?? [];
+    if (!predicate.attributes.some((wanted) => attributes.includes(wanted))) {
       return false;
     }
   }

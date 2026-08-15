@@ -1,4 +1,4 @@
-import { KO_BY_BATTLE } from '../abilities/dsl.js';
+import { BATTLE_OPPONENT_VAR, KO_BY_BATTLE } from '../abilities/dsl.js';
 import {
   fireBlockerActivated,
   fireEventActivated,
@@ -439,6 +439,27 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
   const attacker = battle.attacker;
   const target = battle.target;
 
+  // **The moment a card battles** (CR 7-1-4-1: "compare the power of the
+  // attacking card and the card being attacked"). It is here and not at
+  // declaration because CR 7-1-2-2 lets a `[Blocker]` become the target, so this
+  // is the first point at which the pair is final — the reason PR #35's Hawkins
+  // ruling rejected the `[When Attacking]` reading as wrong rather than rough.
+  //
+  // Before the comparison, so the condition is evaluated with both cards still
+  // on the field and standing as they fought. What the trigger *does* still
+  // resolves after the battle closes, because `enqueue` puts it under whatever is
+  // running and `settle` drains the stack afterwards.
+  //
+  // A battle that ended early never gets here at all, which is CR 7-1-1-4 /
+  // 7-1-2-3 / 7-1-3-3 routing straight to End of the Battle: no power compared,
+  // nothing battled.
+  //
+  // Both sides, attacker first — the turn player's card, `orderedFieldSources`'
+  // convention — each seeded with the other. Whether a card may fire while
+  // blocking is a question its own `[Your Turn]` answers, not this call site's.
+  fireTriggers(draft, 'whenBattling', [attacker], { [BATTLE_OPPONENT_VAR]: [target] });
+  fireTriggers(draft, 'whenBattling', [target], { [BATTLE_OPPONENT_VAR]: [attacker] });
+
   // The attacker wins ties. Line coverage cannot tell the tie apart from a
   // margin win, so the two are marked separately.
   if (attackPower === defensePower) {
@@ -456,7 +477,9 @@ function resolveBattle(draft: GameState, events: GameEvent[]): void {
   // happened, so it gets its own outcome rather than borrowing `noEffect` —
   // the same distinction `battleEndedEarly` exists to keep.
   const wins = attackPower >= defensePower;
-  const koPrevented = wins && !targetIsLeader && !canBeKOdInBattle(draft, target);
+  // The attacker goes into the question because a prohibition may be qualified
+  // by it — `OP01-024` is immune to ＜Strike＞ Characters and to nothing else.
+  const koPrevented = wins && !targetIsLeader && !canBeKOdInBattle(draft, target, attacker);
   if (koPrevented) {
     mark('battle.koPrevented');
   }

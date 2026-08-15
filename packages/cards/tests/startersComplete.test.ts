@@ -7,13 +7,15 @@ import { answer, applyOk, op01CrocodileScenario, run, starterScenario } from './
 registerEnglishCards();
 
 /**
- * The batch that closes the starter decks, and the ruling that stops it closing
- * them completely.
+ * The batch that closed the starter decks bar one card, and the ruling that
+ * eventually wrote that card too.
  *
  * Three cards were left when every other row in both inventories had been
  * built. Two of them were one union member each — a duration and a condition —
- * and are here. The third, `ST02-010` Basil Hawkins, is **not**, and the reason
- * is a ruling rather than a gap; see the last section.
+ * and are here. The third, `ST02-010` Basil Hawkins, stayed declared for five
+ * batches under PR #35's ruling and is now written; the ruling section at the
+ * bottom is the record of what it fixed and the milestone guard reads **34 of
+ * 34**.
  *
  * Every claim below is read off the Comprehensive Rules v1.2.0. The official
  * per-card Q&A could not be used: it is rendered client-side and the HTML the
@@ -273,7 +275,7 @@ describe('ST02-014 X.Drake — "if this Character is rested"', () => {
 // ST02-010 Basil Hawkins — the ruling
 // ---------------------------------------------------------------------------
 
-describe('ST02-010 Basil Hawkins — the ruling, and why the card stays unwritten', () => {
+describe('ST02-010 Basil Hawkins — the ruling, and the card it finally wrote', () => {
   /**
    * "[DON!! x1] [Once Per Turn] [Your Turn] If this Character battles your
    * opponent's Character, set this card as active."
@@ -310,11 +312,29 @@ describe('ST02-010 Basil Hawkins — the ruling, and why the card stays unwritte
    * card as `[When Attacking]` would miss that case and would set Hawkins active
    * before the battle it names had happened.
    *
-   * Two new capabilities for one card in 2665. The row stays declared.
+   * **The ruling stood; the arithmetic under it moved.** Two new capabilities
+   * for one card in 2665 was the right price while a queue of blocked cards was
+   * waiting behind them. The queue is empty, so the row is built — and it turned
+   * out to be **one** capability rather than two: `whenBattling` is the moment,
+   * and the question the ruling said `Condition` could not ask is
+   * `Condition.varMatches` over the trigger's seed, built for `OP01-063` Arlong
+   * a PR later and never revisited here. Every finding above survives into the
+   * script; nothing in it was re-derived. The behaviour is in
+   * `tests/lastFour.test.ts`, which owns the four cards that closed both sets.
    */
-  it('is the one starter card with printed text the engine does not execute', () => {
-    expect(getAbilities('ST02-010')).toEqual([]);
+  it('is written, and every clause of the ruling is in the script', () => {
+    const [ability] = getAbilities('ST02-010');
     expect(cardText('ST02-010')).toContain('If this Character battles');
+    // The moment: the battle, not the declaration. `[When Attacking]` is the
+    // reading the ruling rejected as wrong, so seeing it here would be the
+    // regression this line exists to catch.
+    expect(ability?.trigger).toBe('whenBattling');
+    // `[Once Per Turn]`, and `[DON!! x1]` + `[Your Turn]` + "your opponent's
+    // Character" as three conjuncts. The turn clause is what the ruling used to
+    // settle the blocking half, and it is a condition rather than a firing-site
+    // rule so that the card carries its own exclusion.
+    expect(ability?.oncePerTurn).toBe(true);
+    expect(JSON.stringify(ability?.condition)).toContain('isYourTurn');
   });
 
   it('has [Your Turn] printed, which is what settles the blocking half', () => {
@@ -323,7 +343,7 @@ describe('ST02-010 Basil Hawkins — the ruling, and why the card stays unwritte
     expect(cardText('ST02-010')).toContain('[Your Turn]');
   });
 
-  it('is alone in the whole set, which is why nothing is built for it', () => {
+  it('is alone in the whole set, which is why it waited five batches', () => {
     const matches = englishCards.filter((card) =>
       /if this Character battles/i.test([card.effectText, card.triggerText].filter(Boolean).join(' ')),
     );
@@ -349,7 +369,7 @@ describe('the starter decks, card by card', () => {
    * if it cannot drift: a card added to a decklist, or an ability deleted, moves
    * it and fails here.
    */
-  const DECLARED_UNWRITTEN = ['ST02-010'] as const;
+  const DECLARED_UNWRITTEN: readonly string[] = [];
 
   function distinctStarterCards(): string[] {
     const ids: string[] = [];
@@ -392,10 +412,13 @@ describe('the starter decks, card by card', () => {
       }
     }
 
+    // **Empty, and that is the milestone.** The list was `['ST02-010']` for five
+    // batches and is now the only kind of debt list worth having: one that
+    // reached zero rather than one that was redefined.
     expect(unaccounted).toEqual([...DECLARED_UNWRITTEN]);
-    // 23 + 2 + 8 + 1 = 34. Written out so the shape of the deck is visible and a
+    // 24 + 2 + 8 = 34. Written out so the shape of the deck is visible and a
     // card that quietly changes category is not absorbed by the total.
-    expect(scripted).toHaveLength(23);
+    expect(scripted).toHaveLength(24);
     expect(keywordOnly).toHaveLength(2);
     expect(noText).toHaveLength(8);
   });

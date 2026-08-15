@@ -128,6 +128,16 @@ export type GameEvent =
    * private. See the README's hidden-information section.
    */
   | { type: 'deckPartitioned'; player: PlayerId; top: InstanceId[]; bottom: InstanceId[] }
+  /**
+   * A deck shuffled by a card effect (CR 11-4-1), never the opening one.
+   *
+   * Carries no ids and never will. Every other event in this file leaks
+   * perfect information by declared design and this one has nothing to leak —
+   * the new order is exactly what a real table also hides, so the event that
+   * announces the erasure is the one place the engine and a per-player view
+   * already agree.
+   */
+  | { type: 'deckShuffled'; player: PlayerId; count: number }
   | { type: 'donReturnedToDeck'; player: PlayerId; count: number }
   /**
    * DON!! moved from the DON!! deck into the cost area by a card effect.

@@ -3,6 +3,23 @@
 An inventory, not an implementation. Nothing below designs a missing capability;
 each card reports **what it needs**, never what the API for it would look like.
 
+> ## Final state — OP-01 is 121 of 121 (14 August 2026)
+>
+> **Every base card of OP-01 works.** The last three declared rows — `OP01-024`,
+> `OP01-069` and `OP01-098` — were built together with the starters' last row,
+> `ST02-010` Basil Hawkins. Both sets are complete: **34 of 34 and 121 of 121,
+> 155 cards.**
+>
+> The reason the declarations were reversed is in
+> [the census's appendix](op01-closing-census.md#appendix--the-three-declarations-reversed-14-august-2026),
+> and it is not a change of standard: the Hawkins standard priced an
+> *opportunity cost*, and the queue it was pricing against is empty.
+>
+> Everything below is left as it was written, including the sections that count
+> to 118 and to 86. This document's own rule is that a map edited to agree with
+> the build is a map nobody can check the build against; the ✅ marks are the
+> only thing ever added in place, and this banner is the only thing added above.
+
 > **Status — pile A is COMPLETE, gaps 1, 2 and 9 are bought, and backlog A is
 > empty again.** All thirty-five writable pile-A cards are written and thirteen
 > pile-C cards have followed them, taking OP-01 from 19 playable to **67 of
@@ -194,6 +211,27 @@ asking and no second asker is a declared row, not a build.*
 
 `docs/op01-closing-census.md` carries the arithmetic PR by PR and what building
 each row changed about it.
+
+### Addendum — those three are written, and OP-01 is 121 of 121
+
+The table above is left as it was. The three rows it declared were **reversed on
+14 August 2026**, together with `ST02-010` Basil Hawkins, and the whole reason is
+[in the census](op01-closing-census.md#appendix--the-three-declarations-reversed-14-august-2026).
+The short form: the standard priced the effort against the cards waiting behind
+it, and after PR 7 there were none.
+
+| Card | Built as |
+| --- | --- |
+| `OP01-024` | `CardFilter.attributes`, plus a `target` on `LegalityClause`'s `koInBattle` — the two the row named, and the count was exact |
+| `OP01-069`, `OP01-098` | a `deck` zone on `Selector` and a `shuffleDeck` op. The shuffle is CR 11-4-1 and is what makes the search legal, which the row read as bookkeeping |
+| `ST02-010` | **one** capability, not the two PR #35 priced: the `whenBattling` trigger. The question the ruling said `Condition` could not ask is `varMatches` over the trigger's seed, and `varMatches` shipped one PR after the ruling was written |
+
+The final counts, so they are on this page and not only in the census:
+
+| | Written | Declared |
+| --- | --- | --- |
+| OP-01 | **121** | 0 |
+| ST-01 + ST-02 | **34** | 0 |
 
 ## The closing census supersedes the rows below
 
@@ -1314,6 +1352,31 @@ The pointer is beside the op in `packages/engine/src/abilities/interpreter.ts`.
 Nothing is built for any of it, and OP-01 closing does not close it: this is a
 model gap, and it went from zero reachable cards to three in the batch that
 finished the set.
+
+### And a fourth card, which is the first one that gives knowledge *back*
+
+**`OP01-069` Caesar Clown and `OP01-098` Kurozumi Orochi search the whole deck**,
+which is the widest private read in the game: their controller looks at forty-odd
+cards, one at a time, and the other player learns nothing. CR **11-3-1** is the
+rule and it is the same one Kanjuro's hand falls under — "such effects apply only
+to the player of that effect".
+
+What makes this the fourth *distinct* piece rather than a fourth instance of the
+first is the sentence after it. **A shuffle erases the knowledge**, which is
+CR 11-4-1's whole reason for existing: "when a player searches their deck … they
+must shuffle their deck afterwards". Every other piece of this debt is about a
+view **withholding** or **widening** what a player knows; this is the only
+mechanism in the engine that *narrows* it, and the original `PlayerView` sketch
+already said so — `knownBy` empties on a shuffle. That sentence has been in the
+design and unreachable since it was written. It is reachable now.
+
+| Piece | What a filtered view owes it |
+| --- | --- |
+| a `Selector` over `zone: 'deck'` | the candidate list is **private to the searcher** — the opponent may see that a search happened and how many cards moved, never which |
+| `deckShuffled` | **apply** it in the other direction: whatever the searcher learned, they no longer know |
+
+The pointer is beside the op, next to `reveal`'s. Three reachable cards became
+**four**, and the fourth is the one that makes the model two-directional.
 
 ## A fourth: two cards are illegal to model in deck construction
 

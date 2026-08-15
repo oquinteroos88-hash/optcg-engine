@@ -13,6 +13,7 @@ import {
   setOrientation,
 } from '../reducer/helpers.js';
 import { finishTurn } from '../reducer/turn.js';
+import { shuffle } from '../rng.js';
 import { getAbilities } from '../registry.js';
 import { getCardDef } from '../registry.js';
 import { EFFECTIVE, getOpponent, isOnField } from '../selectors.js';
@@ -924,6 +925,39 @@ function execute(
       });
       return;
     }
+    case 'shuffleDeck': {
+      // CR 11-4-1: a player who searched their deck "must shuffle their deck
+      // afterwards". Unconditional — the printed "then" is sequence, not
+      // dependency (CR 4-10-2) — so a search that found nothing still shuffles,
+      // and that is the case worth stating: the player read the deck either way.
+      //
+      // **Where hidden information will start, from the other end.** `reveal` is
+      // the act that makes a card known to someone who could not see it; this is
+      // the act that takes knowledge *away*, and it is the first mechanism in the
+      // engine that does. A per-player view's `knownBy` empties here. Filed with
+      // the rest of that debt in `docs/op01-inventory.md`.
+      const ps = draft.players[item.controller];
+      if (ps.deck.length === 0) {
+        // Nothing to shuffle and no RNG consumed: an empty deck has one order,
+        // and drawing from the cursor for it would make the sequence depend on
+        // a board state instead of on the seed.
+        mark('op.shuffleEmpty');
+        return;
+      }
+      // The state's own RNG and its own cursor — the same stream `createGame`
+      // opened. Determinism is by construction: same seed, same actions, same
+      // deck.
+      const shuffled = shuffle(ps.deck, draft.rng);
+      ps.deck = shuffled.items;
+      draft.rng = shuffled.rng;
+      mark('op.shuffleDeck');
+      emit(draft, events, {
+        type: 'deckShuffled',
+        player: item.controller,
+        count: ps.deck.length,
+      });
+      return;
+    }
     case 'reveal': {
       // Two shapes, told apart by which key is present — `Ref`'s discipline. The
       // variable form reveals cards something already chose and binds nothing:
@@ -934,6 +968,18 @@ function execute(
           : idsFromVar(ctxOf(item), instruction.var);
       if ('from' in instruction) {
         item.vars[instruction.as] = revealed;
+      }
+      if (revealed.length === 0) {
+        // **Revealing nothing is not revealing.** An "up to 1" answered with
+        // nothing, or a selector that found nobody, leaves no card for anyone to
+        // learn — and an empty `cardsRevealed` is a log line saying a public act
+        // happened when none did. Reachable since `OP01-105` (an empty opponent
+        // hand) and printed as a routine outcome by `OP01-098`, whose search may
+        // legitimately find no [Artificial Devil Fruit SMILE]. Rule 1 of the
+        // interpreter as always: the variable is still bound and the next
+        // instruction still runs.
+        mark('op.revealNothing');
+        return;
       }
       mark('from' in instruction ? 'op.reveal' : 'op.revealVar');
       // **Where hidden information will start.** Revealing is the act that makes

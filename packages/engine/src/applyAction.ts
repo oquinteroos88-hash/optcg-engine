@@ -66,6 +66,8 @@ function malformedAnswer(raw: unknown): boolean {
     // side at all.
     case 'partition':
       return !Array.isArray(answer['top']) || !Array.isArray(answer['bottom']);
+    case 'handles':
+      return !Array.isArray(answer['selected']);
     case 'yesNo':
       return typeof answer['value'] !== 'boolean';
     case 'option':

@@ -185,3 +185,43 @@ export function rememberDeparture(
   }
 }
 
+/**
+ * The order behind a blind choice's opaque handles: handle `i` names
+ * `blindHandleOrder(...)[i]`.
+ *
+ * The order is a keyed hash, not the candidate list and not an id sort, and
+ * each rejected alternative is a leak:
+ *
+ * - **Candidate order** is the owner's hand order, which encodes draw history.
+ *   At a real table the owner may rearrange their hand at will (CR 3-4-2), so
+ *   position carries no information a chooser is entitled to keep.
+ * - **Id order** looks opaque but is statistically invertible: a chooser who
+ *   knows *some* of the hand (a revealed card that went back) can rank the ids
+ *   they know against the possible ids they do not, and the monotone mapping
+ *   turns that into odds on which handle is which.
+ *
+ * Hashing each id with a salt that includes **every** candidate id closes
+ * that: a chooser missing even one candidate cannot compute any hash, and
+ * under each hypothesis about the missing card the whole ordering resamples —
+ * so every hypothesis sees a fresh uniform shuffle and the posterior is flat,
+ * which is exactly the nothing a fanned-out hand of backs gives. Pure data in,
+ * pure data out: the same state produces the same handles after any number of
+ * serialization round trips.
+ */
+export function blindHandleOrder(choiceId: string, candidates: readonly InstanceId[]): InstanceId[] {
+  const salt = [...candidates].sort().join(',');
+  const keyed = candidates.map((id) => ({ id, key: fnv1a(`${choiceId}|${salt}|${id}`) }));
+  keyed.sort((a, b) => (a.key !== b.key ? a.key - b.key : a.id < b.id ? -1 : 1));
+  return keyed.map((entry) => entry.id);
+}
+
+/** FNV-1a, 32-bit. Not cryptographic and does not need to be: the secrecy is
+ * in the salt's unknown ids, not in the function. */
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}

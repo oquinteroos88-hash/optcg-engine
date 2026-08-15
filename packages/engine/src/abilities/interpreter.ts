@@ -1496,6 +1496,11 @@ function discardInstruction(
     min: count,
     max: count,
     sink: { kind: 'discard', owner },
+    // Kanjuro's shape: a chooser picking out of a hand they may not view
+    // (CR 3-4-3), which CR 8-4-4-2 calls choosing "unrevealed cards in a
+    // secret area". The chooser answers by opaque handle in a per-player
+    // view; the candidates stay real ids because hot-seat plays face-up.
+    ...(chooser === owner ? {} : { blind: true as const }),
   });
   return true;
 }

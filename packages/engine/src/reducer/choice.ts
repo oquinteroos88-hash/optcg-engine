@@ -2,6 +2,7 @@ import { applyAnswer } from '../abilities/interpreter.js';
 import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import type { ChoiceAnswer, GameState, InstanceId, PendingChoice, PlayerId } from '../types.js';
+import { blindHandleOrder } from '../visibility.js';
 import { REASONS } from './errors.js';
 
 interface AnswerChoiceAction {
@@ -45,7 +46,25 @@ export function validateAnswerChoice(state: GameState, action: AnswerChoiceActio
         return REASONS.choiceOptionOutOfRange;
       }
       return null;
+    /**
+     * Two answer shapes, one contract. Ids are always accepted — hot-seat
+     * plays over the full state and answers face-up, blind flag or not. A
+     * `handles` answer is accepted only where handles were offered: it is the
+     * blind chooser's alphabet (CR 8-4-4-2), and letting it name cards in a
+     * choice whose candidates are visible would be a second way to say the
+     * same thing, which is one way too many for a validator.
+     *
+     * The handle checks mirror the id checks code for code — cardinality,
+     * membership (here: range), distinctness — so a rejected caller learns
+     * the same kind of fact either way.
+     */
     case 'selectCards':
+      if (answer.kind === 'handles') {
+        if (pending.blind !== true) {
+          return REASONS.choiceNotBlind;
+        }
+        return handleListReason(pending, answer.selected);
+      }
       return answer.kind === 'cards'
         ? cardListReason(pending, answer.selected)
         : REASONS.choiceKindMismatch;
@@ -95,6 +114,24 @@ export function validateAnswerChoice(state: GameState, action: AnswerChoiceActio
   }
 }
 
+/** The handle checks: same three properties as `cardListReason`, over indices. */
+function handleListReason(pending: PendingChoice, handles: readonly number[]): string | null {
+  if (handles.length < pending.min || handles.length > pending.max) {
+    return REASONS.choiceCardinality;
+  }
+  const seen = new Set<number>();
+  for (const handle of handles) {
+    if (!Number.isInteger(handle) || handle < 0 || handle >= pending.candidates.length) {
+      return REASONS.choiceHandleOutOfRange;
+    }
+    if (seen.has(handle)) {
+      return REASONS.choiceDuplicateSelection;
+    }
+    seen.add(handle);
+  }
+  return null;
+}
+
 /** Shared by both card-list answers: cardinality, membership, distinctness. */
 function cardListReason(pending: PendingChoice, ids: readonly InstanceId[]): string | null {
   if (ids.length < pending.min || ids.length > pending.max) {
@@ -122,5 +159,33 @@ export function applyAnswerChoice(
     throw new Error('Engine bug: answerless ANSWER_CHOICE passed validation');
   }
   mark('choice.answered');
-  applyAnswer(draft, action.answer, events);
+  applyAnswer(draft, translateHandles(draft, action.answer), events);
+}
+
+/**
+ * The whole of "answering by handle produces the same state as answering by
+ * id": a `handles` answer becomes the exact `cards` answer it names *before*
+ * the interpreter sees it, so everything downstream — payment, trashing,
+ * events, cursor movement — runs the one code path it always ran.
+ */
+function translateHandles(draft: GameState, answer: ChoiceAnswer): ChoiceAnswer {
+  if (answer.kind !== 'handles') {
+    return answer;
+  }
+  const pending = draft.pending;
+  if (pending === null || pending.blind !== true) {
+    throw new Error('Engine bug: a handles answer passed validation without a blind choice');
+  }
+  const order = blindHandleOrder(pending.id, pending.candidates);
+  mark('choice.answeredByHandle');
+  return {
+    kind: 'cards',
+    selected: answer.selected.map((handle) => {
+      const id = order[handle];
+      if (id === undefined) {
+        throw new Error('Engine bug: a handle outside the order passed validation');
+      }
+      return id;
+    }),
+  };
 }

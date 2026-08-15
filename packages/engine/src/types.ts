@@ -434,6 +434,20 @@ export interface PendingChoice {
   min: number;
   max: number;
   /**
+   * A choice whose chooser is not entitled to see its candidates. CR 8-4-4-2
+   * describes it — choosing "unrevealed cards in a secret area", where the
+   * chooser "cannot guarantee that the chosen card meets the required
+   * conditions" — and `OP01-038` Kanjuro is the one printed card that reaches
+   * it: the opponent chooses from a hand they may not view (CR 3-4-3).
+   *
+   * The full state still carries the real candidate ids, because the engine is
+   * perfect-information and hot-seat renders them face-up; the flag is what
+   * tells a per-player view to offer opaque handles instead, and what lets
+   * `ANSWER_CHOICE` accept a `handles` answer. Absent everywhere else — a
+   * choice that is not blind does not say so.
+   */
+  blind?: true;
+  /**
    * Where the answer goes when it arrives. Not in the original Phase 2A shape;
    * without it the reducer would have to guess whether an answer belongs to a
    * script variable or to a rule the engine paused in the middle of, and that
@@ -549,7 +563,18 @@ export type ChoiceAnswer =
    * Either side may be empty — "all five to the bottom" is a legal answer to a
    * top-or-bottom question, and so is all five to the top.
    */
-  | { kind: 'partition'; top: InstanceId[]; bottom: InstanceId[] };
+  | { kind: 'partition'; top: InstanceId[]; bottom: InstanceId[] }
+  /**
+   * A blind choice answered without names: each entry is an index into
+   * `blindHandleOrder(choice.id, choice.candidates)`, the keyed ordering in
+   * `visibility.ts`. Only a choice marked `blind` accepts it — everywhere else
+   * the ids are the contract — and a blind choice still accepts `cards` too,
+   * because hot-seat plays over the full state and answers face-up. The two
+   * routes converge before the reducer moves anything: a `handles` answer is
+   * translated to the exact `cards` answer it names, so the resulting state is
+   * the same object either way.
+   */
+  | { kind: 'handles'; selected: number[] };
 
 export interface Decklist {
   leader: CardId;

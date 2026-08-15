@@ -451,6 +451,11 @@ function checkEffectShape(state: GameState, violations: string[]): void {
   if (pending.min > pending.max) {
     violations.push(`effectShape: choice ${pending.id} has min ${pending.min} > max ${pending.max}`);
   }
+  // A blind choice is a card selection or it is nothing: handles resolve into
+  // `candidates`, and the other kinds have no candidates to hide.
+  if (pending.blind === true && pending.kind !== 'selectCards') {
+    violations.push(`effectShape: blind choice ${pending.id} must be selectCards, is ${pending.kind}`);
+  }
   if (
     pending.kind === 'selectCards' ||
     pending.kind === 'orderCards' ||

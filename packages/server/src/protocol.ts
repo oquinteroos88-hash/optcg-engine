@@ -1,4 +1,4 @@
-import type { Action, PlayerView, ViewEvent } from '@optcg/engine';
+import type { Action, PlayerId, PlayerView, ViewEvent } from '@optcg/engine';
 
 /**
  * The wire protocol, versioned so an old client fails loudly instead of
@@ -26,6 +26,13 @@ export type ClientMessage =
  * snapshots over diffs, correctness first.
  */
 export type ServerToClient =
+  /** The answer to a successful join: the seat and its present. */
+  | {
+      type: 'joined';
+      protocol: typeof PROTOCOL_VERSION;
+      seat: PlayerId;
+      view: PlayerView;
+    }
   | UpdatePayload
   /** Sent only to the seat that acted, with the engine's reason verbatim.
    * Rejections are request/response, not history: they are never journaled

@@ -1,11 +1,10 @@
 import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Decklist, PlayerId } from '@optcg/engine';
-import { playerView } from '@optcg/engine';
 import type { ClientMessage, ServerToClient } from './protocol.js';
 import { PROTOCOL_VERSION, SERVER_ERRORS } from './protocol.js';
 import type { MatchState } from './session.js';
-import { createMatch, handleAction } from './session.js';
+import { createMatch, handleAction, rejoinPayload } from './session.js';
 
 /**
  * The transport: a thin WebSocket skin over the pure session. It parses,
@@ -16,7 +15,10 @@ import { createMatch, handleAction } from './session.js';
  * No accounts, no matchmaking: a match is registered with two seat tokens
  * (the caller mints them; this module has no randomness of its own, which
  * keeps the session's no-own-entropy guarantee true of the whole server), and
- * joining is `matchId + token`.
+ * joining is `matchId + token`. A second socket presenting the same token is
+ * a reconnection: it takes the seat, the old socket is closed, and the
+ * journal is re-emitted — the minimum that lets a dropped player return
+ * mid-choice and keep playing.
  */
 
 interface MatchEntry {
@@ -85,6 +87,9 @@ export function startServer(opts: { port: number }): Promise<GameServer> {
       send(socket, { type: 'error', code: SERVER_ERRORS.badToken });
       return;
     }
+    // Reconnection: the token re-authenticates, the newcomer takes the seat,
+    // and whatever socket held it before is closed rather than left as a
+    // second pair of eyes on the same seat.
     const previous = entry.sockets[seat];
     if (previous !== undefined && previous !== socket) {
       seatsBySocket.delete(previous);
@@ -92,12 +97,7 @@ export function startServer(opts: { port: number }): Promise<GameServer> {
     }
     entry.sockets[seat] = socket;
     seatsBySocket.set(socket, { matchId: message.matchId, seat });
-    send(socket, {
-      type: 'joined',
-      protocol: PROTOCOL_VERSION,
-      seat,
-      view: playerView(entry.match.game, seat),
-    });
+    send(socket, rejoinPayload(entry.match, seat));
   }
 
   function handleActionMessage(
@@ -140,6 +140,8 @@ export function startServer(opts: { port: number }): Promise<GameServer> {
       if (target !== undefined) {
         send(target, payload);
       }
+      // A disconnected seat misses nothing: the payload is already in its
+      // journal, which the reconnecting join re-emits.
     }
   }
 

@@ -26,12 +26,21 @@ export type ClientMessage =
  * snapshots over diffs, correctness first.
  */
 export type ServerToClient =
-  /** The answer to a successful join: the seat and its present. */
+  /** The answer to a successful join — first join and reconnection alike.
+   * `view` is the present; `journal` is the history exactly as this seat saw
+   * it live: every emission's redacted events, stored verbatim at the moment
+   * of emission and never re-derived. The intermediate board snapshots are
+   * not kept — a full-payload journal measured quadratic (8.4MB average,
+   * 16MB worst per seat-game in the sweep, the log riding inside every view)
+   * while the event journal is the same history at a linear cost. What a
+   * returning client cannot do is scrub through past board states; that is a
+   * declared trade, not an accident. */
   | {
       type: 'joined';
       protocol: typeof PROTOCOL_VERSION;
       seat: PlayerId;
       view: PlayerView;
+      journal: ViewEvent[][];
     }
   | UpdatePayload
   /** Sent only to the seat that acted, with the engine's reason verbatim.

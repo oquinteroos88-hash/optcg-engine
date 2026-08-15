@@ -4,6 +4,7 @@ import type {
   GameEvent,
   GameState,
   PlayerId,
+  PlayerView,
   ViewEvent,
 } from '@optcg/engine';
 import { applyAction, createGame, playerView, redactEvent, PLAYER_IDS } from '@optcg/engine';
@@ -126,6 +127,24 @@ export function handleAction(match: MatchState, seat: PlayerId, action: Action):
       seats,
     },
     emitted,
+  };
+}
+
+/**
+ * What a seat is told on joining — first time and reconnection alike: the
+ * current view plus the seat's whole journal. Nothing is re-derived; the
+ * history a returning player reads is the history they watched.
+ */
+export function rejoinPayload(
+  match: MatchState,
+  seat: PlayerId,
+): { type: 'joined'; protocol: typeof PROTOCOL_VERSION; seat: PlayerId; view: PlayerView; journal: ViewEvent[][] } {
+  return {
+    type: 'joined',
+    protocol: PROTOCOL_VERSION,
+    seat,
+    view: playerView(match.game, seat),
+    journal: match.seats[seat].journal,
   };
 }
 

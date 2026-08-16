@@ -15,8 +15,12 @@ import type { Action, CardId, Decklist, GameState, InstanceId, PlayerId } from '
 import { buildScenario, characterAt, handCard } from '@optcg/engine/testdata/scenarios';
 import type { UiMode } from '../src/game/uiMode';
 import { GameScreen } from '../src/screens/GameScreen';
+import { messagesFor } from '../src/i18n';
 import { playerLabel } from '../src/store/selectors';
 import { hotSeatSnapshot, useStore } from '../src/store/store';
+
+/** The suites run in Spanish — see `tests/setup.ts`. */
+const m = messagesFor('es');
 
 // ---------------------------------------------------------------------------
 // Store plumbing
@@ -97,20 +101,20 @@ afterEach(() => {
  * not. The assertions below are untouched.
  */
 function sideOf(player: PlayerId): HTMLElement {
-  return screen.getByRole('region', { name: playerLabel(player) });
+  return screen.getByRole('region', { name: playerLabel(player, m) });
 }
 
 /** Everything of a player's board except their hand: characters, Leader, Stage, DON!!. */
 function fieldOf(player: PlayerId): HTMLElement {
   return within(sideOf(player)).getByRole('group', {
-    name: `Campo de ${playerLabel(player)}`,
+    name: m.board.fieldOf(playerLabel(player, m)),
   });
 }
 
 /** A side board's hand, fanned or not. */
 function handOf(player: PlayerId): HTMLElement {
   return within(sideOf(player)).getByRole('group', {
-    name: `Mano de ${playerLabel(player)}`,
+    name: m.board.handOf(playerLabel(player, m)),
   });
 }
 
@@ -160,7 +164,7 @@ function cardMenu(): HTMLElement {
   return menu;
 }
 
-async function confirmInMenu(user: UserEvent, name: RegExp): Promise<void> {
+async function confirmInMenu(user: UserEvent, name: RegExp | string): Promise<void> {
   await user.click(within(cardMenu()).getByRole('button', { name }));
 }
 
@@ -415,7 +419,7 @@ describe('one click per mode routes to the right intent', () => {
     const boosted = state.players.p2.leader;
 
     await user.click(cardIn(handOf('p2'), /^Green Recruit/));
-    await confirmInMenu(user, /^Usar de contraataque/);
+    await confirmInMenu(user, m.menu.counter);
     expect(mode()).toEqual({ kind: 'countering', owner: 'p2', counterCard });
     expect(mustState()).toBe(state);
 
@@ -539,7 +543,7 @@ describe('overlay layering while a battle is open', () => {
     expect(state.battle).not.toBeNull();
 
     const passControls = screen.getAllByRole('button', {
-      name: /pasar|pass|no bloquear|no contraatacar/i,
+      name: new RegExp(`^(?:${m.battle.dontBlock}|${m.battle.dontCounter})$`),
     });
     expect(passControls).toHaveLength(1);
 
@@ -547,7 +551,7 @@ describe('overlay layering while a battle is open', () => {
     if (control === undefined) {
       throw new Error('no pass control rendered');
     }
-    expect(battlePanel('Paso de contraataque').contains(control)).toBe(true);
+    expect(battlePanel(m.battle.step.counter).contains(control)).toBe(true);
 
     await user.click(control);
     expect(mustState().battle).toBeNull();

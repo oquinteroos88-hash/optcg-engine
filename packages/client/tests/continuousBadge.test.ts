@@ -137,6 +137,8 @@ describe('the power breakdown', () => {
         }
       }
     }
-    expect([...granted]).toEqual(['Rush']);
+    // Engine values, not printed names: the breakdown carries no language, and
+    // `powerLinesOf` is where a keyword gets a name in one.
+    expect([...granted]).toEqual(['rush']);
   });
 });

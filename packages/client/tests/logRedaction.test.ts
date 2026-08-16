@@ -27,7 +27,10 @@ function lineFor(state: GameState, seat: PlayerId, event: GameEvent): string | n
   if (redacted === null) {
     return null;
   }
-  return logEntries([redacted], playerView(state, seat))[0]?.text ?? '';
+  // Spanish: this file asserts on the sentences the board draws, and it has to
+  // pick a language to assert in. The redaction it is really about is the same
+  // in both — `tests/i18n.test.ts` renders the log in English too.
+  return logEntries([redacted], playerView(state, seat), 'es')[0]?.text ?? '';
 }
 
 function mustLine(state: GameState, seat: PlayerId, event: GameEvent): string {
@@ -77,7 +80,7 @@ describe('a log that may not name what it saw', () => {
     };
     for (const seat of ['p1', 'p2'] as const) {
       const line = mustLine(state, seat, event);
-      expect(line).toBe('pone 2 cartas al tope y 3 al fondo del mazo');
+      expect(line).toBe('pone 2 cartas al tope y 3 al fondo de su mazo');
       for (const id of deck.slice(0, 5)) {
         expect(line).not.toContain(id);
       }
@@ -131,7 +134,7 @@ describe('a log that may not name what it saw', () => {
     }
     const event: GameEvent = { type: 'cardMoved', player: 'p2', instanceId: hidden, to: 'deck' };
     // p1 may not name it; the move still happened and the line still says so.
-    expect(mustLine(state, 'p1', event)).toBe('mueve una carta a el mazo');
+    expect(mustLine(state, 'p1', event)).toBe('mueve una carta a su mazo');
     expect(mustLine(state, 'p2', event)).not.toContain('una carta');
   });
 
@@ -159,7 +162,7 @@ describe('a log that may not name what it saw', () => {
           ...result.state.players.p1.deck,
           ...result.state.players.p2.deck,
         ].filter((id) => !(result.state.knownBy[id] ?? []).includes(seat));
-        for (const entry of logEntries(journal, playerView(result.state, seat))) {
+        for (const entry of logEntries(journal, playerView(result.state, seat), 'es')) {
           expect(entry.text.length).toBeGreaterThan(0);
           for (const id of unknown) {
             expect(entry.text).not.toContain(id);

@@ -4,8 +4,16 @@ import type { Action, PlayerId, PlayerView, ViewEvent } from '@optcg/engine';
  * The wire protocol, versioned so an old client fails loudly instead of
  * strangely: the number travels in the join message and the server refuses a
  * mismatch with `protocolMismatch` before anything else happens.
+ *
+ * **2 — the affordance list joined the payloads (PR #45), and the bump is not
+ * a formality.** Adding a field is additive on the wire, but a client that has
+ * no `GameState` cannot compute what it may do: `legalActions` is the
+ * affordance contract and it needs the whole state to run. A v2 client against
+ * a v1 server would receive payloads with no `actions`, render an empty
+ * affordance set, and sit there looking like a game where nothing is legal —
+ * failing strangely, which is the exact outcome this number exists to prevent.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /**
  * What a client may send. Everything else coming over the socket is answered
@@ -41,6 +49,7 @@ export type ServerToClient =
       seat: PlayerId;
       view: PlayerView;
       journal: ViewEvent[][];
+      actions: Action[];
     }
   | UpdatePayload
   /** Sent only to the seat that acted, with the engine's reason verbatim.
@@ -55,6 +64,25 @@ export interface UpdatePayload {
   type: 'update';
   view: PlayerView;
   events: ViewEvent[];
+  /**
+   * What this seat may do now — `legalActions(state, seat)`, verbatim.
+   *
+   * The affordance contract has always been the engine's list; what PR #45
+   * found is that it had no way to travel. A client with a redacted view
+   * cannot run `legalActions` — it needs the whole state, hidden zones
+   * included — so a networked client that computed its own affordances would
+   * be encoding the rules a second time from strictly less information. The
+   * engine computes, the server carries, the client indexes.
+   *
+   * It carries no identity the seat lacks, and that is a property of
+   * `legalActions` rather than of a filter here: every action it emits names
+   * cards this seat can act *with* — its own hand and field, the opponent's
+   * public field — and while a choice is open it emits only the bare
+   * `ANSWER_CHOICE` marker, whose payload lives in the redacted `pending`.
+   * The wire leak test checks the field like every other, from the opposite
+   * side.
+   */
+  actions: Action[];
 }
 
 /**

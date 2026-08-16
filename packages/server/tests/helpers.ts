@@ -1,9 +1,10 @@
 import type { Action, Decklist, GameState, InstanceId, PlayerId } from '@optcg/engine';
-import { blindHandleOrder, PLAYER_IDS } from '@optcg/engine';
+import { applyAction, blindHandleOrder, PLAYER_IDS } from '@optcg/engine';
 import { decide } from '@optcg/engine/testing';
 import type { MatchState, HandleActionResult } from '../src/session.js';
 import { createMatch, handleAction } from '../src/session.js';
 import type { UpdatePayload } from '../src/protocol.js';
+import { PROTOCOL_VERSION } from '../src/protocol.js';
 
 /**
  * Wraps a staged `GameState` in a `MatchState`, for tests that need a precise
@@ -17,7 +18,7 @@ export function matchFromGame(game: GameState): MatchState {
     seats[seat] = { journal: [], droppedChoices: [] };
   }
   return {
-    protocol: 1,
+    protocol: PROTOCOL_VERSION,
     seed: -1,
     decklists: { p1: { leader: '', cards: [] }, p2: { leader: '', cards: [] } },
     game,
@@ -38,6 +39,10 @@ export interface SweepResult {
   sawBlindChoice: boolean;
   sawShuffle: boolean;
   handleAnswers: number;
+  /** How many emitted affordances were re-offered to the engine. */
+  offeredChecked: number;
+  /** Offered actions the engine then refused — must always be empty. */
+  offeredRejected: string[];
 }
 
 /**
@@ -51,7 +56,7 @@ export interface SweepResult {
 export function driveMatch(
   seed: number,
   decklists: Record<PlayerId, Decklist>,
-  opts: { injectRejections?: boolean } = {},
+  opts: { injectRejections?: boolean; checkOffered?: boolean } = {},
 ): SweepResult {
   let match = createMatch(seed, decklists);
   const initialState = match.game;
@@ -61,6 +66,8 @@ export function driveMatch(
   let sawShuffle = false;
   let handleAnswers = 0;
   let decision = 0;
+  let offeredChecked = 0;
+  const offeredRejected: string[] = [];
 
   for (let step = 0; match.game.status !== 'finished' && step < 1_500; step += 1) {
     if (opts.injectRejections === true && step % 25 === 24) {
@@ -99,13 +106,41 @@ export function driveMatch(
     match = result.match;
     for (const seat of PLAYER_IDS) {
       emissions.push({ seat, payload: result.emitted[seat], state: match.game });
+      if (opts.checkOffered !== true) {
+        continue;
+      }
+      // The affordance round-trip, run where the affordances now come from.
+      // The `ANSWER_CHOICE` marker is skipped and only that one: it carries no
+      // answer by design (enumerating the subsets of a "select 2 of 7" is 21
+      // entries), so re-offering it would be testing the documented exception
+      // rather than the contract.
+      for (const offered of result.emitted[seat].actions) {
+        if (offered.type === 'ANSWER_CHOICE') {
+          continue;
+        }
+        offeredChecked += 1;
+        const check = applyAction(match.game, offered);
+        if (!check.ok) {
+          offeredRejected.push(`${offered.type} refused with ${check.reason}`);
+        }
+      }
     }
     if (result.emitted.p1.events.some((event) => event.type === 'deckShuffled')) {
       sawShuffle = true;
     }
   }
 
-  return { match, initialState, emissions, rejections, sawBlindChoice, sawShuffle, handleAnswers };
+  return {
+    match,
+    initialState,
+    emissions,
+    rejections,
+    sawBlindChoice,
+    sawShuffle,
+    handleAnswers,
+    offeredChecked,
+    offeredRejected,
+  };
 }
 
 const QUOTED = /"([^"]*)"/g;

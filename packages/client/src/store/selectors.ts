@@ -607,6 +607,17 @@ function logEntriesOf(journal: readonly ViewEvent[], view: PlayerView): LogEntry
   return entries;
 }
 
+/**
+ * The fold itself, for tests that check one line at a time.
+ *
+ * Exported rather than reached through the hook because the interesting cases
+ * are per event and per seat, and a React tree around each of them would test
+ * the tree. The board uses the same function through `useLogEntries`.
+ */
+export function logEntries(journal: readonly ViewEvent[], view: PlayerView): LogEntry[] {
+  return logEntriesOf(journal, view);
+}
+
 const EMPTY_LOG: LogEntry[] = [];
 
 export function useLogEntries(): LogEntry[] {

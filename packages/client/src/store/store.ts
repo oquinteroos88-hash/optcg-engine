@@ -524,5 +524,14 @@ export function setNetSend(send: ((action: Action) => void) | null): void {
   netSend = send;
 }
 
+/**
+ * The installed sink. The symmetric read of `setNetSend`, and the one thing
+ * that lets a test hold two seats in one process: each has to be able to put
+ * its own socket back in front of the store when its turn to act comes round.
+ */
+export function getNetSend(): ((action: Action) => void) | null {
+  return netSend;
+}
+
 /** Re-exported so tests and the hot-seat path share one affordance source. */
 export { getAffordances };

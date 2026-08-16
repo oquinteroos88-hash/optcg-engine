@@ -56,6 +56,44 @@ pnpm --filter @optcg/cards run build
 pnpm --filter @optcg/cards run gen:starters
 ```
 
+The same module carries `STARTER_TEXT_ES`, the Spanish text for those 34 cards,
+for the same reason and cut from the same script.
+
+## Spanish card text
+
+`data/cards.es.json` holds a translated `effectText` and `triggerText` for each
+of the **155 cards of OP-01, ST-01 and ST-02** — the two sets this project has
+scripted end to end. Read it through the main entry:
+
+```ts
+import { findSpanishText, SPANISH_SOURCE } from '@optcg/cards';
+```
+
+**It is presentation and cannot be anything else.** No ability script, no
+`CardFilter.names`, no `hasName` call and no test of the engine reads a word of
+it: the scripts were derived from the English `effectText` and match English
+strings, so translating a card cannot change what the card does. It is a
+separate lookup rather than a field on `EnglishCardDefinition` for exactly that
+reason — the engine reads that type, and a translated string that could reach a
+rules decision is the thing this layout exists to prevent.
+
+Names are **not** translated: not card names, not the `{Type}` names, not the
+`＜Attribute＞` names. The art prints them in English and so does the client.
+
+The file declares the punk-records commit its English was translated from — the
+same pin `data/PROVENANCE.md` keeps for `cards.en.json`. Re-ingesting the
+English at a newer commit is a change every entry has to be re-checked against,
+and the recorded revision is what makes that checkable rather than remembered.
+
+The term table is [`docs/i18n-glossary.md`](../../docs/i18n-glossary.md), and it
+is binding: one Spanish term per mechanic, across all 155 cards and the client's
+own copy. `tests/spanish.test.ts` fails on a missing card, on an entry naming a
+card that does not exist, on a dropped `<br>` or `[Trigger]`, and on a `{Type}`
+or `＜Attribute＞` the translation altered.
+
+This translation is unofficial and fan-made; there is no Spanish printing of the
+One Piece Card Game.
+
 ## Card art: copied from a local archive, never committed
 
 This package ships no images and never will. What it has is a script that

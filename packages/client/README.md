@@ -160,6 +160,51 @@ has nothing left in flight.
 1.5 MB of JSON with `node:fs`, which is right on Node and unavailable in a
 bundle. The TEST decks print no text and show none.
 
+In Spanish it reads `findStarterTextEs` from the same entry instead. The card's
+**name** is never translated in either language — the art prints
+"Monkey.D.Luffy", the engine resolves names by English string, and a child has
+to be able to match the panel against the picture. See
+[Two languages](#two-languages).
+
+## Two languages
+
+The client speaks English and Spanish, chosen with the picker on the setup
+screen, in the lobby and in the action bar during a game. `docs/i18n-glossary.md`
+is the term table both the client and the 155 card translations follow.
+
+**The language is presentation, and structurally so.** It is one field on the
+store; it is not in an `Action`, not in the protocol, not in a game frame, and
+it never reaches the server. Two seats can read the same match in two languages
+and neither of them knows. That is why switching is hot: it re-renders the board
+and the log and changes nothing else — `tests/languagePicker.test.tsx` asserts
+that `gameState`, `journals` and `affordances` come out identical **by
+reference**.
+
+There is no i18n library and no runtime key lookup. `src/i18n/en.ts` defines the
+message set and `src/i18n/es.ts` is typed `typeof en`, so a key added in one
+language and missing in the other **does not compile** — the same discipline as
+a `switch` with no `default`, applied to text. Parameters go into a message
+rather than around it (`m.log.cardDrawn(name)`, never concatenation), because
+word order and plural agreement are not shared between languages.
+
+Three things stay English in both locales, each for its own reason:
+
+| What | Why |
+| --- | --- |
+| Card names, type names, attributes | Printed on the art in English, and the engine resolves names by English string (PR #38). |
+| The engine's choice prompt | A string an ability composed, not a message this client owns. The overlay marks it `lang="en"` and shows the card's translated effect text under it. |
+| `DON!!` | A name, not a word. |
+
+Refusals travel as codes and are said here: `ReasonCode` and `ServerErrorCode`
+cross the wire, and `NetStatus` picks the sentence on the player's own device.
+
+The default is `navigator.language` when it starts with `es`, otherwise English;
+a stored choice wins over it, because a browser reporting `en-US` on a borrowed
+laptop is a guess and a guess must not overrule an answer.
+
+The Spanish card text is a **fan translation** — Bandai has published no Spanish
+printing — and the preview panel says so, quietly, whenever it is showing one.
+
 ## The board
 
 Two rails and a board: the card preview on the left, the table in the middle,

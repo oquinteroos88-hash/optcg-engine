@@ -6,10 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { GameState } from '@optcg/engine';
 import { getAffordances } from '../src/game/affordances';
+import { messagesFor } from '../src/i18n';
 import { ensureModeValid } from '../src/game/uiMode';
 import { GameScreen } from '../src/screens/GameScreen';
 import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { firstPendingState, firstStarterStateWhere } from './corpus';
+
+/** The suites run in Spanish — see `tests/setup.ts`. */
+const m = messagesFor('es');
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -41,7 +45,7 @@ const populated = firstStarterStateWhere(
 );
 
 function panel(): HTMLElement {
-  return screen.getByRole('complementary', { name: 'Vista de carta' });
+  return screen.getByRole('complementary', { name: m.preview.paneLabel });
 }
 
 /** Every card box on the board, by position, so a shift is measurable. */
@@ -58,7 +62,7 @@ describe('the preview panel', () => {
     loadState(populated);
     render(<GameScreen />);
     expect(panel()).toBeDefined();
-    expect(within(panel()).getByText(/Pasá el mouse/)).toBeDefined();
+    expect(within(panel()).getByText(m.preview.empty)).toBeDefined();
   });
 
   it('does not add or remove a single card when it fills in', () => {
@@ -76,7 +80,7 @@ describe('the preview panel', () => {
     fireEvent.mouseEnter(tile);
 
     // The panel filled...
-    expect(within(panel()).queryByText(/Pasá el mouse/)).toBeNull();
+    expect(within(panel()).queryByText(m.preview.empty)).toBeNull();
     // ...and the board is the same board, in the same order.
     expect(boardCards()).toEqual(before);
   });
@@ -97,7 +101,7 @@ describe('the preview panel', () => {
     expect(within(panel()).getByText('Poder')).toBeDefined();
     // Leaving clears it again.
     fireEvent.mouseLeave(tile);
-    expect(within(panel()).getByText(/Pasá el mouse/)).toBeDefined();
+    expect(within(panel()).getByText(m.preview.empty)).toBeDefined();
   });
 
   it('renders the enlarged text card when there is no art', () => {
@@ -134,7 +138,7 @@ describe('the preview panel', () => {
     const asking = firstPendingState(() => true);
     loadState(asking);
     render(<GameScreen />);
-    expect(within(panel()).queryByText(/Pasá el mouse/)).toBeNull();
+    expect(within(panel()).queryByText(m.preview.empty)).toBeNull();
     expect(within(panel()).getByText('Efecto en resolución')).toBeDefined();
 
     const source = asking.stack[asking.stack.length - 1];

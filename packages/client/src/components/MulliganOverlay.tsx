@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useMulliganView } from '../store/selectors';
 import { useStore } from '../store/store';
 import { CardTile } from './CardTile';
@@ -10,6 +11,7 @@ import styles from './MulliganOverlay.module.css';
  */
 export function MulliganOverlay(): ReactElement | null {
   const view = useMulliganView();
+  const m = useMessages();
   const answerMulligan = useStore((s) => s.answerMulligan);
 
   if (view === null) {
@@ -19,10 +21,8 @@ export function MulliganOverlay(): ReactElement | null {
   return (
     <div className={styles.overlay}>
       <div className={styles.dialog}>
-        <h2 className={styles.title}>{playerLabel(view.player)} — ¿mulligan?</h2>
-        <p className={styles.hint}>
-          Mirá tu mano inicial. Si tomás mulligan, devolvés estas 5 cartas y robás 5 nuevas.
-        </p>
+        <h2 className={styles.title}>{m.mulligan.title(playerLabel(view.player, m))}</h2>
+        <p className={styles.hint}>{m.mulligan.hint}</p>
         <div className={styles.hand}>
           {view.hand.map((id) => (
             <CardTile key={id} id={id} zone="hand" mine />
@@ -30,10 +30,10 @@ export function MulliganOverlay(): ReactElement | null {
         </div>
         <div className={styles.actions}>
           <button type="button" className={styles.keep} onClick={() => answerMulligan(false)}>
-            Quedarme
+            {m.mulligan.keep}
           </button>
           <button type="button" className={styles.redraw} onClick={() => answerMulligan(true)}>
-            Mulligan
+            {m.mulligan.mulligan}
           </button>
         </div>
       </div>

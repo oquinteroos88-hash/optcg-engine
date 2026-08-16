@@ -1,7 +1,8 @@
 import { registerCardSet } from '@optcg/engine';
 import type { CardId } from '@optcg/engine';
 import { CARD_ABILITIES } from './abilities.js';
-import { STARTER_CARDS, STARTER_DECKLISTS } from './starters.generated.js';
+import { STARTER_CARDS, STARTER_DECKLISTS, STARTER_TEXT_ES } from './starters.generated.js';
+import type { SpanishText } from './spanish-types.js';
 import type { Decklist, EnglishCardDefinition } from './types.js';
 
 /**
@@ -35,6 +36,19 @@ export function findStarterCard(cardId: CardId): EnglishCardDefinition | undefin
   return byId.get(cardId);
 }
 
+/**
+ * The Spanish printed text for a starter card. Undefined outside ST-01/ST-02.
+ *
+ * **Presentation only, and a separate lookup on purpose.** It is not a field on
+ * `EnglishCardDefinition` and never will be: the engine reads that type, the
+ * scripts were derived from its English text, and a translated string that
+ * could reach a rules decision is the one thing this whole layer exists to
+ * prevent. The caller asks for a language; nothing asks it for one.
+ */
+export function findStarterTextEs(cardId: CardId): SpanishText | undefined {
+  return STARTER_TEXT_ES[cardId];
+}
+
 /** Publishes the starter cards through the engine's registry. Idempotent. */
 export function registerStarterCards(): void {
   registerCardSet(starterCards);
@@ -44,4 +58,5 @@ export function registerStarterCards(): void {
 export const starterDecklists: readonly Decklist[] = STARTER_DECKLISTS;
 
 export { toEngineDecklist } from './expand.js';
+export type { SpanishText } from './spanish-types.js';
 export type { Decklist, DeckEntry, EnglishCardDefinition } from './types.js';

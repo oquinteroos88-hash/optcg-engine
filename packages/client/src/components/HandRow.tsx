@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
+import { useMessages } from '../i18n/useMessages';
 import { CardBack } from './CardBack';
 import { CardTile } from './CardTile';
 import styles from './HandRow.module.css';
@@ -94,13 +95,14 @@ export function HandRow({
   owner,
   fanUp,
 }: HandRowProps): ReactElement {
+  const m = useMessages();
   // A hand with no ids is drawn as that many backs. The slots are keyed by
   // position because position is all there is: the cards have no identity to
   // key on, which is the whole point of the redaction.
   const slots: (InstanceId | null)[] = ids === null ? Array.from({ length: count }, () => null) : [...ids];
   return (
-    <div className={styles.hand} role="group" aria-label={`Mano de ${owner}`}>
-      <span className={styles.label}>Mano ({count})</span>
+    <div className={styles.hand} role="group" aria-label={m.board.handOf(owner)}>
+      <span className={styles.label}>{m.board.hand(count)}</span>
       <div className={`${styles.cards} ${fanUp ? styles.up : styles.down}`}>
         {slots.map((id, index) => {
           const { rotation, lift, overlap } = fanGeometry(index, slots.length);
@@ -113,7 +115,7 @@ export function HandRow({
           return (
             <div key={id ?? `back-${index}`} className={styles.slot} style={style}>
               {id === null ? (
-                <CardBack label="Carta oculta" />
+                <CardBack label={m.common.hiddenCardLabel} />
               ) : (
                 <CardTile id={id} zone="hand" mine={mine} veiled={veiled} />
               )}

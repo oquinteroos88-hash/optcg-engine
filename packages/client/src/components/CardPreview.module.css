@@ -127,3 +127,13 @@
   color: var(--color-accent);
   font-weight: 700;
 }
+
+/* Deliberately the quietest thing in the panel: it is a provenance note, not a
+   warning, and it sits under the card text it applies to. */
+.translationNote {
+  margin: 0;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--color-muted);
+  opacity: 0.75;
+}

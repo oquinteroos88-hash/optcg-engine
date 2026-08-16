@@ -16,7 +16,11 @@ import type { SocketFactory, SocketLike } from '../src/net/connection';
 import { receive } from '../src/net/connection';
 import { GameScreen } from '../src/screens/GameScreen';
 import { LobbyScreen } from '../src/screens/LobbyScreen';
+import { messagesFor } from '../src/i18n';
 import { useStore } from '../src/store/store';
+
+/** The suites run in Spanish — see `tests/setup.ts`. */
+const m = messagesFor('es');
 
 const decks = { p1: ABIL_DECK, p2: ABIL_DECK };
 
@@ -92,7 +96,10 @@ describe('the lobby', () => {
     render(<LobbyScreen socketFactory={factory} onBack={() => undefined} />);
     fireEvent.click(screen.getByRole('button', { name: 'Crear partida' }));
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain(SERVER_ERRORS.unknownDeck);
+    // The code travels; the sentence is chosen here. What the player reads is
+    // the Spanish for that code, never the code itself.
+    expect(alert.textContent).toContain(m.serverError[SERVER_ERRORS.unknownDeck]);
+    expect(alert.textContent).not.toContain(SERVER_ERRORS.unknownDeck);
   });
 
   it('will not join with half an invitation', () => {
@@ -153,7 +160,7 @@ describe('choosing from cards you cannot see', () => {
     }
     // And the overlay says why there is nothing to enlarge, rather than
     // leaving a hole where every other choice shows a card.
-    expect(within(dialog).getByText(/elegís a ciegas/i)).toBeDefined();
+    expect(within(dialog).getByText(m.choice.blindNote)).toBeDefined();
 
     // Picking one is picking a position; confirming sends handles.
     const confirm = within(dialog).getByRole('button', { name: 'Confirmar' });
@@ -226,7 +233,7 @@ describe('the connection', () => {
     expect(screen.queryByRole('status')).toBeNull();
 
     act(() => useStore.getState().netStatus('lost'));
-    expect(screen.getByRole('status').textContent).toContain('No perdés nada');
+    expect(screen.getByRole('status').textContent).toBe(m.net.lost);
 
     act(() => useStore.getState().netStatus('open'));
     expect(screen.queryByRole('status')).toBeNull();
@@ -245,7 +252,11 @@ describe('the connection', () => {
     const view = loadAsNetwork(state, 'p1');
     render(<NetStatus />);
     act(() => receive({ type: 'rejected', reason: 'notYourPriority' }));
-    expect(screen.getByRole('alert').textContent).toContain('notYourPriority');
+    // Same rule on the engine's own reason codes: the wire carries
+    // `notYourPriority`, the player reads a sentence.
+    expect(screen.getByRole('alert').textContent).toBe(
+      m.net.rejected(m.reason.notYourPriority),
+    );
 
     act(() => receive({ type: 'update', view, events: [], actions: legalActions(state, 'p1') }));
     expect(screen.queryByRole('alert')).toBeNull();

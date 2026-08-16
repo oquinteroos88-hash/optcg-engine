@@ -1,4 +1,5 @@
 import type { MouseEvent, ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import styles from './DeckPile.module.css';
 
 interface DeckPileProps {
@@ -22,6 +23,7 @@ interface DeckPileProps {
  * on it, and the trash is public information, so that one opens a viewer.
  */
 export function DeckPile({ label, count, compact = false, onOpen }: DeckPileProps): ReactElement {
+  const m = useMessages();
   const body = (
     <div className={`${styles.stack} ${count === 0 ? styles.empty : ''}`}>
       <span className={styles.count}>{count}</span>
@@ -49,7 +51,7 @@ export function DeckPile({ label, count, compact = false, onOpen }: DeckPileProp
       className={`${styles.pile} ${styles.openable} ${compact ? styles.compact : ''}`}
       onClick={handleClick}
       disabled={count === 0}
-      aria-label={`${label}: ${count} cartas${count === 0 ? '' : ', ver'}`}
+      aria-label={m.board.pile(label, count)}
     >
       <span className={styles.label}>{label}</span>
       {body}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { MouseEvent, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
 import { cardImageSrc, hasCardImage } from '../game/cardImage';
+import { useMessages } from '../i18n/useMessages';
 import {
   powerLinesOf,
   useCardView,
@@ -29,6 +30,7 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const targeting = useTargeting();
   const highlighted = useIsHighlighted(id);
   const power = usePowerBreakdown(id);
+  const m = useMessages();
   const uiEvent = useStore((s) => s.uiEvent);
   const hover = useStore((s) => s.hover);
   /**
@@ -42,7 +44,9 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
     return null;
   }
   if (veiled) {
-    return <div className={`${styles.card} ${styles.back}`} aria-label="Carta oculta" />;
+    return (
+      <div className={`${styles.card} ${styles.back}`} aria-label={m.common.hiddenCardLabel} />
+    );
   }
 
   const handleClick = (e: MouseEvent<HTMLButtonElement>): void => {
@@ -62,25 +66,22 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const animClass = highlighted ? styles.animating : '';
   const artClass = art === 'ok' ? styles.withArt : '';
 
-  const counterLabel = view.counter === null ? 'sin contraataque' : `contraataque ${view.counter}`;
-  const costLabel = view.cost === null ? '' : `coste ${view.cost}, `;
-
   // Why this card shows the power it shows. Continuous effects emit no events,
   // so the log can never explain one - the only place a player can find out is
   // on the card itself, and now also in the preview panel, which is why the
   // lines are built once in the view-model layer rather than here.
-  const powerLines = powerLinesOf(power);
+  const powerLines = powerLinesOf(power, m);
 
   const tooltip = [
+    // The name is the card's own and stays English; everything around it is a
+    // message.
     view.name,
-    powerLines.length > 0 ? `Poder ${power.printed} base · ${powerLines.join(' · ')}` : '',
+    powerLines.length > 0 ? m.card.tooltipPower(power.printed, powerLines) : '',
     view.effectText ?? '',
-    view.triggerText === null ? '' : `[Trigger] ${view.triggerText}`,
+    view.triggerText === null ? '' : `${m.card.triggerPrefix} ${view.triggerText}`,
   ]
     .filter((line) => line !== '')
     .join('\n');
-
-  const boostLabel = powerLines.length > 0 ? `, ${powerLines.join(', ')}` : '';
 
   return (
     <button
@@ -93,7 +94,14 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
       onFocus={() => hover(id)}
       onBlur={() => hover(null)}
       title={tooltip}
-      aria-label={`${view.name}, ${costLabel}poder ${view.power}, ${counterLabel}${view.rested ? ', agotada' : ''}${boostLabel}`}
+      aria-label={m.card.tile({
+        name: view.name,
+        cost: view.cost,
+        power: view.power,
+        counter: view.counter,
+        rested: view.rested,
+        boosts: powerLines,
+      })}
     >
       {/* Underneath everything, and never a click target: every indicator the
           engine derives - power, DON!!, rested, the continuous badge, the

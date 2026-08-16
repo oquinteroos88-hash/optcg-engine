@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { ServerToClient } from '@optcg/server/protocol';
 import { PROTOCOL_VERSION } from '@optcg/server/protocol';
-import { DECK_CATALOG } from '../game/decks';
+import { LanguagePicker } from '../components/LanguagePicker';
+import { DECK_CATALOG, deckName } from '../game/decks';
+import { useMessages } from '../i18n/useMessages';
 import { clearCredentials, connect, loadCredentials } from '../net/connection';
 import type { SocketFactory } from '../net/connection';
 import styles from './LobbyScreen.module.css';
@@ -11,6 +13,10 @@ import styles from './LobbyScreen.module.css';
  * Two screens' worth of lobby, and no more: open a match, or take a seat in
  * one. There are no accounts and no room list — the invitation is the seat
  * token, and handing it to somebody is the whole of matchmaking.
+ *
+ * **The language is not part of any of it.** No field on `create`, no field on
+ * `join`, nothing in the seat token. Each seat renders the same match in
+ * whatever language its own device is set to.
  */
 
 const REAL_DECKS = DECK_CATALOG.filter((entry) => entry.real);
@@ -33,6 +39,7 @@ interface Invitation {
 }
 
 export function LobbyScreen({ socketFactory, onBack }: LobbyProps): ReactElement {
+  const m = useMessages();
   const [url, setUrl] = useState(DEFAULT_URL);
   const [seed, setSeed] = useState<number>(randomSeed);
   const [deckIdP1, setDeckIdP1] = useState(REAL_DECKS[0]?.id ?? '');
@@ -85,14 +92,25 @@ export function LobbyScreen({ socketFactory, onBack }: LobbyProps): ReactElement
     connect({ url, matchId: id, token: seat }, socketFactory === undefined ? {} : { socketFactory });
   };
 
+  // The code travels, the sentence does not: a `ServerErrorCode` gets its own
+  // line, and the lobby's own "the socket never opened" gets one too.
+  const errorText =
+    error === null
+      ? null
+      : error === 'noConnection'
+        ? m.lobby.noConnection
+        : (m.serverError[error as keyof typeof m.serverError] ?? error);
+
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
-        <h1 className={styles.title}>Jugar en red</h1>
+        <h1 className={styles.title}>{m.lobby.title}</h1>
+
+        <LanguagePicker />
 
         <label className={styles.field}>
-          <span>Servidor</span>
-          <input value={url} onChange={(e) => setUrl(e.target.value)} aria-label="Servidor" />
+          <span>{m.lobby.server}</span>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} aria-label={m.lobby.server} />
         </label>
 
         {saved === null ? null : (
@@ -101,51 +119,51 @@ export function LobbyScreen({ socketFactory, onBack }: LobbyProps): ReactElement
             className={styles.resume}
             onClick={() => take(saved.matchId, saved.token)}
           >
-            Volver a la partida guardada
+            {m.lobby.resume}
           </button>
         )}
 
-        <section className={styles.section} aria-label="Crear partida">
-          <h2 className={styles.subtitle}>Crear partida</h2>
+        <section className={styles.section} aria-label={m.lobby.createSection}>
+          <h2 className={styles.subtitle}>{m.lobby.createSection}</h2>
           <label className={styles.field}>
-            <span>Tu mazo</span>
+            <span>{m.lobby.yourDeck}</span>
             <select
               value={deckIdP1}
               onChange={(e) => setDeckIdP1(e.target.value)}
-              aria-label="Tu mazo"
+              aria-label={m.lobby.yourDeck}
             >
               {REAL_DECKS.map((entry) => (
                 <option key={entry.id} value={entry.id}>
-                  {entry.name}
+                  {deckName(entry, m)}
                 </option>
               ))}
             </select>
           </label>
           <label className={styles.field}>
-            <span>Mazo del rival</span>
+            <span>{m.lobby.opponentDeck}</span>
             <select
               value={deckIdP2}
               onChange={(e) => setDeckIdP2(e.target.value)}
-              aria-label="Mazo del rival"
+              aria-label={m.lobby.opponentDeck}
             >
               {REAL_DECKS.map((entry) => (
                 <option key={entry.id} value={entry.id}>
-                  {entry.name}
+                  {deckName(entry, m)}
                 </option>
               ))}
             </select>
           </label>
           <label className={styles.field}>
-            <span>Semilla</span>
+            <span>{m.lobby.seed}</span>
             <div className={styles.seedRow}>
               <input
                 type="number"
                 value={seed}
                 onChange={(e) => setSeed(Number(e.target.value) || 0)}
-                aria-label="Semilla"
+                aria-label={m.lobby.seed}
               />
               <button type="button" onClick={() => setSeed(randomSeed())}>
-                Aleatoria
+                {m.lobby.randomSeed}
               </button>
             </div>
           </label>
@@ -155,46 +173,46 @@ export function LobbyScreen({ socketFactory, onBack }: LobbyProps): ReactElement
             disabled={creating}
             onClick={() => setCreating(true)}
           >
-            {creating ? 'Creando…' : 'Crear partida'}
+            {creating ? m.lobby.creating : m.lobby.create}
           </button>
 
           {invitation === null ? null : (
             <div className={styles.invitation} role="status">
               <p>
-                Partida <code>{invitation.matchId}</code>
+                {m.lobby.matchWord} <code>{invitation.matchId}</code>
               </p>
               {/* The invitation is the token. Copying it by hand is the whole
                   of the flow: no rooms, no lists, no accounts. */}
               <p className={styles.share}>
-                Pasale a tu rival este código: <code>{invitation.theirs}</code>
+                {m.lobby.shareCode} <code>{invitation.theirs}</code>
               </p>
               <button
                 type="button"
                 className={styles.primary}
                 onClick={() => take(invitation.matchId, invitation.mine)}
               >
-                Entrar como Jugador 1
+                {m.lobby.enterAsP1}
               </button>
             </div>
           )}
         </section>
 
-        <section className={styles.section} aria-label="Unirse a una partida">
-          <h2 className={styles.subtitle}>Unirse</h2>
+        <section className={styles.section} aria-label={m.lobby.joinSection}>
+          <h2 className={styles.subtitle}>{m.lobby.joinTitle}</h2>
           <label className={styles.field}>
-            <span>Partida</span>
+            <span>{m.lobby.matchField}</span>
             <input
               value={matchId}
               onChange={(e) => setMatchId(e.target.value)}
-              aria-label="Partida"
+              aria-label={m.lobby.matchField}
             />
           </label>
           <label className={styles.field}>
-            <span>Código de asiento</span>
+            <span>{m.lobby.seatCode}</span>
             <input
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              aria-label="Código de asiento"
+              aria-label={m.lobby.seatCode}
             />
           </label>
           <button
@@ -203,18 +221,18 @@ export function LobbyScreen({ socketFactory, onBack }: LobbyProps): ReactElement
             disabled={matchId === '' || token === ''}
             onClick={() => take(matchId, token)}
           >
-            Unirse
+            {m.lobby.join}
           </button>
         </section>
 
-        {error === null ? null : (
+        {errorText === null ? null : (
           <p className={styles.error} role="alert">
-            No se pudo crear la partida: {error}
+            {m.lobby.createFailed(errorText)}
           </p>
         )}
 
         <button type="button" className={styles.back} onClick={onBack}>
-          Volver
+          {m.common.back}
         </button>
       </div>
     </div>

@@ -14,9 +14,13 @@ import { fileURLToPath } from 'node:url';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { GameState } from '@optcg/engine';
 import { fanGeometry } from '../src/components/HandRow';
+import { messagesFor } from '../src/i18n';
 import { GameScreen } from '../src/screens/GameScreen';
 import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { firstStarterStateWhere } from './corpus';
+
+/** The suites run in Spanish — see `tests/setup.ts`. */
+const m = messagesFor('es');
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -130,7 +134,7 @@ describe('the official zones are all on the board', () => {
       expect(within(field).getByText('Líder')).toBeDefined();
       expect(within(field).getByText('Escenario')).toBeDefined();
       expect(within(field).getByText('Mazo')).toBeDefined();
-      expect(within(field).getByText('Mazo DON!!')).toBeDefined();
+      expect(within(field).getByText(m.board.donDeck)).toBeDefined();
       expect(within(field).getByText('Descarte')).toBeDefined();
       // The cost area is the only clickable zone of the three DON!! ones.
       expect(within(field).getByRole('button', { name: /^DON!!/ })).toBeDefined();

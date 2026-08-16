@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useChoiceOverlay } from '../store/selectors';
 import { useStore } from '../store/store';
 import { CardBack } from './CardBack';
@@ -19,6 +20,7 @@ import styles from './ChoiceOverlay.module.css';
  */
 export function ChoiceOverlay(): ReactElement | null {
   const view = useChoiceOverlay();
+  const m = useMessages();
   const uiEvent = useStore((s) => s.uiEvent);
 
   if (view === null) {
@@ -43,47 +45,60 @@ export function ChoiceOverlay(): ReactElement | null {
       ? null
       : blind !== null
         ? view.min === view.max
-          ? `Elegí exactamente ${view.min} sin verla`
-          : `Elegí hasta ${view.max} sin verlas`
+          ? m.choice.blindExactly(view.min)
+          : m.choice.blindUpTo(view.max)
         : partition
-        ? 'Tocá las cartas en el orden en que las vas a robar y elegí el extremo de cada una: dentro de cada lado, la primera se roba antes'
-        : ordering
-          ? 'Tocá las cartas en el orden en que las vas a robar: la primera queda arriba de todo'
-          : view.min === view.max
-            ? `Elegí exactamente ${view.min}`
-            : view.min === 0
-              ? `Elegí hasta ${view.max} (podés no elegir ninguna)`
-              : `Elegí entre ${view.min} y ${view.max}`;
+          ? m.choice.partitionHint
+          : ordering
+            ? m.choice.orderHint
+            : view.min === view.max
+              ? m.choice.exactly(view.min)
+              : view.min === 0
+                ? m.choice.upToNone(view.max)
+                : m.choice.between(view.min, view.max);
 
-  const progress = blind !== null
-    ? `seleccionadas ${blind.selected.length} de ${blind.count}`
-    : partition
-    ? `${view.selected.length} de ${view.candidates.length} ordenadas — ${view.toTop.length} al tope, ${view.selected.length - view.toTop.filter((id) => view.selected.includes(id)).length} al fondo`
-    : ordering
-      ? `${view.selected.length} de ${view.candidates.length} ordenadas`
-      : `seleccionadas ${view.selected.length}`;
+  const progress =
+    blind !== null
+      ? m.choice.progressBlind(blind.selected.length, blind.count)
+      : partition
+        ? m.choice.progressPartition(
+            view.selected.length,
+            view.candidates.length,
+            view.toTop.length,
+            view.selected.length -
+              view.toTop.filter((id) => view.selected.includes(id)).length,
+          )
+        : ordering
+          ? m.choice.progressOrdered(view.selected.length, view.candidates.length)
+          : m.choice.progressSelected(view.selected.length);
 
   return (
     <div className={styles.overlay}>
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="Elección">
-        <span className={styles.who}>{playerLabel(view.player)} decide</span>
+      <div
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={m.choice.dialogLabel}
+      >
+        <span className={styles.who}>{m.choice.decides(playerLabel(view.player, m))}</span>
         {view.sourceName === null ? null : (
           <span className={styles.source}>{view.sourceName}</span>
         )}
-        {/* Verbatim engine text: it is printed card text, which is English. */}
+        {/* Verbatim engine text, and it stays English in every locale: the
+            prompt is a string the ability composed, not a message this client
+            owns. The line under it is the card's own effect text, translated —
+            which is the sentence a Spanish reader can actually work from. */}
         <p className={styles.prompt} lang="en">
           {view.prompt}
         </p>
         {view.sourceText === null ? null : (
-          <p className={styles.sourceText} lang="en">
-            {view.sourceText}
-          </p>
+          <p className={styles.sourceText}>{view.sourceText}</p>
         )}
         {/* The card doing the asking is already on show in the preview rail —
             `usePreview` falls back to the top of the stack while a choice is
             open. This is the pointer to it, so the question reads as being
             about a card rather than about a prompt string. */}
-        <span className={styles.previewHint}>La carta está en la vista de la izquierda</span>
+        <span className={styles.previewHint}>{m.choice.previewHint}</span>
 
         {view.kind === 'yesNo' ? (
           <div className={styles.actions}>
@@ -92,14 +107,14 @@ export function ChoiceOverlay(): ReactElement | null {
               className={styles.no}
               onClick={() => uiEvent({ kind: 'answerYesNo', value: false })}
             >
-              No
+              {m.common.no}
             </button>
             <button
               type="button"
               className={styles.yes}
               onClick={() => uiEvent({ kind: 'answerYesNo', value: true })}
             >
-              Sí
+              {m.common.yes}
             </button>
           </div>
         ) : (
@@ -111,19 +126,14 @@ export function ChoiceOverlay(): ReactElement | null {
                 choice offers backs, and the preview rail — which every other
                 choice leans on — has no face to enlarge here. Saying so is the
                 difference between a deliberate rule and a broken panel. */}
-            {blind === null ? null : (
-              <p className={styles.blindNote}>
-                Son cartas de la mano de tu rival: elegís a ciegas, por posición, y no hay
-                nada que ampliar.
-              </p>
-            )}
+            {blind === null ? null : <p className={styles.blindNote}>{m.choice.blindNote}</p>}
             <div className={styles.candidates}>
               {blind === null
                 ? null
                 : Array.from({ length: blind.count }, (_, handle) => (
                     <CardBack
                       key={handle}
-                      label={`Carta oculta ${handle + 1} de ${blind.count}`}
+                      label={m.choice.blindCard(handle + 1, blind.count)}
                       selected={blind.selected.includes(handle)}
                       onClick={() => uiEvent({ kind: 'toggleChoiceHandle', handle })}
                     />
@@ -146,7 +156,7 @@ export function ChoiceOverlay(): ReactElement | null {
                   <span
                     key={id}
                     className={styles.ordered}
-                    aria-label={at === -1 ? 'sin ordenar' : `posición ${at + 1}`}
+                    aria-label={at === -1 ? m.choice.unordered : m.choice.position(at + 1)}
                   >
                     <span className={styles.position} data-placed={at !== -1}>
                       {at === -1 ? '–' : at + 1}
@@ -165,10 +175,10 @@ export function ChoiceOverlay(): ReactElement | null {
                         className={styles.side}
                         data-top={onTop}
                         aria-pressed={onTop}
-                        aria-label={onTop ? 'al tope del mazo' : 'al fondo del mazo'}
+                        aria-label={onTop ? m.choice.toTop : m.choice.toBottom}
                         onClick={() => uiEvent({ kind: 'toggleChoiceSide', instanceId: id })}
                       >
-                        {onTop ? 'Tope' : 'Fondo'}
+                        {onTop ? m.choice.top : m.choice.bottom}
                       </button>
                     )}
                   </span>
@@ -182,7 +192,7 @@ export function ChoiceOverlay(): ReactElement | null {
                 disabled={!view.canConfirm}
                 onClick={() => uiEvent({ kind: 'confirmChoice' })}
               >
-                Confirmar
+                {m.common.confirm}
               </button>
             </div>
           </>

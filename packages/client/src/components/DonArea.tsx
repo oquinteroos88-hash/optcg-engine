@@ -1,5 +1,6 @@
 import type { CSSProperties, MouseEvent, ReactElement } from 'react';
 import { donArtSrc } from '../game/cardImage';
+import { useMessages } from '../i18n/useMessages';
 import styles from './DonArea.module.css';
 
 interface DonAreaProps {
@@ -21,6 +22,7 @@ interface DonAreaProps {
  * control, and it is the name a player would use.
  */
 export function DonArea({ active, rested, clickable, attaching, onClick }: DonAreaProps): ReactElement {
+  const m = useMessages();
   const handleClick = (e: MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
     onClick();
@@ -38,12 +40,13 @@ export function DonArea({ active, rested, clickable, attaching, onClick }: DonAr
       className={`${styles.donArea} ${stateClass}`}
       onClick={handleClick}
       disabled={!clickable}
-      aria-label={`DON!! en área de coste: ${active} activos, ${rested} agotados`}
+      aria-label={m.board.donArea(active, rested)}
     >
+      {/* DON!! is a name, not a word: it is not translated in any language. */}
       <span className={styles.label}>DON!!</span>
       <div className={styles.counts}>
-        <span className={styles.active}>Activos: {active}</span>
-        <span className={styles.rested}>Agotados: {rested}</span>
+        <span className={styles.active}>{m.board.donActive(active)}</span>
+        <span className={styles.rested}>{m.board.donRested(rested)}</span>
       </div>
     </button>
   );

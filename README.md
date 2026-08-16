@@ -36,14 +36,44 @@ pnpm --filter @optcg/server start
 pnpm dev
 ```
 
-Open the client, choose **Jugar en red**, and **Crear partida**: the server
-answers with a match id and two seat codes. Keep one, send the other to your
-opponent — that link is the whole of matchmaking, and it is what they paste
-into **Unirse**. The seat code is saved locally, so a dropped connection comes
-back to the same seat with everything that happened while it was away.
+Open the client, choose **Play online** / **Jugar en red**, and **Create match**
+/ **Crear partida**: the server answers with a match id and two seat codes. Keep
+one, send the other to your opponent — that link is the whole of matchmaking,
+and it is what they paste into **Join** / **Unirse**. The seat code is saved
+locally, so a dropped connection comes back to the same seat with everything
+that happened while it was away.
 
-For one device and two players, **Jugar** still opens the hot-seat game it
-always did.
+For one device and two players, **Play** / **Jugar** still opens the hot-seat
+game it always did.
+
+## It plays in Spanish
+
+**Every card and every word of the interface reads in Spanish**, chosen with the
+language picker on the setup screen, in the lobby, or from the action bar in the
+middle of a game. English is still there and still the authority; the picker
+switches between them live.
+
+The One Piece Card Game has no official Spanish printing, so a Spanish-speaking
+child cannot read the cards. That is the barrier this removes: the 155 card
+texts of OP-01, ST-01 and ST-02 are translated in
+[`packages/cards/data/cards.es.json`](packages/cards/data/cards.es.json),
+against a single binding term table,
+[`docs/i18n-glossary.md`](docs/i18n-glossary.md) — one Spanish word per
+mechanic, on every card and every button, because a `[Blocker]` that is
+"Bloqueador" here and "Defensor" there teaches nobody anything.
+
+**The language never travels.** It is not in the protocol, not in an action, not
+in the game state, and the server never learns it. Two players can read the same
+match in two languages at once. Card names stay English in both — the art prints
+"Monkey.D.Luffy", so the panel does too.
+
+### How to change the language
+
+Open the client and use the **Idioma / Language** picker: it is on the setup
+screen, in the network lobby, and in the bar at the bottom during a game.
+Changing it mid-match re-renders the board and the log and touches nothing else.
+The choice is remembered; a fresh client with nothing remembered follows the
+browser, which means Spanish when `navigator.language` starts with `es`.
 
 ## Both sets are complete
 
@@ -106,6 +136,12 @@ its artwork — is the property of its respective owners and is not licensed her
 The card data under `packages/cards/data/` is derived from a public dataset
 generated from the official card site; the source commit is pinned in
 [`packages/cards/data/PROVENANCE.md`](packages/cards/data/PROVENANCE.md).
+
+**The Spanish card text is an unofficial fan translation.** Bandai has published
+no Spanish printing of this game; `packages/cards/data/cards.es.json` and the
+client's Spanish interface are this project's own work, not endorsed by or
+affiliated with the rights holders, and they carry no more licence than the rest
+of this repository grants.
 
 **No card images are redistributed.** This repository contains none, and
 `packages/cards/tests/noTrackedArt.test.ts` fails if one is ever committed. The

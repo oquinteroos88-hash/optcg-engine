@@ -9,21 +9,27 @@
 // every visible card, because computing them needs the whole state and this
 // side of the wire does not have one.
 import { getAbilities, getCardDef, KEYWORDS, PRINTED_KEYWORD } from '@optcg/engine';
-import type { InstanceId, PlayerId, PlayerView, ViewCard, ViewEvent } from '@optcg/engine';
+import type { InstanceId, Keyword, PlayerId, PlayerView, ViewCard, ViewEvent } from '@optcg/engine';
 import type { Affordances, ChoiceView } from '../game/affordances';
 import { clickStateOf } from '../game/clickState';
 import type { ClickState } from '../game/clickState';
+import { messagesFor } from '../i18n';
+import type { Locale, Messages } from '../i18n';
 import { printedTextOf } from '../game/printed';
 import { menuOptions } from '../game/uiMode';
 import type { MenuOption, UiMode } from '../game/uiMode';
 import { selectView, useStore } from './store';
 
-export function playerLabel(player: PlayerId): string {
-  return player === 'p1' ? 'Jugador 1' : 'Jugador 2';
+/**
+ * The two seats, named.
+ *
+ * Takes the dictionary rather than reading one, so it stays a pure function the
+ * log fold and a test can both call. There are only two seats and they are not
+ * people, so this is a message and not a name.
+ */
+export function playerLabel(player: PlayerId, m: Messages): string {
+  return player === 'p1' ? m.common.playerOne : m.common.playerTwo;
 }
-
-/** A card the viewer cannot name, said the way the board shows it: a back. */
-const HIDDEN_CARD = 'una carta';
 
 // ---------------------------------------------------------------------------
 // Card view
@@ -44,20 +50,27 @@ export interface CardView {
   triggerText: string | null;
 }
 
-function printedText(cardId: string): { effectText: string | null; triggerText: string | null } {
-  const text = printedTextOf(cardId);
+function printedText(
+  cardId: string,
+  locale: Locale,
+): { effectText: string | null; triggerText: string | null } {
+  const text = printedTextOf(cardId, locale);
   return { effectText: text.effectText, triggerText: text.triggerText };
 }
 
-const cardViewCache = new WeakMap<PlayerView, Map<InstanceId, CardView | null>>();
+// Keyed by locale as well as by card: the printed text on a `CardView` is the
+// one field of it that changes language, and a cache that ignored that would
+// keep showing the language the card was first looked at in.
+const cardViewCache = new WeakMap<PlayerView, Map<string, CardView | null>>();
 
-function cardViewOf(view: PlayerView, id: InstanceId): CardView | null {
+function cardViewOf(view: PlayerView, id: InstanceId, locale: Locale): CardView | null {
   let perView = cardViewCache.get(view);
   if (perView === undefined) {
     perView = new Map();
     cardViewCache.set(view, perView);
   }
-  const cached = perView.get(id);
+  const key = `${locale}|${id}`;
+  const cached = perView.get(key);
   if (cached !== undefined) {
     return cached;
   }
@@ -65,7 +78,7 @@ function cardViewOf(view: PlayerView, id: InstanceId): CardView | null {
   if (card === undefined) {
     // Not a bug: a card this viewer may not name has no entry at all, which is
     // how the per-player layer says "back of a card" — see `HandRow`.
-    perView.set(id, null);
+    perView.set(key, null);
     return null;
   }
   const def = getCardDef(card.cardId);
@@ -81,16 +94,16 @@ function cardViewOf(view: PlayerView, id: InstanceId): CardView | null {
     colorClass: def.color,
     rested: card.orientation === 'rested',
     donCount: card.attachedDon.length,
-    ...printedText(card.cardId),
+    ...printedText(card.cardId, locale),
   };
-  perView.set(id, cardView);
+  perView.set(key, cardView);
   return cardView;
 }
 
 export function useCardView(id: InstanceId): CardView | null {
   return useStore((s) => {
     const view = selectView(s);
-    return view === null ? null : cardViewOf(view, id);
+    return view === null ? null : cardViewOf(view, id, s.locale);
   });
 }
 
@@ -201,9 +214,20 @@ export interface LogEntry {
   text: string;
 }
 
-function nameOf(view: PlayerView, id: InstanceId): string {
+/**
+ * A card's name — **never translated**, in any locale.
+ *
+ * The art prints it in English and the engine resolves names by English string,
+ * so the log says "Monkey.D.Luffy" to a Spanish reader too. What is translated
+ * is everything around it.
+ */
+function nameOfCard(view: PlayerView, id: InstanceId): string | null {
   const card = view.cards[id];
-  return card === undefined ? HIDDEN_CARD : getCardDef(card.cardId).name;
+  return card === undefined ? null : getCardDef(card.cardId).name;
+}
+
+function nameOf(view: PlayerView, id: InstanceId, m: Messages): string {
+  return nameOfCard(view, id) ?? m.common.hiddenCard;
 }
 
 /**
@@ -214,29 +238,25 @@ function nameOf(view: PlayerView, id: InstanceId): string {
  * a player at the table sees when a face-down card moves, so the line says
  * that rather than inventing a name or dropping a real happening from history.
  */
-function nameOrHidden(view: PlayerView, id: InstanceId | null): string {
-  return id === null ? HIDDEN_CARD : nameOf(view, id);
+function nameOrHidden(view: PlayerView, id: InstanceId | null, m: Messages): string {
+  return id === null ? m.common.hiddenCard : nameOf(view, id, m);
 }
 
 function controllerOf(view: PlayerView, id: InstanceId | null): PlayerId | null {
   return id === null ? null : (view.cards[id]?.controller ?? null);
 }
 
-function zoneLabel(zone: 'hand' | 'deck' | 'trash' | 'life'): string {
+function zoneLabel(zone: 'hand' | 'deck' | 'trash' | 'life', m: Messages): string {
   switch (zone) {
     case 'hand':
-      return 'la mano';
+      return m.log.zone.hand;
     case 'deck':
-      return 'el mazo';
+      return m.log.zone.deck;
     case 'trash':
-      return 'el descarte';
+      return m.log.zone.trash;
     case 'life':
-      return 'la vida';
+      return m.log.zone.life;
   }
-}
-
-function cardsWord(count: number): string {
-  return count === 1 ? '1 carta' : `${count} cartas`;
 }
 
 /**
@@ -250,81 +270,101 @@ function cardsWord(count: number): string {
  * name, and nothing drops a line because it could not print one — a player who
  * cannot see *what* moved is still entitled to know *that* something did.
  */
-function formatEvent(event: ViewEvent, view: PlayerView): { player: PlayerId | null; text: string } {
+function formatEvent(
+  event: ViewEvent,
+  view: PlayerView,
+  m: Messages,
+): { player: PlayerId | null; text: string } {
   switch (event.type) {
     case 'gameStarted':
-      return { player: null, text: `Comienza la partida (empieza ${playerLabel(event.firstPlayer)})` };
+      return { player: null, text: m.log.gameStarted(playerLabel(event.firstPlayer, m)) };
     case 'mulliganTaken':
-      return {
-        player: event.player,
-        text: event.accepted ? 'toma mulligan y roba una mano nueva' : 'conserva su mano inicial',
-      };
+      return { player: event.player, text: m.log.mulliganTaken(event.accepted) };
     case 'lifeSet':
-      return { player: event.player, text: `coloca ${event.count} cartas de vida` };
+      return { player: event.player, text: m.log.lifeSet(event.count) };
     case 'turnStarted':
-      return { player: event.player, text: `comienza el turno ${event.turn}` };
+      return { player: event.player, text: m.log.turnStarted(event.turn) };
     case 'cardDrawn':
       // CR 4-5-1 draws "without revealing it to the other player", so the rival
       // gets the fact and the owner gets the face. Both are the same line with
       // the identity in or out of it.
       return {
         player: event.player,
-        text: event.instanceId === null ? 'roba una carta' : `roba ${nameOf(view, event.instanceId)}`,
+        text:
+          event.instanceId === null
+            ? m.log.cardDrawnHidden
+            : m.log.cardDrawn(nameOf(view, event.instanceId, m)),
       };
     case 'donGained':
-      return { player: event.player, text: `gana ${event.count} DON!!` };
+      return { player: event.player, text: m.log.donGained(event.count) };
     case 'donAttached':
       return {
         player: event.player,
-        text: `adjunta ${event.count} DON!! a ${nameOrHidden(view, event.to)}`,
+        text: m.log.donAttached(event.count, nameOrHidden(view, event.to, m)),
       };
     case 'donPaid':
-      return { player: event.player, text: `paga ${event.count} DON!!` };
+      return { player: event.player, text: m.log.donPaid(event.count) };
     case 'donReturned':
       // DON!! coming back from a card that left the field return rested, so they
       // cannot be spent this turn; refresh-phase returns come back active.
       return {
         player: event.player,
         text: event.rested
-          ? `recupera ${event.count} DON!! agotados (no usables este turno)`
-          : `recupera ${event.count} DON!! activos`,
+          ? m.log.donReturnedRested(event.count)
+          : m.log.donReturnedActive(event.count),
       };
-    // El jugador es el dueno de los DON!!, que no siempre es quien activa el
-    // efecto: una carta puede agotar los DON!! del rival.
+    // The player is the owner of the DON!!, who is not always whoever activated
+    // the effect: a card can rest the opponent's DON!!.
     case 'donOrientationChanged':
       return {
         player: event.player,
         text:
           event.orientation === 'rested'
-            ? `agota ${event.count} DON!! de su area de coste`
-            : `activa ${event.count} DON!! de su area de coste`,
+            ? m.log.donRested(event.count)
+            : m.log.donSetActive(event.count),
       };
     case 'cardPlayed':
       // The Character area is an open area (CR 3-7-2), so this one is never
       // actually redacted — the null branch exists because the type allows it
       // and a line that cannot be written is worse than one that can.
-      return { player: event.player, text: `juega ${nameOrHidden(view, event.instanceId)}` };
+      return {
+        player: event.player,
+        text: m.log.cardPlayed(nameOrHidden(view, event.instanceId, m)),
+      };
     case 'characterTrashedForRoom':
       return {
         player: event.player,
-        text: `descarta ${nameOrHidden(view, event.instanceId)} para hacer sitio`,
+        text: m.log.characterTrashedForRoom(nameOrHidden(view, event.instanceId, m)),
       };
     case 'stageReplaced':
       return {
         player: event.player,
-        text: `reemplaza ${nameOrHidden(view, event.oldStage)} por ${nameOrHidden(view, event.newStage)}`,
+        text: m.log.stageReplaced(
+          nameOrHidden(view, event.oldStage, m),
+          nameOrHidden(view, event.newStage, m),
+        ),
       };
     case 'attackDeclared':
       return {
         player: event.player,
-        text: `ataca con ${nameOrHidden(view, event.attacker)} a ${nameOrHidden(view, event.target)}`,
+        text: m.log.attackDeclared(
+          nameOrHidden(view, event.attacker, m),
+          nameOrHidden(view, event.target, m),
+        ),
       };
     case 'blockDeclared':
-      return { player: event.player, text: `bloquea con ${nameOrHidden(view, event.blocker)}` };
+      return {
+        player: event.player,
+        text: m.log.blockDeclared(nameOrHidden(view, event.blocker, m)),
+      };
     case 'counterPlayed':
       return {
         player: event.player,
-        text: `usa ${nameOrHidden(view, event.instanceId)} como contraataque (+${event.value}) sobre ${nameOrHidden(view, event.target)}`,
+        text: m.log.counterPlayed(
+          nameOrHidden(view, event.instanceId, m),
+          event.value,
+          nameOrHidden(view, event.target, m),
+        ),
       };
     case 'battleResolved': {
       // battleResolved carries no player: derive it from the attacker.
@@ -334,13 +374,13 @@ function formatEvent(event: ViewEvent, view: PlayerView): { player: PlayerId | n
       // different thing from an attack that lost.
       const outcome =
         event.outcome === 'ko'
-          ? `${nameOrHidden(view, event.target)} queda KO`
+          ? m.log.outcomeKo(nameOrHidden(view, event.target, m))
           : event.outcome === 'lifeDamage'
-            ? 'el ataque impacta en la vida'
+            ? m.log.outcomeLifeDamage
             : event.outcome === 'koPrevented'
-              ? `${nameOrHidden(view, event.target)} no puede quedar KO en combate`
-              : 'el ataque no tiene efecto';
-      return { player, text: `combate resuelto: ${outcome}` };
+              ? m.log.outcomeKoPrevented(nameOrHidden(view, event.target, m))
+              : m.log.outcomeNoEffect;
+      return { player, text: m.log.battleResolved(outcome) };
     }
     case 'battleEndedEarly': {
       // Deliberately not "el ataque no tiene efecto", which is what a battle
@@ -351,60 +391,65 @@ function formatEvent(event: ViewEvent, view: PlayerView): { player: PlayerId | n
       const player = controllerOf(view, event.attacker);
       const who =
         event.gone === 'attacker'
-          ? nameOrHidden(view, event.attacker)
+          ? nameOrHidden(view, event.attacker, m)
           : event.gone === 'target'
-            ? nameOrHidden(view, event.target)
-            : 'ambos combatientes';
-      return { player, text: `el combate se disipa: ${who} ya no está en juego` };
+            ? nameOrHidden(view, event.target, m)
+            : m.log.bothCombatants;
+      return { player, text: m.log.battleEndedEarly(who) };
     }
     case 'lifeTaken':
       // The count moved in front of both players; the face is the owner's
       // (CR 10-1-5-2 adds it to hand without revealing it). The line never
       // named the card even before there was a redaction to make it.
-      return { player: event.player, text: `pierde una carta de vida (quedan ${event.remaining})` };
+      return { player: event.player, text: m.log.lifeTaken(event.remaining) };
     case 'koed':
-      return { player: event.player, text: `${nameOrHidden(view, event.instanceId)} queda KO` };
-    // Efectos de carta. El log es exhaustivo a proposito (no hay `default`).
+      return {
+        player: event.player,
+        text: m.log.koed(nameOrHidden(view, event.instanceId, m)),
+      };
+    // Card effects. The log is exhaustive on purpose (there is no `default`),
+    // and now every arm of it also has to exist in both languages.
     case 'abilityTriggered':
-      return {
-        player: event.player,
-        text: `activa la habilidad de ${nameOf(view, event.source)}`,
-      };
+      return { player: event.player, text: m.log.abilityTriggered(nameOf(view, event.source, m)) };
     case 'abilityDeclined':
-      return {
-        player: event.player,
-        text: `no activa la habilidad de ${nameOf(view, event.source)}`,
-      };
+      return { player: event.player, text: m.log.abilityDeclined(nameOf(view, event.source, m)) };
     case 'choiceOpened':
       // A foreign prompt is withheld, because a prompt can name cards ("Trash 1
       // {Land of Wano} type card") and it is the *other* player's question.
+      //
+      // The prompt itself is the engine's, and the engine's strings are English
+      // card text — it is not translated here and must not be: the choice is
+      // the ability speaking, and `ChoiceOverlay` marks it `lang="en"` for the
+      // same reason.
       return {
         player: event.player,
-        text: event.prompt === null ? 'debe elegir' : `debe elegir: ${event.prompt}`,
+        text: event.prompt === null ? m.log.choiceOpenedBare : m.log.choiceOpened(event.prompt),
       };
     case 'choiceAnswered':
-      return { player: event.player, text: 'responde la eleccion' };
+      return { player: event.player, text: m.log.choiceAnswered };
     case 'powerGranted':
       return {
         player: controllerOf(view, event.target),
-        text: `${nameOrHidden(view, event.target)} gana ${event.value} de poder`,
+        text: m.log.powerGranted(nameOrHidden(view, event.target, m), event.value),
       };
     case 'keywordGranted':
       return {
         player: controllerOf(view, event.target),
-        text: `${nameOrHidden(view, event.target)} gana ${PRINTED_KEYWORD[event.keyword]}`,
+        text: m.log.keywordGranted(
+          nameOrHidden(view, event.target, m),
+          m.keyword[event.keyword],
+        ),
       };
     case 'legalitySet': {
       const question =
         event.question === 'activateBlocker'
-          ? 'activar [Blocker]'
+          ? m.log.legalityActivateBlocker
           : event.question === 'attack'
-            ? 'elegir a quien atacar'
-            : 'quedar KO en combate';
-      const verb = event.effect === 'forbid' ? 'restringe' : 'amplia';
+            ? m.log.legalityAttack
+            : m.log.legalityKoInBattle;
       return {
         player: controllerOf(view, event.source),
-        text: `${nameOrHidden(view, event.source)} ${verb}: ${question}`,
+        text: m.log.legalitySet(nameOrHidden(view, event.source, m), event.effect, question),
       };
     }
     case 'orientationChanged':
@@ -412,16 +457,19 @@ function formatEvent(event: ViewEvent, view: PlayerView): { player: PlayerId | n
         player: controllerOf(view, event.instanceId),
         text:
           event.orientation === 'rested'
-            ? `${nameOrHidden(view, event.instanceId)} queda agotada`
-            : `${nameOrHidden(view, event.instanceId)} se activa`,
+            ? m.log.becameRested(nameOrHidden(view, event.instanceId, m))
+            : m.log.becameActive(nameOrHidden(view, event.instanceId, m)),
       };
     case 'cardMoved':
       return {
         player: event.player,
-        text: `mueve ${nameOrHidden(view, event.instanceId)} a ${zoneLabel(event.to)}`,
+        text: m.log.cardMoved(nameOrHidden(view, event.instanceId, m), zoneLabel(event.to, m)),
       };
     case 'cardDiscarded':
-      return { player: event.player, text: `descarta ${nameOrHidden(view, event.instanceId)}` };
+      return {
+        player: event.player,
+        text: m.log.cardDiscarded(nameOrHidden(view, event.instanceId, m)),
+      };
     case 'cardsRevealed': {
       // A reveal was watched by both players, so the *positions* survive for
       // everyone and each id survives only while its card is still trackable —
@@ -430,36 +478,30 @@ function formatEvent(event: ViewEvent, view: PlayerView): { player: PlayerId | n
       const named = event.instanceIds.filter((id): id is InstanceId => id !== null);
       const hidden = event.instanceIds.length - named.length;
       const parts = [
-        ...named.map((id) => nameOf(view, id)),
-        ...(hidden > 0 ? [cardsWord(hidden)] : []),
+        ...named.map((id) => nameOf(view, id, m)),
+        ...(hidden > 0 ? [m.common.cards(hidden)] : []),
       ];
-      return { player: event.player, text: `revela ${parts.join(', ')}` };
+      return { player: event.player, text: m.log.cardsRevealed(parts.join(', ')) };
     }
     case 'cardsLookedAt':
       // The count, never the cards: CR 11-3-1 makes looking private to the
       // player of the effect. The engine hands the looker their ids and the
       // rival a bare count; the line is the same sentence either way, which is
       // why it reads off `count` for both.
-      return {
-        player: event.player,
-        text: `mira ${cardsWord(event.count)} del tope de su mazo`,
-      };
+      return { player: event.player, text: m.log.cardsLookedAt(m.common.cards(event.count)) };
     case 'deckPartitioned':
       // The counts, and only the counts, because that is what a player at a
       // table sees: cards going to each end without their faces.
       return {
         player: event.player,
-        text: `pone ${event.topCount} cartas al tope y ${event.bottomCount} al fondo del mazo`,
+        text: m.log.deckPartitioned(event.topCount, event.bottomCount),
       };
     case 'deckOrdered':
-      return {
-        player: event.player,
-        text: `pone ${cardsWord(event.count)} al fondo del mazo en el orden que eligió`,
-      };
+      return { player: event.player, text: m.log.deckOrdered(m.common.cards(event.count)) };
     case 'deckShuffled':
       // The one event with nothing to redact: the new order is hidden from both
       // players at a real table too, so the line says the whole truth.
-      return { player: event.player, text: `baraja su mazo (${event.count} cartas)` };
+      return { player: event.player, text: m.log.deckShuffled(event.count) };
     case 'donAdded':
       // Deliberately worded apart from `donGained`, which is the DON!! Phase's
       // own step: this one names a card effect's doing, and it names the
@@ -469,26 +511,23 @@ function formatEvent(event: ViewEvent, view: PlayerView): { player: PlayerId | n
         player: event.player,
         text:
           event.orientation === 'active'
-            ? `agrega ${event.count} DON!! activo del mazo de DON!!`
-            : `agrega ${event.count} DON!! agotado del mazo de DON!!`,
+            ? m.log.donAddedActive(event.count)
+            : m.log.donAddedRested(event.count),
       };
     case 'donReturnedToDeck':
-      return { player: event.player, text: `devuelve ${event.count} DON!! al mazo de DON!!` };
+      return { player: event.player, text: m.log.donReturnedToDeck(event.count) };
     case 'lifeBanished':
-      return {
-        player: event.player,
-        text: `pierde una carta de vida al descarte (quedan ${event.remaining})`,
-      };
+      return { player: event.player, text: m.log.lifeBanished(event.remaining) };
     case 'turnEnded':
-      return { player: event.player, text: `termina el turno ${event.turn}` };
+      return { player: event.player, text: m.log.turnEnded(event.turn) };
     case 'gameEnded': {
       const reason =
         event.endReason === 'lifeOut'
-          ? 'sin vida'
+          ? m.log.endReasonLifeOut
           : event.endReason === 'deckOut'
-            ? 'sin mazo'
-            : 'por concesión';
-      return { player: event.winner, text: `gana la partida (${reason})` };
+            ? m.log.endReasonDeckOut
+            : m.log.endReasonConcede;
+      return { player: event.winner, text: m.log.gameEnded(reason) };
     }
   }
 }
@@ -574,7 +613,7 @@ function resolvedIntoNothing(log: readonly ViewEvent[], view: PlayerView, at: nu
   return view.pending === null && view.stack.length === 0 && view.resume.length === 0;
 }
 
-const logCache = new WeakMap<readonly ViewEvent[], LogEntry[]>();
+const logCache = new WeakMap<readonly ViewEvent[], Map<Locale, LogEntry[]>>();
 
 /**
  * The rendered history, folded from the **journal** — the batches this seat was
@@ -586,24 +625,34 @@ const logCache = new WeakMap<readonly ViewEvent[], LogEntry[]>();
  * reveals had taught them. The journal is what was seen, so the journal is what
  * is drawn.
  */
-function logEntriesOf(journal: readonly ViewEvent[], view: PlayerView): LogEntry[] {
-  const cached = logCache.get(journal);
+function logEntriesOf(
+  journal: readonly ViewEvent[],
+  view: PlayerView,
+  locale: Locale,
+): LogEntry[] {
+  let perJournal = logCache.get(journal);
+  if (perJournal === undefined) {
+    perJournal = new Map();
+    logCache.set(journal, perJournal);
+  }
+  const cached = perJournal.get(locale);
   if (cached !== undefined) {
     return cached;
   }
+  const m = messagesFor(locale);
   let turn = 0;
   const entries = journal.map((event, index) => {
     if (event.type === 'turnStarted') {
       turn = event.turn;
     }
-    const { player, text } = formatEvent(event, view);
+    const { player, text } = formatEvent(event, view, m);
     const suffix =
       event.type === 'abilityTriggered' && resolvedIntoNothing(journal, view, index)
-        ? ' — sin efecto'
+        ? m.log.noEffect
         : '';
     return { id: index, turn, player, text: text + suffix };
   });
-  logCache.set(journal, entries);
+  perJournal.set(locale, entries);
   return entries;
 }
 
@@ -614,8 +663,12 @@ function logEntriesOf(journal: readonly ViewEvent[], view: PlayerView): LogEntry
  * are per event and per seat, and a React tree around each of them would test
  * the tree. The board uses the same function through `useLogEntries`.
  */
-export function logEntries(journal: readonly ViewEvent[], view: PlayerView): LogEntry[] {
-  return logEntriesOf(journal, view);
+export function logEntries(
+  journal: readonly ViewEvent[],
+  view: PlayerView,
+  locale: Locale,
+): LogEntry[] {
+  return logEntriesOf(journal, view, locale);
 }
 
 const EMPTY_LOG: LogEntry[] = [];
@@ -626,7 +679,7 @@ export function useLogEntries(): LogEntry[] {
     if (view === null) {
       return EMPTY_LOG;
     }
-    return logEntriesOf(s.journals[view.viewer] ?? EMPTY_JOURNAL, view);
+    return logEntriesOf(s.journals[view.viewer] ?? EMPTY_JOURNAL, view, s.locale);
   });
 }
 
@@ -731,11 +784,17 @@ export function useMulliganView(): MulliganView | null {
 export interface BattleView {
   step: 'attack' | 'block' | 'counter' | 'damage';
   attacker: InstanceId;
-  attackerName: string;
+  /**
+   * Null only when the view cannot name the card, which both battle
+   * participants always can be — the field is an open area. Kept nullable
+   * anyway so this view model carries no language: card names are never
+   * translated, and the word for "a card" is.
+   */
+  attackerName: string | null;
   attackerPower: number;
   attackerOwner: PlayerId;
   target: InstanceId;
-  targetName: string;
+  targetName: string | null;
   targetPower: number;
   defender: PlayerId;
   wasBlocked: boolean;
@@ -753,7 +812,7 @@ function battleViewOf(view: PlayerView, battle: NonNullable<PlayerView['battle']
   const battleView: BattleView = {
     step: battle.step,
     attacker: battle.attacker,
-    attackerName: nameOf(view, battle.attacker),
+    attackerName: nameOfCard(view, battle.attacker),
     // Live power: counters are endOfBattle power modifiers, so this number
     // moves the instant a PLAY_COUNTER lands and returns to base on resolution.
     // Both battle participants are on the field, which is open (CR 3-7-2), so
@@ -761,7 +820,7 @@ function battleViewOf(view: PlayerView, battle: NonNullable<PlayerView['battle']
     attackerPower: attackerCard?.power ?? 0,
     attackerOwner: attackerCard?.controller ?? view.activePlayer,
     target: battle.target,
-    targetName: nameOf(view, battle.target),
+    targetName: nameOfCard(view, battle.target),
     targetPower: targetCard?.power ?? 0,
     defender: targetCard?.controller ?? view.priority,
     wasBlocked: battle.wasBlocked,
@@ -887,7 +946,16 @@ function memoize1<A extends readonly unknown[], R>(compute: (...args: A) => R): 
 export interface ChoiceOverlayView {
   choiceId: string;
   kind: ChoiceView['kind'];
-  /** The engine's prompt, verbatim. It is card text, and card text is English. */
+  /**
+   * The engine's prompt, verbatim. It is card text, and card text is English.
+   *
+   * Deliberately not translated even when the rest of the overlay is: the
+   * prompt is a string the engine composed from a script, not a message this
+   * client owns, and `cards.es.json` translates printed text rather than the
+   * engine's own prose. The overlay marks it `lang="en"` and shows the card's
+   * translated effect text underneath, which is the sentence a player can
+   * actually read.
+   */
   prompt: string;
   /** Who is answering — not always the player whose turn it is. */
   player: PlayerId;
@@ -927,6 +995,7 @@ const choiceOverlayOf = memoize1(
     aff: Affordances | null,
     mode: UiMode,
     blocked: boolean,
+    locale: Locale,
   ): ChoiceOverlayView | null => {
     if (view === null || aff === null || blocked) {
       return null;
@@ -963,7 +1032,8 @@ const choiceOverlayOf = memoize1(
       sourceText:
         source === undefined
           ? null
-          : (printedTextOf(source.cardId).effectText ?? printedTextOf(source.cardId).triggerText),
+          : (printedTextOf(source.cardId, locale).effectText ??
+            printedTextOf(source.cardId, locale).triggerText),
       blind: blind === null ? null : { count: blind, selected: mode.handles },
     };
   },
@@ -971,7 +1041,7 @@ const choiceOverlayOf = memoize1(
 
 export function useChoiceOverlay(): ChoiceOverlayView | null {
   return useStore((s) =>
-    choiceOverlayOf(selectView(s), s.affordances, s.ui.mode, s.animQueue.length > 0),
+    choiceOverlayOf(selectView(s), s.affordances, s.ui.mode, s.animQueue.length > 0, s.locale),
   );
 }
 
@@ -1008,6 +1078,8 @@ export interface PreviewView {
   colorClass: string;
   effectText: string | null;
   triggerText: string | null;
+  /** True when the text above is the fan translation rather than the printing. */
+  translated: boolean;
   /** The same lines the tile puts in its tooltip, at a readable size. */
   powerLines: readonly string[];
   printedPower: number;
@@ -1027,7 +1099,12 @@ export interface PreviewView {
  * Hover wins, because a player who moves the pointer is asking about that card.
  */
 const previewOf = memoize1(
-  (view: PlayerView | null, hovered: InstanceId | null, mode: UiMode): PreviewView | null => {
+  (
+    view: PlayerView | null,
+    hovered: InstanceId | null,
+    mode: UiMode,
+    locale: Locale,
+  ): PreviewView | null => {
     if (view === null) {
       return null;
     }
@@ -1043,7 +1120,7 @@ const previewOf = memoize1(
     if (instanceId === null) {
       return null;
     }
-    const cardView = cardViewOf(view, instanceId);
+    const cardView = cardViewOf(view, instanceId, locale);
     if (cardView === null) {
       return null;
     }
@@ -1058,7 +1135,8 @@ const previewOf = memoize1(
       colorClass: cardView.colorClass,
       effectText: cardView.effectText,
       triggerText: cardView.triggerText,
-      powerLines: powerLinesOf(parts),
+      translated: printedTextOf(cardView.cardId, locale).translated,
+      powerLines: powerLinesOf(parts, messagesFor(locale)),
       printedPower: parts.printed,
       fromEffect,
     };
@@ -1066,7 +1144,7 @@ const previewOf = memoize1(
 );
 
 export function usePreview(): PreviewView | null {
-  return useStore((s) => previewOf(selectView(s), s.ui.hovered, s.ui.mode));
+  return useStore((s) => previewOf(selectView(s), s.ui.hovered, s.ui.mode, s.locale));
 }
 
 // ---------------------------------------------------------------------------
@@ -1078,26 +1156,36 @@ export interface CardMenuView {
   options: readonly { label: string; hint: string | null }[];
 }
 
-/** Spanish labels for the N entries; ability entries carry their printed text. */
-function labelFor(option: MenuOption, cardId: string): { label: string; hint: string | null } {
+/** Labels for the N entries; ability entries carry their printed text. */
+function labelFor(
+  option: MenuOption,
+  cardId: string,
+  locale: Locale,
+  m: Messages,
+): { label: string; hint: string | null } {
   switch (option.kind) {
     case 'play':
-      return { label: 'Jugar', hint: null };
+      return { label: m.menu.play, hint: null };
     case 'attack':
-      return { label: 'Atacar', hint: null };
+      return { label: m.menu.attack, hint: null };
     case 'block':
-      return { label: 'Bloquear', hint: null };
+      return { label: m.menu.block, hint: null };
     case 'counter':
-      return { label: 'Usar de contraataque', hint: null };
+      return { label: m.menu.counter, hint: null };
     case 'counterEvent':
-      return { label: 'Jugar como evento [Counter]', hint: printedTextOf(cardId).effectText };
+      return { label: m.menu.counterEvent, hint: printedTextOf(cardId, locale).effectText };
     case 'activate':
-      return { label: 'Activar habilidad', hint: printedTextOf(cardId).effectText };
+      return { label: m.menu.activate, hint: printedTextOf(cardId, locale).effectText };
   }
 }
 
 const cardMenuOf = memoize1(
-  (view: PlayerView | null, aff: Affordances | null, mode: UiMode): CardMenuView | null => {
+  (
+    view: PlayerView | null,
+    aff: Affordances | null,
+    mode: UiMode,
+    locale: Locale,
+  ): CardMenuView | null => {
     if (view === null || aff === null || mode.kind !== 'cardMenu') {
       return null;
     }
@@ -1109,12 +1197,13 @@ const cardMenuOf = memoize1(
     // Numbered only when there is more than one to tell apart: a card with a
     // single activated ability should not read as "Activar habilidad 1".
     const activatedCount = options.filter((option) => option.kind === 'activate').length;
+    const m = messagesFor(locale);
     let seen = 0;
     return {
       card: mode.card,
       name: getCardDef(card.cardId).name,
       options: options.map((option) => {
-        const entry = labelFor(option, card.cardId);
+        const entry = labelFor(option, card.cardId, locale, m);
         if (option.kind !== 'activate' || activatedCount < 2) {
           return entry;
         }
@@ -1126,7 +1215,7 @@ const cardMenuOf = memoize1(
 );
 
 export function useCardMenu(): CardMenuView | null {
-  return useStore((s) => cardMenuOf(selectView(s), s.affordances, s.ui.mode));
+  return useStore((s) => cardMenuOf(selectView(s), s.affordances, s.ui.mode, s.locale));
 }
 
 // ---------------------------------------------------------------------------
@@ -1141,8 +1230,14 @@ export interface PowerBreakdown {
   /** Continuous (`static`) contribution. Never an event, never a modifier. */
   fromStatics: number;
   staticSources: readonly string[];
-  /** Keywords the card does not print but currently has. */
-  grantedKeywords: readonly string[];
+  /**
+   * Keywords the card does not print but currently has, as engine values.
+   *
+   * Values rather than printed names: a keyword has a name in each language,
+   * and choosing it here would bake one of them into a view model the other
+   * language also reads. `powerLinesOf` names them, once, with a dictionary.
+   */
+  grantedKeywords: readonly Keyword[];
 }
 
 const EMPTY_BREAKDOWN: PowerBreakdown = Object.freeze({
@@ -1186,7 +1281,15 @@ function breakdownOf(view: PlayerView, id: InstanceId): PowerBreakdown {
   for (const modifier of view.modifiers) {
     if (modifier.kind === 'power' && modifier.target === id) {
       fromModifiers += modifier.value;
-      modifierSources.push(nameOf(view, modifier.source));
+      // A source this seat may not name is left out rather than written as
+      // "a card": the amount is the fact, the attribution is the extra, and an
+      // unattributed "+2000 temporary" is the same shape a foreign static
+      // already takes. It also keeps this structure free of any language —
+      // card names are never translated, so nothing else in it is either.
+      const name = view.cards[modifier.source] === undefined ? null : nameOfCard(view, modifier.source);
+      if (name !== null) {
+        modifierSources.push(name);
+      }
     }
   }
 
@@ -1204,11 +1307,14 @@ function breakdownOf(view: PlayerView, id: InstanceId): PowerBreakdown {
     }
   }
 
-  const grantedKeywords: string[] = [];
+  const grantedKeywords: Keyword[] = [];
   for (const keyword of KEYWORDS) {
+    // `def.keywords` is the printed list, spelled the way the card prints it —
+    // English, and matched against the engine's own English table. Nothing
+    // here reads a translation.
     const printed = def.keywords.includes(PRINTED_KEYWORD[keyword]);
     if (!printed && card.keywords.includes(keyword)) {
-      grantedKeywords.push(PRINTED_KEYWORD[keyword]);
+      grantedKeywords.push(keyword);
     }
   }
 
@@ -1230,22 +1336,19 @@ function breakdownOf(view: PlayerView, id: InstanceId): PowerBreakdown {
  * tile's tooltip and the preview panel — and the day they disagree is the day
  * one of them is lying about the board.
  */
-export function powerLinesOf(parts: PowerBreakdown): string[] {
+export function powerLinesOf(parts: PowerBreakdown, m: Messages): string[] {
   const lines: string[] = [];
   if (parts.fromDon > 0) {
-    lines.push(`+${parts.fromDon} por DON!! adjuntados`);
+    lines.push(m.power.fromDon(parts.fromDon));
   }
   if (parts.fromModifiers !== 0) {
-    const from = parts.modifierSources.length > 0 ? ` (${parts.modifierSources.join(', ')})` : '';
-    lines.push(`${parts.fromModifiers > 0 ? '+' : ''}${parts.fromModifiers} temporal${from}`);
+    lines.push(m.power.temporary(parts.fromModifiers, parts.modifierSources));
   }
   if (parts.fromStatics !== 0) {
-    const from =
-      parts.staticSources.length > 0 ? ` (${parts.staticSources.join(', ')})` : ' (efecto continuo)';
-    lines.push(`${parts.fromStatics > 0 ? '+' : ''}${parts.fromStatics} continuo${from}`);
+    lines.push(m.power.continuous(parts.fromStatics, parts.staticSources));
   }
   if (parts.grantedKeywords.length > 0) {
-    lines.push(`Otorgado: ${parts.grantedKeywords.join(', ')}`);
+    lines.push(m.power.granted(parts.grantedKeywords.map((keyword) => m.keyword[keyword])));
   }
   return lines;
 }

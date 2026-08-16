@@ -2,8 +2,10 @@
 //
 // The printed data for the ST-01 and ST-02 cards, as a module rather than a
 // file read, so the browser client can register them without `node:fs`.
-// `tests/starters.test.ts` pins this against data/cards.en.json.
+// `tests/starters.test.ts` pins this against data/cards.en.json, and
+// `tests/spanish.test.ts` pins STARTER_TEXT_ES against data/cards.es.json.
 import type { Decklist, EnglishCardDefinition } from './types.js';
+import type { SpanishText } from './spanish-types.js';
 
 export const STARTER_CARDS: readonly EnglishCardDefinition[] = [
   {
@@ -919,3 +921,143 @@ export const STARTER_DECKLISTS: readonly Decklist[] = [
     ]
   }
 ];
+
+/** The Spanish printed text for the same 34 cards. Presentation only. */
+export const STARTER_TEXT_ES: Readonly<Record<string, SpanishText>> = {
+  "ST01-001": {
+    "effectText": "[Activar: Principal] [Una Vez por Turno] Dale a este Líder o a 1 de tus Personajes hasta 1 carta DON!! agotada.",
+    "triggerText": null
+  },
+  "ST01-002": {
+    "effectText": "[DON!! x2] [Al Atacar] Tu rival no puede activar un Personaje con [Bloqueador] que tenga 5000 de poder o más durante este combate.",
+    "triggerText": "[Disparador] Juega esta carta."
+  },
+  "ST01-003": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST01-004": {
+    "effectText": "[DON!! x2] Este Personaje gana [Rush].<br>(Esta carta puede atacar en el turno en que se juega.)",
+    "triggerText": null
+  },
+  "ST01-005": {
+    "effectText": "[DON!! x1] [Al Atacar] Hasta 1 de tus cartas de Líder o Personaje que no sea esta carta gana +1000 de poder durante este turno.",
+    "triggerText": null
+  },
+  "ST01-006": {
+    "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)",
+    "triggerText": null
+  },
+  "ST01-007": {
+    "effectText": "[Activar: Principal] [Una Vez por Turno] Dale hasta 1 carta DON!! agotada a tu Líder o a 1 de tus Personajes.",
+    "triggerText": null
+  },
+  "ST01-008": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST01-009": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST01-010": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST01-011": {
+    "effectText": "[Al Jugar] Dale hasta 2 cartas DON!! agotadas a tu Líder o a 1 de tus Personajes.",
+    "triggerText": null
+  },
+  "ST01-012": {
+    "effectText": "[Rush] (Esta carta puede atacar en el turno en que se juega.)<br>[DON!! x2] [Al Atacar] Tu rival no puede activar [Bloqueador] durante este combate.",
+    "triggerText": null
+  },
+  "ST01-013": {
+    "effectText": "[DON!! x1] Este Personaje gana +1000 de poder.",
+    "triggerText": null
+  },
+  "ST01-014": {
+    "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +3000 de poder durante este combate.",
+    "triggerText": "[Disparador] Hasta 1 de tus cartas de Líder o Personaje gana +1000 de poder durante este turno."
+  },
+  "ST01-015": {
+    "effectText": "[Principal] Deja K.O. hasta 1 Personaje de tu rival con 6000 de poder o menos.",
+    "triggerText": "[Disparador] Activa el efecto [Principal] de esta carta."
+  },
+  "ST01-016": {
+    "effectText": "[Principal] Selecciona hasta 1 de tus cartas de Líder o Personaje de tipo {Straw Hat Crew}. Tu rival no puede activar [Bloqueador] si ese Líder o Personaje ataca durante este turno.",
+    "triggerText": "[Disparador] Deja K.O. hasta 1 Personaje con [Bloqueador] de tu rival con un coste de 3 o menos."
+  },
+  "ST01-017": {
+    "effectText": "[Activar: Principal] Puedes agotar este Escenario: Hasta 1 carta de Líder o Personaje de tipo {Straw Hat Crew} en tu campo gana +1000 de poder durante este turno.",
+    "triggerText": null
+  },
+  "ST02-001": {
+    "effectText": "[Activar: Principal] [Una Vez por Turno]  ③ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.) Puedes descartar 1 carta de tu mano: Pon este Líder como activo.",
+    "triggerText": null
+  },
+  "ST02-002": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST02-003": {
+    "effectText": "[DON!! x1] Si tienes 3 o más Personajes, esta carta gana +2000 de poder.",
+    "triggerText": null
+  },
+  "ST02-004": {
+    "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)",
+    "triggerText": null
+  },
+  "ST02-005": {
+    "effectText": "[Al Jugar] Deja K.O. hasta 1 Personaje agotado de tu rival con un coste de 3 o menos.",
+    "triggerText": "[Disparador] Juega esta carta."
+  },
+  "ST02-006": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST02-007": {
+    "effectText": "[Activar: Principal] ➀ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.) Puedes agotar este Personaje: Mira 5 cartas del tope de tu mazo; revela hasta 1 carta de tipo {Supernovas} y agrégala a tu mano. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+    "triggerText": null
+  },
+  "ST02-008": {
+    "effectText": "[DON!! x1] [Al Atacar] Agota hasta 1 carta DON!! de tu rival.",
+    "triggerText": null
+  },
+  "ST02-009": {
+    "effectText": "[Al Jugar] Pon hasta 1 de tus Personajes agotados de tipo {Supernovas} o {Heart Pirates} con un coste de 5 o menos como activo.",
+    "triggerText": null
+  },
+  "ST02-010": {
+    "effectText": "[DON!! x1] [Una Vez por Turno] [Tu Turno] Si este Personaje combate contra un Personaje de tu rival, pon esta carta como activa.",
+    "triggerText": null
+  },
+  "ST02-011": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST02-012": {
+    "effectText": "-",
+    "triggerText": null
+  },
+  "ST02-013": {
+    "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[DON!! x1] [Fin de Tu Turno] Pon este Personaje como activo.",
+    "triggerText": null
+  },
+  "ST02-014": {
+    "effectText": "[DON!! x1] [Tu Turno] Si este Personaje está agotado, tus Líderes y Personajes de tipo {Supernovas} o {Navy} ganan +1000 de poder.",
+    "triggerText": null
+  },
+  "ST02-015": {
+    "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +2000 de poder durante este combate. Después, pon hasta 1 de tus cartas DON!! como activa.",
+    "triggerText": "[Disparador] Pon hasta 2 de tus cartas DON!! como activas."
+  },
+  "ST02-016": {
+    "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +4000 de poder durante este combate. Después, pon hasta 1 de tus cartas DON!! como activa.",
+    "triggerText": null
+  },
+  "ST02-017": {
+    "effectText": "[Principal] Agota hasta 1 Personaje de tu rival.",
+    "triggerText": "[Disparador] Juega hasta 1 carta de tipo {Supernovas} con un coste de 2 o menos de tu mano."
+  }
+};

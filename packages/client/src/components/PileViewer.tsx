@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useTrashView } from '../store/selectors';
 import { useStore } from '../store/store';
 import { CardTile } from './CardTile';
@@ -18,6 +19,7 @@ import styles from './PileViewer.module.css';
  */
 export function PileViewer(): ReactElement | null {
   const view = useTrashView();
+  const m = useMessages();
   const viewTrash = useStore((s) => s.viewTrash);
 
   if (view === null) {
@@ -25,19 +27,18 @@ export function PileViewer(): ReactElement | null {
   }
 
   const close = (): void => viewTrash(null);
+  const owner = playerLabel(view.player, m);
 
   return (
     <div className={styles.overlay} onClick={close}>
       <div
         className={styles.dialog}
         role="dialog"
-        aria-label={`Descarte de ${playerLabel(view.player)}`}
+        aria-label={m.pile.label(owner)}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className={styles.title}>
-          Descarte de {playerLabel(view.player)} ({view.ids.length})
-        </h2>
-        <p className={styles.hint}>Más reciente primero. Pasá el mouse por una carta para verla.</p>
+        <h2 className={styles.title}>{m.pile.title(owner, view.ids.length)}</h2>
+        <p className={styles.hint}>{m.pile.hint}</p>
         <div className={styles.cards}>
           {view.ids.map((id) => (
             // `mine` is false throughout: a card in the trash carries no
@@ -46,7 +47,7 @@ export function PileViewer(): ReactElement | null {
           ))}
         </div>
         <button type="button" className={styles.close} onClick={close}>
-          Cerrar
+          {m.common.close}
         </button>
       </div>
     </div>

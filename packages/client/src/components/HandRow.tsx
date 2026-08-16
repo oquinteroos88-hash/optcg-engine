@@ -1,12 +1,20 @@
 import type { CSSProperties, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
+import { CardBack } from './CardBack';
 import { CardTile } from './CardTile';
 import styles from './HandRow.module.css';
 
 interface HandRowProps {
-  ids: readonly InstanceId[];
+  /**
+   * The cards, when this seat is entitled to them — `null` when the view
+   * publishes the hand as a count and nothing else, which is every hand but
+   * the viewer's own (CR 3-4-3).
+   */
+  ids: readonly InstanceId[] | null;
+  /** How many cards are in the hand. Public at all times (CR 3-1-4). */
+  count: number;
   mine: boolean;
-  /** Face-down rendering for the opponent's hand. */
+  /** Face-down rendering for a hand this seat could read but should not. */
   veiled?: boolean;
   /** Whose hand this is, for the accessible name. */
   owner: string;
@@ -78,13 +86,24 @@ export function fanGeometry(index: number, count: number): FanGeometry {
   return { rotation: offset * step, lift, overlap };
 }
 
-export function HandRow({ ids, mine, veiled = false, owner, fanUp }: HandRowProps): ReactElement {
+export function HandRow({
+  ids,
+  count,
+  mine,
+  veiled = false,
+  owner,
+  fanUp,
+}: HandRowProps): ReactElement {
+  // A hand with no ids is drawn as that many backs. The slots are keyed by
+  // position because position is all there is: the cards have no identity to
+  // key on, which is the whole point of the redaction.
+  const slots: (InstanceId | null)[] = ids === null ? Array.from({ length: count }, () => null) : [...ids];
   return (
     <div className={styles.hand} role="group" aria-label={`Mano de ${owner}`}>
-      <span className={styles.label}>Mano ({ids.length})</span>
+      <span className={styles.label}>Mano ({count})</span>
       <div className={`${styles.cards} ${fanUp ? styles.up : styles.down}`}>
-        {ids.map((id, index) => {
-          const { rotation, lift, overlap } = fanGeometry(index, ids.length);
+        {slots.map((id, index) => {
+          const { rotation, lift, overlap } = fanGeometry(index, slots.length);
           const style = {
             '--fan-rot': `${(fanUp ? rotation : -rotation).toFixed(2)}deg`,
             '--fan-lift': `${(fanUp ? lift : -lift).toFixed(2)}px`,
@@ -92,8 +111,12 @@ export function HandRow({ ids, mine, veiled = false, owner, fanUp }: HandRowProp
             zIndex: index,
           } as CSSProperties;
           return (
-            <div key={id} className={styles.slot} style={style}>
-              <CardTile id={id} zone="hand" mine={mine} veiled={veiled} />
+            <div key={id ?? `back-${index}`} className={styles.slot} style={style}>
+              {id === null ? (
+                <CardBack label="Carta oculta" />
+              ) : (
+                <CardTile id={id} zone="hand" mine={mine} veiled={veiled} />
+              )}
             </div>
           );
         })}

@@ -3,7 +3,7 @@ import { applyAction } from '@optcg/engine';
 import type { GameState, InstanceId } from '@optcg/engine';
 import { ABIL_DECK } from '@optcg/engine/testdata/abilityDecks';
 import { buildScenario, characterAt } from '@optcg/engine/testdata/scenarios';
-import { cardAffordance, computeAffordances } from '../src/game/affordances';
+import { cardAffordance, computeAffordances, getAffordances } from '../src/game/affordances';
 import { ensureModeValid } from '../src/game/uiMode';
 
 /**
@@ -12,10 +12,16 @@ import { ensureModeValid } from '../src/game/uiMode';
  * The chosen-discard instruction is the first thing in the engine that opens a
  * choice to the player who does not control the effect, and `OP01-038` Kanjuro
  * goes one step further: the chooser picks out of a hand that is not theirs.
- * The claim this file exists to check is that the client needed **no change**
- * for it — that `answeringChoice` already covers the case, because the mode was
- * written against `state.priority` and the overlay renders `candidates` rather
- * than a zone.
+ *
+ * **This file's original claim was that the client needed no change for it, and
+ * PR #45 found that claim was hiding a leak.** The mode did cover the case, but
+ * the affordances read `state.pending` straight off the state, so the hot-seat
+ * chooser was shown Kanjuro's opponent's actual hand — face up, in an overlay.
+ * CR 8-4-4-2 does not care whether the table is shared or networked: choosing
+ * "unrevealed cards in a secret area" means choosing without seeing them.
+ * Routing the hot-seat affordances through `playerView` — the same redaction a
+ * networked seat gets — is what closed it, and what the cases below now pin:
+ * the chooser gets a **count of handles**, never identities.
  *
  * It is checked rather than asserted in a comment, which is the same trade
  * `choiceShapes.test.ts` makes: the mode reads plausible either way, and a
@@ -74,7 +80,9 @@ describe('a choice over the opponent’s hand needs no new UI mode', () => {
     const owner = computeAffordances(state, 'p2');
 
     expect(chooser.global.mustAnswerChoice).toBe(true);
-    expect(chooser.pendingChoice?.candidates).toEqual(state.players.p2.hand);
+    // Blind: a count of backs, and not one id of the hand being chosen from.
+    expect(chooser.pendingChoice?.blindHandles).toBe(state.players.p2.hand.length);
+    expect(chooser.pendingChoice?.candidates).toEqual([]);
     // The owner of the cards is not the one being asked, so the client publishes
     // nothing to them — the same guard that keeps a life `[Trigger]` private to
     // the damaged player.
@@ -84,30 +92,30 @@ describe('a choice over the opponent’s hand needs no new UI mode', () => {
   });
 
   it('imposes answeringChoice on the chooser, from any mode', () => {
-    const fromIdle = ensureModeValid({ kind: 'idle' }, state);
+    const fromIdle = ensureModeValid({ kind: 'idle' }, getAffordances(state));
     expect(fromIdle).toMatchObject({ kind: 'answeringChoice', owner: 'p1' });
 
     // And it cannot be escaped by a mode that was open when the choice landed.
     const fromAttacking = ensureModeValid(
       { kind: 'attacking', owner: 'p1', attacker: characterAt(state, 'p1', 0) },
-      state,
+      getAffordances(state),
     );
     expect(fromAttacking).toMatchObject({ kind: 'answeringChoice', owner: 'p1' });
   });
 
-  it('publishes candidates the board can render, even from a hand that is not the chooser’s', () => {
-    // The overlay draws `candidates` as tiles inside its own dialog rather than
-    // reading them out of a hand row, which is why nothing about the zone
-    // matters to it. What does matter is that every id resolves to a card.
+  it('names not one card of the hand it is choosing from', () => {
+    // The sharp version of the claim above, checked the way the engine's own
+    // leak test checks a view: search the serialized affordances for every id
+    // in the hand. A back with a name printed on it is not a back.
     const aff = computeAffordances(state, 'p1');
-    const candidates: readonly InstanceId[] = aff.pendingChoice?.candidates ?? [];
-    expect(candidates.length).toBeGreaterThan(0);
-    for (const id of candidates) {
-      expect(state.cards[id]).toBeDefined();
-      // They are p2's cards, and the chooser is p1 — the whole point.
-      expect(state.players.p2.hand).toContain(id);
-      expect(state.players.p1.hand).not.toContain(id);
+    const json = JSON.stringify(aff);
+    const hand: readonly InstanceId[] = state.players.p2.hand;
+    expect(hand.length).toBeGreaterThan(0);
+    for (const id of hand) {
+      expect(json).not.toContain(`"${id}"`);
     }
+    // And what it does publish is enough to answer with: N positions.
+    expect(aff.pendingChoice?.blindHandles).toBe(hand.length);
   });
 
   it('offers the chooser no other affordance while it holds', () => {

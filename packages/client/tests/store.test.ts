@@ -3,7 +3,7 @@ import { getPower } from '@optcg/engine';
 import type { GameState, PlayerId } from '@optcg/engine';
 import { characterAt } from '@optcg/engine/testdata/scenarios';
 import { getAffordances } from '../src/game/affordances';
-import { useStore } from '../src/store/store';
+import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { counterStepScenario, mainPhaseWithAttacker } from './corpus';
 
 const SETUP = { seed: 42, deckIdP1: 'red', deckIdP2: 'green', firstPlayer: 'p1' as PlayerId };
@@ -258,7 +258,7 @@ describe('store.answerMulligan', () => {
 describe('battle interaction through the store', () => {
   /** Loads a prepared position directly; the store has no other injection path. */
   function loadState(state: GameState): void {
-    useStore.setState({ screen: 'playing', gameState: state, animQueue: [] });
+    useStore.setState({ screen: 'playing', ...hotSeatSnapshot(state), animQueue: [] });
   }
 
   it('declares an attack, counters, and shows live power that resets on resolution', () => {

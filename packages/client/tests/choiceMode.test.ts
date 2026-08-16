@@ -38,6 +38,9 @@ function selectCards(overrides: Partial<ChoiceView> = {}): ChoiceView {
     candidates: ['a', 'b', 'c'],
     min: 0,
     max: 1,
+    // Not blind: these candidates have faces the chooser may read. The blind
+    // shape has its own describe block below.
+    blindHandles: null,
     ...overrides,
   };
 }
@@ -48,8 +51,9 @@ function answering(
   selected: readonly InstanceId[] = [],
   choiceId = 'c1',
   toTop: readonly InstanceId[] = [],
+  handles: readonly number[] = [],
 ): UiMode {
-  return { kind: 'answeringChoice', owner: 'p1', choiceId, selected, toTop };
+  return { kind: 'answeringChoice', owner: 'p1', choiceId, selected, toTop, handles };
 }
 
 // ---------------------------------------------------------------------------
@@ -306,16 +310,18 @@ describe('ensureModeValid against a real open choice', () => {
   const state = firstPendingState((pending) => pending.kind === 'selectCards');
 
   it('imposes answeringChoice on whatever mode was open', () => {
-    const imposed = ensureModeValid({ kind: 'attachingDon', owner: state.priority }, state);
+    const imposed = ensureModeValid({ kind: 'attachingDon', owner: state.priority }, getAffordances(state));
     expect(imposed).toEqual({
       kind: 'answeringChoice',
       owner: state.priority,
       choiceId: state.pending?.id,
       selected: [],
-      // Both fields start empty. `toTop` is only read for a partition, and it
-      // being present-and-empty everywhere else is the point: the mode has one
-      // shape, and a kind that does not use a field does not get a different one.
+      // All three start empty. `toTop` is only read for a partition and
+      // `handles` only for a blind choice, and their being present-and-empty
+      // everywhere else is the point: the mode has one shape, and a kind that
+      // does not use a field does not get a different one.
       toTop: [],
+      handles: [],
     });
   });
 
@@ -328,11 +334,12 @@ describe('ensureModeValid against a real open choice', () => {
       choiceId,
       selected: [candidate],
       toTop: [],
+      handles: [],
     };
-    expect(ensureModeValid(kept, state)).toBe(kept);
+    expect(ensureModeValid(kept, getAffordances(state))).toBe(kept);
 
     const stale: UiMode = { ...kept, selected: [candidate, 'gone'] };
-    expect(ensureModeValid(stale, state)).toEqual({ ...kept, selected: [candidate] });
+    expect(ensureModeValid(stale, getAffordances(state))).toEqual({ ...kept, selected: [candidate] });
   });
 
   it('drops the mode once the choice is answered', () => {
@@ -343,6 +350,7 @@ describe('ensureModeValid against a real open choice', () => {
       choiceId,
       selected: [],
       toTop: [],
+      handles: [],
     };
     const answered = applyAction(state, {
       type: 'ANSWER_CHOICE',
@@ -352,7 +360,7 @@ describe('ensureModeValid against a real open choice', () => {
     });
     expect(answered.ok).toBe(true);
     if (answered.ok && answered.state.pending === null) {
-      expect(ensureModeValid(mode, answered.state)).toEqual(IDLE);
+      expect(ensureModeValid(mode, getAffordances(answered.state))).toEqual(IDLE);
     }
   });
 

@@ -16,7 +16,7 @@ import { buildScenario, characterAt, handCard } from '@optcg/engine/testdata/sce
 import type { UiMode } from '../src/game/uiMode';
 import { GameScreen } from '../src/screens/GameScreen';
 import { playerLabel } from '../src/store/selectors';
-import { useStore } from '../src/store/store';
+import { hotSeatSnapshot, useStore } from '../src/store/store';
 
 // ---------------------------------------------------------------------------
 // Store plumbing
@@ -30,7 +30,7 @@ import { useStore } from '../src/store/store';
 function loadState(state: GameState): void {
   useStore.setState({
     screen: 'playing',
-    gameState: state,
+    ...hotSeatSnapshot(state),
     animQueue: [],
     ui: { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null, viewingTrash: null },
     deviceAckFor: state.priority,

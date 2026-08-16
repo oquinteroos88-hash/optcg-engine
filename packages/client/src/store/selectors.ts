@@ -1,27 +1,29 @@
 // View-model layer: besides game/, the only place allowed to import engine
 // VALUES. Components consume these hooks and stay rule-blind.
-import {
-  getAbilities,
-  getCardDef,
-  getPower,
-  getPowerWithoutStatics,
-  hasKeyword,
-  KEYWORDS,
-  PRINTED_KEYWORD,
-} from '@optcg/engine';
-import type { GameEvent, GameState, InstanceId, PlayerId } from '@optcg/engine';
-import { getAffordances } from '../game/affordances';
+//
+// **Everything here reads a `PlayerView`.** Not a `GameState` — not even in
+// hot-seat, where the client still owns one. A second render path over the raw
+// state would be the redaction rule encoded twice, and the copy nobody
+// exercises is the copy that leaks. What the view cannot answer, the engine
+// answers *inside* it: `power`, `powerWithoutStatics` and `keywords` ride on
+// every visible card, because computing them needs the whole state and this
+// side of the wire does not have one.
+import { getAbilities, getCardDef, KEYWORDS, PRINTED_KEYWORD } from '@optcg/engine';
+import type { InstanceId, PlayerId, PlayerView, ViewCard, ViewEvent } from '@optcg/engine';
 import type { Affordances, ChoiceView } from '../game/affordances';
 import { clickStateOf } from '../game/clickState';
 import type { ClickState } from '../game/clickState';
 import { printedTextOf } from '../game/printed';
 import { menuOptions } from '../game/uiMode';
 import type { MenuOption, UiMode } from '../game/uiMode';
-import { useStore } from './store';
+import { selectView, useStore } from './store';
 
 export function playerLabel(player: PlayerId): string {
   return player === 'p1' ? 'Jugador 1' : 'Jugador 2';
 }
+
+/** A card the viewer cannot name, said the way the board shows it: a back. */
+const HIDDEN_CARD = 'una carta';
 
 // ---------------------------------------------------------------------------
 // Card view
@@ -47,44 +49,49 @@ function printedText(cardId: string): { effectText: string | null; triggerText: 
   return { effectText: text.effectText, triggerText: text.triggerText };
 }
 
-const cardViewCache = new WeakMap<GameState, Map<InstanceId, CardView | null>>();
+const cardViewCache = new WeakMap<PlayerView, Map<InstanceId, CardView | null>>();
 
-function cardViewOf(state: GameState, id: InstanceId): CardView | null {
-  let perState = cardViewCache.get(state);
-  if (perState === undefined) {
-    perState = new Map();
-    cardViewCache.set(state, perState);
+function cardViewOf(view: PlayerView, id: InstanceId): CardView | null {
+  let perView = cardViewCache.get(view);
+  if (perView === undefined) {
+    perView = new Map();
+    cardViewCache.set(view, perView);
   }
-  const cached = perState.get(id);
+  const cached = perView.get(id);
   if (cached !== undefined) {
     return cached;
   }
-  const card = state.cards[id];
+  const card = view.cards[id];
   if (card === undefined) {
-    perState.set(id, null);
+    // Not a bug: a card this viewer may not name has no entry at all, which is
+    // how the per-player layer says "back of a card" — see `HandRow`.
+    perView.set(id, null);
     return null;
   }
   const def = getCardDef(card.cardId);
-  const view: CardView = {
+  const cardView: CardView = {
     cardId: card.cardId,
     name: def.name,
     // Leaders are printed without a cost; the engine stores 0 for them.
     cost: def.category === 'leader' ? null : def.cost,
-    // Single source of truth for power, everywhere: getPower already returns the
-    // printed value when nothing modifies the card.
-    power: getPower(state, id),
+    // The engine's own reading, carried on the card: effective power with
+    // modifiers and continuous effects applied.
+    power: card.power,
     counter: def.counter,
     colorClass: def.color,
     rested: card.orientation === 'rested',
     donCount: card.attachedDon.length,
     ...printedText(card.cardId),
   };
-  perState.set(id, view);
-  return view;
+  perView.set(id, cardView);
+  return cardView;
 }
 
 export function useCardView(id: InstanceId): CardView | null {
-  return useStore((s) => (s.gameState === null ? null : cardViewOf(s.gameState, id)));
+  return useStore((s) => {
+    const view = selectView(s);
+    return view === null ? null : cardViewOf(view, id);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -107,39 +114,81 @@ export interface BannerView {
   winner: PlayerId | null;
 }
 
-const bannerCache = new WeakMap<GameState, BannerView>();
+const bannerCache = new WeakMap<PlayerView, BannerView>();
 
-function bannerOf(state: GameState): BannerView {
-  const cached = bannerCache.get(state);
+function bannerOf(view: PlayerView): BannerView {
+  const cached = bannerCache.get(view);
   if (cached !== undefined) {
     return cached;
   }
   let phase: PhaseKey;
-  if (state.status === 'mulligan') {
+  if (view.status === 'mulligan') {
     phase = 'mulligan';
-  } else if (state.status === 'finished') {
+  } else if (view.status === 'finished') {
     phase = 'finished';
-  } else if (state.battle?.step === 'block') {
+  } else if (view.battle?.step === 'block') {
     phase = 'blockStep';
-  } else if (state.battle?.step === 'counter') {
+  } else if (view.battle?.step === 'counter') {
     phase = 'counterStep';
   } else {
     phase = 'main';
   }
-  const view: BannerView = {
-    activePlayer: state.activePlayer,
-    priority: state.priority,
+  const banner: BannerView = {
+    activePlayer: view.activePlayer,
+    priority: view.priority,
     phase,
-    defenderResponds: state.status === 'playing' && state.priority !== state.activePlayer,
-    choiceOpen: state.pending !== null,
-    winner: state.winner,
+    defenderResponds: view.status === 'playing' && view.priority !== view.activePlayer,
+    choiceOpen: view.pending !== null,
+    winner: view.winner,
   };
-  bannerCache.set(state, view);
-  return view;
+  bannerCache.set(view, banner);
+  return banner;
 }
 
 export function useBanner(): BannerView | null {
-  return useStore((s) => (s.gameState === null ? null : bannerOf(s.gameState)));
+  return useStore((s) => {
+    const view = selectView(s);
+    return view === null ? null : bannerOf(view);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Opponent's turn to decide
+
+export interface OpponentChoiceView {
+  player: PlayerId;
+  kind: string;
+}
+
+/**
+ * Non-null while the **other** seat owes an answer.
+ *
+ * The redacted `pending` says who is deciding and of what kind, and nothing
+ * about between what — so that is exactly what the board says. It is state,
+ * not an overlay of its own: the player is not being asked anything, and the
+ * only affordance they hold is `[CONCEDE]`, which is what the server offers
+ * them (CR 1-2-3 — either player may concede at any point).
+ */
+export function useOpponentChoosing(): OpponentChoiceView | null {
+  return useStore((s) => {
+    const pending = selectView(s)?.pending ?? null;
+    if (pending === null || pending.audience !== 'other') {
+      return null;
+    }
+    return opponentChoiceOf(pending.player, pending.kind);
+  });
+}
+
+const opponentChoiceCache = new Map<string, OpponentChoiceView>();
+
+function opponentChoiceOf(player: PlayerId, kind: string): OpponentChoiceView {
+  const key = `${player}|${kind}`;
+  let cached = opponentChoiceCache.get(key);
+  if (cached === undefined) {
+    cached = { player, kind };
+    opponentChoiceCache.set(key, cached);
+  }
+  return cached;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,9 +201,25 @@ export interface LogEntry {
   text: string;
 }
 
-function nameOf(state: GameState, id: InstanceId): string {
-  const card = state.cards[id];
-  return card === undefined ? id : getCardDef(card.cardId).name;
+function nameOf(view: PlayerView, id: InstanceId): string {
+  const card = view.cards[id];
+  return card === undefined ? HIDDEN_CARD : getCardDef(card.cardId).name;
+}
+
+/**
+ * A card the event may or may not have been allowed to name.
+ *
+ * Every `InstanceId | null` in `ViewEvent` passes through here, and the null
+ * branch is not a fallback — it is the redaction rendered. "Una carta" is what
+ * a player at the table sees when a face-down card moves, so the line says
+ * that rather than inventing a name or dropping a real happening from history.
+ */
+function nameOrHidden(view: PlayerView, id: InstanceId | null): string {
+  return id === null ? HIDDEN_CARD : nameOf(view, id);
+}
+
+function controllerOf(view: PlayerView, id: InstanceId | null): PlayerId | null {
+  return id === null ? null : (view.cards[id]?.controller ?? null);
 }
 
 function zoneLabel(zone: 'hand' | 'deck' | 'trash' | 'life'): string {
@@ -170,7 +235,22 @@ function zoneLabel(zone: 'hand' | 'deck' | 'trash' | 'life'): string {
   }
 }
 
-function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | null; text: string } {
+function cardsWord(count: number): string {
+  return count === 1 ? '1 carta' : `${count} cartas`;
+}
+
+/**
+ * One redacted event as a line of history.
+ *
+ * The switch has no `default` on purpose, and PR #45 is where that paid off a
+ * second time: every case had to decide what it reads as when the identity is
+ * **withheld** rather than merely absent, and the compiler asked case by case.
+ * The rule the answers follow: say the fact, never the face. A rival's draw is
+ * a draw; a look is a count; a partition is two counts. Nothing here guesses a
+ * name, and nothing drops a line because it could not print one — a player who
+ * cannot see *what* moved is still entitled to know *that* something did.
+ */
+function formatEvent(event: ViewEvent, view: PlayerView): { player: PlayerId | null; text: string } {
   switch (event.type) {
     case 'gameStarted':
       return { player: null, text: `Comienza la partida (empieza ${playerLabel(event.firstPlayer)})` };
@@ -184,11 +264,20 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
     case 'turnStarted':
       return { player: event.player, text: `comienza el turno ${event.turn}` };
     case 'cardDrawn':
-      return { player: event.player, text: `roba ${nameOf(state, event.instanceId)}` };
+      // CR 4-5-1 draws "without revealing it to the other player", so the rival
+      // gets the fact and the owner gets the face. Both are the same line with
+      // the identity in or out of it.
+      return {
+        player: event.player,
+        text: event.instanceId === null ? 'roba una carta' : `roba ${nameOf(view, event.instanceId)}`,
+      };
     case 'donGained':
       return { player: event.player, text: `gana ${event.count} DON!!` };
     case 'donAttached':
-      return { player: event.player, text: `adjunta ${event.count} DON!! a ${nameOf(state, event.to)}` };
+      return {
+        player: event.player,
+        text: `adjunta ${event.count} DON!! a ${nameOrHidden(view, event.to)}`,
+      };
     case 'donPaid':
       return { player: event.player, text: `paga ${event.count} DON!!` };
     case 'donReturned':
@@ -211,93 +300,99 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
             : `activa ${event.count} DON!! de su area de coste`,
       };
     case 'cardPlayed':
-      return { player: event.player, text: `juega ${nameOf(state, event.instanceId)}` };
+      // The Character area is an open area (CR 3-7-2), so this one is never
+      // actually redacted — the null branch exists because the type allows it
+      // and a line that cannot be written is worse than one that can.
+      return { player: event.player, text: `juega ${nameOrHidden(view, event.instanceId)}` };
     case 'characterTrashedForRoom':
       return {
         player: event.player,
-        text: `descarta ${nameOf(state, event.instanceId)} para hacer sitio`,
+        text: `descarta ${nameOrHidden(view, event.instanceId)} para hacer sitio`,
       };
     case 'stageReplaced':
       return {
         player: event.player,
-        text: `reemplaza ${nameOf(state, event.oldStage)} por ${nameOf(state, event.newStage)}`,
+        text: `reemplaza ${nameOrHidden(view, event.oldStage)} por ${nameOrHidden(view, event.newStage)}`,
       };
     case 'attackDeclared':
       return {
         player: event.player,
-        text: `ataca con ${nameOf(state, event.attacker)} a ${nameOf(state, event.target)}`,
+        text: `ataca con ${nameOrHidden(view, event.attacker)} a ${nameOrHidden(view, event.target)}`,
       };
     case 'blockDeclared':
-      return { player: event.player, text: `bloquea con ${nameOf(state, event.blocker)}` };
+      return { player: event.player, text: `bloquea con ${nameOrHidden(view, event.blocker)}` };
     case 'counterPlayed':
       return {
         player: event.player,
-        text: `usa ${nameOf(state, event.instanceId)} como contraataque (+${event.value}) sobre ${nameOf(state, event.target)}`,
+        text: `usa ${nameOrHidden(view, event.instanceId)} como contraataque (+${event.value}) sobre ${nameOrHidden(view, event.target)}`,
       };
     case 'battleResolved': {
       // battleResolved carries no player: derive it from the attacker.
-      const attackerCard = state.cards[event.attacker];
-      const player = attackerCard === undefined ? null : attackerCard.controller;
+      const player = controllerOf(view, event.attacker);
       // `koPrevented` deliberately does not share wording with `noEffect`: the
       // attack won its comparison and the Character stood anyway, which is a
       // different thing from an attack that lost.
       const outcome =
         event.outcome === 'ko'
-          ? `${nameOf(state, event.target)} queda KO`
+          ? `${nameOrHidden(view, event.target)} queda KO`
           : event.outcome === 'lifeDamage'
             ? 'el ataque impacta en la vida'
             : event.outcome === 'koPrevented'
-              ? `${nameOf(state, event.target)} no puede quedar KO en combate`
+              ? `${nameOrHidden(view, event.target)} no puede quedar KO en combate`
               : 'el ataque no tiene efecto';
       return { player, text: `combate resuelto: ${outcome}` };
     }
     case 'battleEndedEarly': {
       // Deliberately not "el ataque no tiene efecto", which is what a battle
       // that reached the Damage Step and lost says. This one never got there:
-      // a participant left the field first (CR 7-1-1-4 / 7-1-2-3 / 7-1-3-3),
-      // and a player who cannot tell the two apart cannot tell whether their
-      // Character survived a hit or was never hit.
-      const attackerCard = state.cards[event.attacker];
-      const player = attackerCard === undefined ? null : attackerCard.controller;
+      // a participant left the field first (CR 7-1-1-4 / 7-1-2-3), and a player
+      // who cannot tell the two apart cannot tell whether their Character
+      // survived a hit or was never hit.
+      const player = controllerOf(view, event.attacker);
       const who =
         event.gone === 'attacker'
-          ? nameOf(state, event.attacker)
+          ? nameOrHidden(view, event.attacker)
           : event.gone === 'target'
-            ? nameOf(state, event.target)
+            ? nameOrHidden(view, event.target)
             : 'ambos combatientes';
       return { player, text: `el combate se disipa: ${who} ya no está en juego` };
     }
     case 'lifeTaken':
+      // The count moved in front of both players; the face is the owner's
+      // (CR 10-1-5-2 adds it to hand without revealing it). The line never
+      // named the card even before there was a redaction to make it.
       return { player: event.player, text: `pierde una carta de vida (quedan ${event.remaining})` };
     case 'koed':
-      return { player: event.player, text: `${nameOf(state, event.instanceId)} queda KO` };
-    // Efectos de carta. El log es exhaustivo a proposito (no hay `default`),
-    // asi que estos casos existen para que el switch siga cerrado. Con los
-    // mazos por defecto ninguno de estos eventos llega a ocurrir: esas cartas
-    // no tienen habilidades.
+      return { player: event.player, text: `${nameOrHidden(view, event.instanceId)} queda KO` };
+    // Efectos de carta. El log es exhaustivo a proposito (no hay `default`).
     case 'abilityTriggered':
       return {
         player: event.player,
-        text: `activa la habilidad de ${nameOf(state, event.source)}`,
+        text: `activa la habilidad de ${nameOf(view, event.source)}`,
       };
     case 'abilityDeclined':
       return {
         player: event.player,
-        text: `no activa la habilidad de ${nameOf(state, event.source)}`,
+        text: `no activa la habilidad de ${nameOf(view, event.source)}`,
       };
     case 'choiceOpened':
-      return { player: event.player, text: `debe elegir: ${event.prompt}` };
+      // A foreign prompt is withheld, because a prompt can name cards ("Trash 1
+      // {Land of Wano} type card") and it is the *other* player's question.
+      return {
+        player: event.player,
+        text: event.prompt === null ? 'debe elegir' : `debe elegir: ${event.prompt}`,
+      };
     case 'choiceAnswered':
       return { player: event.player, text: 'responde la eleccion' };
     case 'powerGranted':
       return {
-        player: state.cards[event.target]?.controller ?? null,
-        text: `${nameOf(state, event.target)} gana ${event.value} de poder`,
+        player: controllerOf(view, event.target),
+        text: `${nameOrHidden(view, event.target)} gana ${event.value} de poder`,
       };
     case 'keywordGranted':
       return {
-        player: state.cards[event.target]?.controller ?? null,
-        text: `${nameOf(state, event.target)} gana ${PRINTED_KEYWORD[event.keyword]}`,
+        player: controllerOf(view, event.target),
+        text: `${nameOrHidden(view, event.target)} gana ${PRINTED_KEYWORD[event.keyword]}`,
       };
     case 'legalitySet': {
       const question =
@@ -308,61 +403,62 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
             : 'quedar KO en combate';
       const verb = event.effect === 'forbid' ? 'restringe' : 'amplia';
       return {
-        player: state.cards[event.source]?.controller ?? null,
-        text: `${nameOf(state, event.source)} ${verb}: ${question}`,
+        player: controllerOf(view, event.source),
+        text: `${nameOrHidden(view, event.source)} ${verb}: ${question}`,
       };
     }
     case 'orientationChanged':
       return {
-        player: state.cards[event.instanceId]?.controller ?? null,
+        player: controllerOf(view, event.instanceId),
         text:
           event.orientation === 'rested'
-            ? `${nameOf(state, event.instanceId)} queda agotada`
-            : `${nameOf(state, event.instanceId)} se activa`,
+            ? `${nameOrHidden(view, event.instanceId)} queda agotada`
+            : `${nameOrHidden(view, event.instanceId)} se activa`,
       };
     case 'cardMoved':
       return {
         player: event.player,
-        text: `mueve ${nameOf(state, event.instanceId)} a ${zoneLabel(event.to)}`,
+        text: `mueve ${nameOrHidden(view, event.instanceId)} a ${zoneLabel(event.to)}`,
       };
     case 'cardDiscarded':
-      return { player: event.player, text: `descarta ${nameOf(state, event.instanceId)}` };
-    case 'cardsRevealed':
-      return {
-        player: event.player,
-        text: `revela ${event.instanceIds.map((id) => nameOf(state, id)).join(', ')}`,
-      };
+      return { player: event.player, text: `descarta ${nameOrHidden(view, event.instanceId)}` };
+    case 'cardsRevealed': {
+      // A reveal was watched by both players, so the *positions* survive for
+      // everyone and each id survives only while its card is still trackable —
+      // a card since shuffled back into a deck is a card nobody can name any
+      // more. So the line names what it can and counts the rest.
+      const named = event.instanceIds.filter((id): id is InstanceId => id !== null);
+      const hidden = event.instanceIds.length - named.length;
+      const parts = [
+        ...named.map((id) => nameOf(view, id)),
+        ...(hidden > 0 ? [cardsWord(hidden)] : []),
+      ];
+      return { player: event.player, text: `revela ${parts.join(', ')}` };
+    }
     case 'cardsLookedAt':
-      // The count, never the cards. CR 11-3-1 makes looking private to the
-      // player of the effect, and this log is on screen for both of them —
-      // hot-seat is one screen. The engine's event carries the ids because its
-      // log is perfect-information by design; keeping them off the board is the
-      // client's job and this is the whole of it. A real per-player view is a
-      // different piece of work and is not pretended at here.
+      // The count, never the cards: CR 11-3-1 makes looking private to the
+      // player of the effect. The engine hands the looker their ids and the
+      // rival a bare count; the line is the same sentence either way, which is
+      // why it reads off `count` for both.
       return {
         player: event.player,
-        text: `mira ${event.instanceIds.length} cartas del tope de su mazo`,
+        text: `mira ${cardsWord(event.count)} del tope de su mazo`,
       };
     case 'deckPartitioned':
       // The counts, and only the counts, because that is what a player at a
-      // table would see: cards going to each end without their faces. The ids
-      // are in the event and stay out of the line — the same trade
-      // `cardsLookedAt` already makes, and the reason the engine's note on this
-      // event calls it the first whose shape is public while its contents are
-      // not.
+      // table sees: cards going to each end without their faces.
       return {
         player: event.player,
-        text: `pone ${event.top.length} cartas al tope y ${event.bottom.length} al fondo del mazo`,
+        text: `pone ${event.topCount} cartas al tope y ${event.bottomCount} al fondo del mazo`,
       };
     case 'deckOrdered':
       return {
         player: event.player,
-        text: `pone ${event.instanceIds.length} cartas al fondo del mazo en el orden que eligió`,
+        text: `pone ${cardsWord(event.count)} al fondo del mazo en el orden que eligió`,
       };
     case 'deckShuffled':
-      // The one event in the log with nothing to redact: the new order is hidden
-      // from both players at a real table too. So the line says the whole truth,
-      // which is rare enough here to be worth the comment.
+      // The one event with nothing to redact: the new order is hidden from both
+      // players at a real table too, so the line says the whole truth.
       return { player: event.player, text: `baraja su mazo (${event.count} cartas)` };
     case 'donAdded':
       // Deliberately worded apart from `donGained`, which is the DON!! Phase's
@@ -408,7 +504,7 @@ function formatEvent(event: GameEvent, state: GameState): { player: PlayerId | n
  * cheapest honest fix. `choiceOpened`/`choiceAnswered` are neither: an ability
  * that only asked a question still has not done anything.
  */
-const EFFECT_EVENTS = new Set<GameEvent['type']>([
+const EFFECT_EVENTS = new Set<ViewEvent['type']>([
   'powerGranted',
   'keywordGranted',
   // An ability whose whole output is a legality rule changes nothing a board
@@ -443,7 +539,7 @@ const EFFECT_EVENTS = new Set<GameEvent['type']>([
   'characterTrashedForRoom',
 ]);
 
-const WINDOW_CLOSERS = new Set<GameEvent['type']>([
+const WINDOW_CLOSERS = new Set<ViewEvent['type']>([
   'abilityTriggered',
   'abilityDeclined',
   'cardPlayed',
@@ -460,8 +556,7 @@ const WINDOW_CLOSERS = new Set<GameEvent['type']>([
   'gameEnded',
 ]);
 
-function resolvedIntoNothing(state: GameState, at: number): boolean {
-  const log = state.log;
+function resolvedIntoNothing(log: readonly ViewEvent[], view: PlayerView, at: number): boolean {
   for (let i = at + 1; i < log.length; i += 1) {
     const type = log[i]?.type;
     if (type === undefined || WINDOW_CLOSERS.has(type)) {
@@ -476,48 +571,71 @@ function resolvedIntoNothing(state: GameState, at: number): boolean {
   // has not — labelling it "sin efecto" while the player is still being asked
   // what it should do would be wrong, and it is exactly what a choice-opening
   // ability looks like at the moment the overlay comes up.
-  return state.pending === null && state.stack.length === 0 && state.resume.length === 0;
+  return view.pending === null && view.stack.length === 0 && view.resume.length === 0;
 }
 
-const logCache = new WeakMap<GameState, LogEntry[]>();
+const logCache = new WeakMap<readonly ViewEvent[], LogEntry[]>();
 
-function logEntriesOf(state: GameState): LogEntry[] {
-  const cached = logCache.get(state);
+/**
+ * The rendered history, folded from the **journal** — the batches this seat was
+ * actually sent — and never from a log re-derived now.
+ *
+ * That is PR #44's finding on this side of the wire: the engine's redaction is
+ * memoryless, so re-folding the whole log at render time would show a player
+ * *less* than they watched live, one card at a time, as shuffles erased what
+ * reveals had taught them. The journal is what was seen, so the journal is what
+ * is drawn.
+ */
+function logEntriesOf(journal: readonly ViewEvent[], view: PlayerView): LogEntry[] {
+  const cached = logCache.get(journal);
   if (cached !== undefined) {
     return cached;
   }
   let turn = 0;
-  const entries = state.log.map((event, index) => {
+  const entries = journal.map((event, index) => {
     if (event.type === 'turnStarted') {
       turn = event.turn;
     }
-    const { player, text } = formatEvent(event, state);
+    const { player, text } = formatEvent(event, view);
     const suffix =
-      event.type === 'abilityTriggered' && resolvedIntoNothing(state, index)
+      event.type === 'abilityTriggered' && resolvedIntoNothing(journal, view, index)
         ? ' — sin efecto'
         : '';
     return { id: index, turn, player, text: text + suffix };
   });
-  logCache.set(state, entries);
+  logCache.set(journal, entries);
   return entries;
 }
 
 const EMPTY_LOG: LogEntry[] = [];
 
 export function useLogEntries(): LogEntry[] {
-  return useStore((s) => (s.gameState === null ? EMPTY_LOG : logEntriesOf(s.gameState)));
+  return useStore((s) => {
+    const view = selectView(s);
+    if (view === null) {
+      return EMPTY_LOG;
+    }
+    return logEntriesOf(s.journals[view.viewer] ?? EMPTY_JOURNAL, view);
+  });
 }
+
+const EMPTY_JOURNAL: readonly ViewEvent[] = Object.freeze([]);
 
 // ---------------------------------------------------------------------------
 // Affordances
 
 export function useAffordances(): Affordances | null {
-  return useStore((s) => (s.gameState === null ? null : getAffordances(s.gameState)));
+  return useStore((s) => s.affordances);
 }
 
 /** Who acts now — the perspective every affordance is computed for. */
 export function useWhoActs(): PlayerId | null {
-  return useStore((s) => (s.gameState === null ? null : getAffordances(s.gameState).whoActs));
+  return useStore((s) => s.affordances?.whoActs ?? null);
+}
+
+/** Whose board this is — the seat every zone is drawn from. */
+export function useViewer(): PlayerId | null {
+  return useStore((s) => selectView(s)?.viewer ?? null);
 }
 
 const NO_GLOBALS: Affordances['global'] = Object.freeze({
@@ -529,23 +647,23 @@ const NO_GLOBALS: Affordances['global'] = Object.freeze({
 });
 
 export function useGlobalAffordances(): Affordances['global'] {
-  return useStore((s) => (s.gameState === null ? NO_GLOBALS : getAffordances(s.gameState).global));
+  return useStore((s) => s.affordances?.global ?? NO_GLOBALS);
 }
 
 /** Visual state of one card for the current mode. */
 export function useClickState(id: InstanceId): ClickState {
   return useStore((s) =>
-    s.gameState === null ? 'inert' : clickStateOf(s.ui.mode, getAffordances(s.gameState), id),
+    s.affordances === null ? 'inert' : clickStateOf(s.ui.mode, s.affordances, id),
   );
 }
 
 /** True when at least one card can receive DON!! (makes the DON area clickable). */
 export function useCanAttachDon(): boolean {
   return useStore((s) => {
-    if (s.gameState === null) {
+    if (s.affordances === null) {
       return false;
     }
-    return Object.values(getAffordances(s.gameState).byCard).some((card) => card.canReceiveDon);
+    return Object.values(s.affordances.byCard).some((card) => card.canReceiveDon);
   });
 }
 
@@ -553,12 +671,7 @@ const NO_IDS: readonly InstanceId[] = Object.freeze([]);
 
 /** Sacrifice candidates for a pending full-board play. */
 export function useTrashCandidates(cardToPlay: InstanceId): readonly InstanceId[] {
-  return useStore((s) => {
-    if (s.gameState === null) {
-      return NO_IDS;
-    }
-    return getAffordances(s.gameState).byCard[cardToPlay]?.trashCandidates ?? NO_IDS;
-  });
+  return useStore((s) => s.affordances?.byCard[cardToPlay]?.trashCandidates ?? NO_IDS);
 }
 
 /** True while the animation queue holds input. */
@@ -574,25 +687,30 @@ export interface MulliganView {
   hand: readonly InstanceId[];
 }
 
-const mulliganCache = new WeakMap<GameState, MulliganView>();
+const mulliganCache = new WeakMap<PlayerView, MulliganView>();
 
-function mulliganViewOf(state: GameState): MulliganView {
-  const cached = mulliganCache.get(state);
+function mulliganViewOf(view: PlayerView): MulliganView {
+  const cached = mulliganCache.get(view);
   if (cached !== undefined) {
     return cached;
   }
-  // Always the player who holds priority: the decision is sequential.
-  const view: MulliganView = { player: state.priority, hand: state.players[state.priority].hand };
-  mulliganCache.set(state, view);
-  return view;
+  // Always the player who is being asked, and always their own hand — the one
+  // the view publishes in full, because it is theirs (CR 3-4-2).
+  const own: MulliganView = {
+    player: view.viewer,
+    hand: view.players[view.viewer].hand.cards ?? NO_IDS,
+  };
+  mulliganCache.set(view, own);
+  return own;
 }
 
 export function useMulliganView(): MulliganView | null {
   return useStore((s) => {
-    if (s.gameState === null || !getAffordances(s.gameState).global.mustAnswerMulligan) {
+    const view = selectView(s);
+    if (view === null || s.affordances === null || !s.affordances.global.mustAnswerMulligan) {
       return null;
     }
-    return mulliganViewOf(s.gameState);
+    return mulliganViewOf(view);
   });
 }
 
@@ -612,39 +730,42 @@ export interface BattleView {
   wasBlocked: boolean;
 }
 
-const battleCache = new WeakMap<GameState, BattleView>();
+const battleCache = new WeakMap<PlayerView, BattleView>();
 
-function battleViewOf(state: GameState, battle: NonNullable<GameState['battle']>): BattleView {
-  const cached = battleCache.get(state);
+function battleViewOf(view: PlayerView, battle: NonNullable<PlayerView['battle']>): BattleView {
+  const cached = battleCache.get(view);
   if (cached !== undefined) {
     return cached;
   }
-  const attackerCard = state.cards[battle.attacker];
-  const targetCard = state.cards[battle.target];
-  const view: BattleView = {
+  const attackerCard = view.cards[battle.attacker];
+  const targetCard = view.cards[battle.target];
+  const battleView: BattleView = {
     step: battle.step,
     attacker: battle.attacker,
-    attackerName: nameOf(state, battle.attacker),
+    attackerName: nameOf(view, battle.attacker),
     // Live power: counters are endOfBattle power modifiers, so this number
     // moves the instant a PLAY_COUNTER lands and returns to base on resolution.
-    attackerPower: getPower(state, battle.attacker),
-    attackerOwner: attackerCard?.controller ?? state.activePlayer,
+    // Both battle participants are on the field, which is open (CR 3-7-2), so
+    // the view always carries them.
+    attackerPower: attackerCard?.power ?? 0,
+    attackerOwner: attackerCard?.controller ?? view.activePlayer,
     target: battle.target,
-    targetName: nameOf(state, battle.target),
-    targetPower: getPower(state, battle.target),
-    defender: targetCard?.controller ?? state.priority,
+    targetName: nameOf(view, battle.target),
+    targetPower: targetCard?.power ?? 0,
+    defender: targetCard?.controller ?? view.priority,
     wasBlocked: battle.wasBlocked,
   };
-  battleCache.set(state, view);
-  return view;
+  battleCache.set(view, battleView);
+  return battleView;
 }
 
 export function useBattleView(): BattleView | null {
   return useStore((s) => {
-    if (s.gameState === null || s.gameState.battle === null) {
+    const view = selectView(s);
+    if (view === null || view.battle === null) {
       return null;
     }
-    return battleViewOf(s.gameState, s.gameState.battle);
+    return battleViewOf(view, view.battle);
   });
 }
 
@@ -656,38 +777,44 @@ export interface GameOverView {
   endReason: 'lifeOut' | 'deckOut' | 'concede';
 }
 
-const gameOverCache = new WeakMap<GameState, GameOverView>();
+const gameOverCache = new WeakMap<PlayerView, GameOverView>();
 
 /** Non-null only once the animation queue has drained, so the board settles first. */
 export function useGameOver(): GameOverView | null {
   return useStore((s) => {
-    const state = s.gameState;
+    const view = selectView(s);
     if (
-      state === null ||
-      state.status !== 'finished' ||
-      state.winner === null ||
-      state.endReason === null ||
+      view === null ||
+      view.status !== 'finished' ||
+      view.winner === null ||
+      view.endReason === null ||
       s.animQueue.length > 0
     ) {
       return null;
     }
-    const cached = gameOverCache.get(state);
+    const cached = gameOverCache.get(view);
     if (cached !== undefined) {
       return cached;
     }
-    const view: GameOverView = { winner: state.winner, endReason: state.endReason };
-    gameOverCache.set(state, view);
-    return view;
+    const over: GameOverView = { winner: view.winner, endReason: view.endReason };
+    gameOverCache.set(view, over);
+    return over;
   });
 }
 
-/** True when the device must be handed to another player before they act. */
+/**
+ * True when the device must be handed to another player before they act.
+ *
+ * Hot-seat only, and now structurally so: over a network the two players hold
+ * two devices, and there is nothing to hand over.
+ */
 export function useNeedsHandoff(): PlayerId | null {
   return useStore((s) => {
-    if (s.gameState === null || s.gameState.status === 'finished') {
+    const view = selectView(s);
+    if (s.mode !== 'hotseat' || view === null || view.status === 'finished') {
       return null;
     }
-    return s.deviceAckFor === s.gameState.priority ? null : s.gameState.priority;
+    return s.deviceAckFor === view.priority ? null : view.priority;
   });
 }
 
@@ -723,11 +850,11 @@ export function useTargeting(): boolean {
  * `useStore` re-runs its selector on every snapshot read and compares the
  * result by reference, so a selector that builds a fresh object each call makes
  * React see a changed store forever: "Maximum update depth exceeded", a blank
- * screen. The rest of this file dodges it with `WeakMap<GameState, …>` caches,
+ * screen. The rest of this file dodges it with `WeakMap<PlayerView, …>` caches,
  * which is not enough here — these two views also depend on `ui.mode`, which is
  * not a key a WeakMap can be built on alone. So: remember the last inputs by
- * identity and hand back the same object while they hold. Both the engine state
- * and the UI mode are replaced rather than mutated, so identity is exact.
+ * identity and hand back the same object while they hold. Both the view and the
+ * UI mode are replaced rather than mutated, so identity is exact.
  */
 function memoize1<A extends readonly unknown[], R>(compute: (...args: A) => R): (...args: A) => R {
   let lastArgs: A | null = null;
@@ -763,6 +890,14 @@ export interface ChoiceOverlayView {
   /** The card whose ability is asking, so the prompt is not a bare ability id. */
   sourceName: string | null;
   sourceText: string | null;
+  /**
+   * A blind choice: how many faceless candidates, and which are picked.
+   *
+   * `null` for every ordinary choice. When set, `candidates` is empty and the
+   * overlay draws backs — there is no face to enlarge and no name to show, and
+   * the overlay says so in a line rather than leaving a hole.
+   */
+  blind: { count: number; selected: readonly number[] } | null;
 }
 
 /**
@@ -776,42 +911,57 @@ export interface ChoiceOverlayView {
  * group has a finite duration — so a choice cannot be buried by it.
  */
 const choiceOverlayOf = memoize1(
-  (state: GameState | null, mode: UiMode, blocked: boolean): ChoiceOverlayView | null => {
-    if (state === null || blocked) {
+  (
+    view: PlayerView | null,
+    aff: Affordances | null,
+    mode: UiMode,
+    blocked: boolean,
+  ): ChoiceOverlayView | null => {
+    if (view === null || aff === null || blocked) {
       return null;
     }
-    const choice = getAffordances(state).pendingChoice;
+    const choice = aff.pendingChoice;
     if (choice === null || mode.kind !== 'answeringChoice' || mode.choiceId !== choice.id) {
       return null;
     }
     // The ability that is asking sits on top of the stack. Naming it turns
-    // "Activate ST01-014-trigger?" into a question about a card.
-    const top = state.stack[state.stack.length - 1];
-    const source = top === undefined ? undefined : state.cards[top.source];
+    // "Activate ST01-014-trigger?" into a question about a card — when the
+    // asker is one this seat may see: a stack item whose source is hidden
+    // publishes no id at all, and the overlay simply has no name to show.
+    const top = view.stack[view.stack.length - 1];
+    const sourceId = top?.source ?? null;
+    const source = sourceId === null ? undefined : view.cards[sourceId];
     const selected = mode.selected;
     const toTop = mode.toTop;
+    const blind = choice.blindHandles;
     return {
       choiceId: choice.id,
       kind: choice.kind,
       prompt: choice.prompt,
-      player: state.priority,
+      player: view.priority,
       candidates: choice.candidates,
       min: choice.min,
       max: choice.max,
       selected,
       toTop,
-      canConfirm: selected.length >= choice.min && selected.length <= choice.max,
+      canConfirm:
+        blind === null
+          ? selected.length >= choice.min && selected.length <= choice.max
+          : mode.handles.length >= choice.min && mode.handles.length <= choice.max,
       sourceName: source === undefined ? null : getCardDef(source.cardId).name,
       sourceText:
         source === undefined
           ? null
           : (printedTextOf(source.cardId).effectText ?? printedTextOf(source.cardId).triggerText),
+      blind: blind === null ? null : { count: blind, selected: mode.handles },
     };
   },
 );
 
 export function useChoiceOverlay(): ChoiceOverlayView | null {
-  return useStore((s) => choiceOverlayOf(s.gameState, s.ui.mode, s.animQueue.length > 0));
+  return useStore((s) =>
+    choiceOverlayOf(selectView(s), s.affordances, s.ui.mode, s.animQueue.length > 0),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -823,15 +973,15 @@ export interface TrashView {
   ids: readonly InstanceId[];
 }
 
-const trashOf = memoize1((state: GameState | null, player: PlayerId | null): TrashView | null => {
-  if (state === null || player === null) {
+const trashOf = memoize1((view: PlayerView | null, player: PlayerId | null): TrashView | null => {
+  if (view === null || player === null) {
     return null;
   }
-  return { player, ids: state.players[player].trash };
+  return { player, ids: view.players[player].trash };
 });
 
 export function useTrashView(): TrashView | null {
-  return useStore((s) => trashOf(s.gameState, s.ui.viewingTrash));
+  return useStore((s) => trashOf(selectView(s), s.ui.viewingTrash));
 }
 
 // ---------------------------------------------------------------------------
@@ -866,15 +1016,15 @@ export interface PreviewView {
  * Hover wins, because a player who moves the pointer is asking about that card.
  */
 const previewOf = memoize1(
-  (state: GameState | null, hovered: InstanceId | null, mode: UiMode): PreviewView | null => {
-    if (state === null) {
+  (view: PlayerView | null, hovered: InstanceId | null, mode: UiMode): PreviewView | null => {
+    if (view === null) {
       return null;
     }
     let instanceId = hovered;
     let fromEffect = false;
     if (instanceId === null && mode.kind === 'answeringChoice') {
-      const top = state.stack[state.stack.length - 1];
-      if (top !== undefined) {
+      const top = view.stack[view.stack.length - 1];
+      if (top?.source != null) {
         instanceId = top.source;
         fromEffect = true;
       }
@@ -882,21 +1032,21 @@ const previewOf = memoize1(
     if (instanceId === null) {
       return null;
     }
-    const view = cardViewOf(state, instanceId);
-    if (view === null) {
+    const cardView = cardViewOf(view, instanceId);
+    if (cardView === null) {
       return null;
     }
-    const parts = powerBreakdown(state, instanceId);
+    const parts = powerBreakdown(view, instanceId);
     return {
       instanceId,
-      cardId: view.cardId,
-      name: view.name,
-      cost: view.cost,
-      power: view.power,
-      counter: view.counter,
-      colorClass: view.colorClass,
-      effectText: view.effectText,
-      triggerText: view.triggerText,
+      cardId: cardView.cardId,
+      name: cardView.name,
+      cost: cardView.cost,
+      power: cardView.power,
+      counter: cardView.counter,
+      colorClass: cardView.colorClass,
+      effectText: cardView.effectText,
+      triggerText: cardView.triggerText,
       powerLines: powerLinesOf(parts),
       printedPower: parts.printed,
       fromEffect,
@@ -905,7 +1055,7 @@ const previewOf = memoize1(
 );
 
 export function usePreview(): PreviewView | null {
-  return useStore((s) => previewOf(s.gameState, s.ui.hovered, s.ui.mode));
+  return useStore((s) => previewOf(selectView(s), s.ui.hovered, s.ui.mode));
 }
 
 // ---------------------------------------------------------------------------
@@ -935,35 +1085,37 @@ function labelFor(option: MenuOption, cardId: string): { label: string; hint: st
   }
 }
 
-const cardMenuOf = memoize1((state: GameState | null, mode: UiMode): CardMenuView | null => {
-  if (state === null || mode.kind !== 'cardMenu') {
-    return null;
-  }
-  const card = state.cards[mode.card];
-  if (card === undefined) {
-    return null;
-  }
-  const options = menuOptions(getAffordances(state), mode.card);
-  // Numbered only when there is more than one to tell apart: a card with a
-  // single activated ability should not read as "Activar habilidad 1".
-  const activatedCount = options.filter((option) => option.kind === 'activate').length;
-  let seen = 0;
-  return {
-    card: mode.card,
-    name: getCardDef(card.cardId).name,
-    options: options.map((option) => {
-      const entry = labelFor(option, card.cardId);
-      if (option.kind !== 'activate' || activatedCount < 2) {
-        return entry;
-      }
-      seen += 1;
-      return { ...entry, label: `${entry.label} ${seen}` };
-    }),
-  };
-});
+const cardMenuOf = memoize1(
+  (view: PlayerView | null, aff: Affordances | null, mode: UiMode): CardMenuView | null => {
+    if (view === null || aff === null || mode.kind !== 'cardMenu') {
+      return null;
+    }
+    const card = view.cards[mode.card];
+    if (card === undefined) {
+      return null;
+    }
+    const options = menuOptions(aff, mode.card);
+    // Numbered only when there is more than one to tell apart: a card with a
+    // single activated ability should not read as "Activar habilidad 1".
+    const activatedCount = options.filter((option) => option.kind === 'activate').length;
+    let seen = 0;
+    return {
+      card: mode.card,
+      name: getCardDef(card.cardId).name,
+      options: options.map((option) => {
+        const entry = labelFor(option, card.cardId);
+        if (option.kind !== 'activate' || activatedCount < 2) {
+          return entry;
+        }
+        seen += 1;
+        return { ...entry, label: `${entry.label} ${seen}` };
+      }),
+    };
+  },
+);
 
 export function useCardMenu(): CardMenuView | null {
-  return useStore((s) => cardMenuOf(s.gameState, s.ui.mode));
+  return useStore((s) => cardMenuOf(selectView(s), s.affordances, s.ui.mode));
 }
 
 // ---------------------------------------------------------------------------
@@ -998,8 +1150,9 @@ const EMPTY_BREAKDOWN: PowerBreakdown = Object.freeze({
  * Continuous effects emit no events at all — they are read at lookup time and
  * write nothing to the state — so the log can never explain one. The only way
  * to answer the question is to derive it from the board, which is what this
- * does: the static contribution is exactly `getPower - getPowerWithoutStatics`,
- * a subtraction the engine's own definition guarantees.
+ * does: the static contribution is exactly `power - powerWithoutStatics`, a
+ * subtraction the engine's own definition guarantees and which now arrives on
+ * the card, because computing either half needs a whole state.
  *
  * Attribution is separate from the amount, and deliberately weaker. A `static`
  * whose `affects` is `{self: true}` names its own card and is attributed
@@ -1010,24 +1163,23 @@ const EMPTY_BREAKDOWN: PowerBreakdown = Object.freeze({
  * that, so the day a foreign static arrives it reads as unattributed instead of
  * as the wrong card.
  */
-function breakdownOf(state: GameState, id: InstanceId): PowerBreakdown {
-  const card = state.cards[id];
+function breakdownOf(view: PlayerView, id: InstanceId): PowerBreakdown {
+  const card = view.cards[id];
   if (card === undefined) {
     return EMPTY_BREAKDOWN;
   }
   const def = getCardDef(card.cardId);
-  const nameOfCard = (instanceId: InstanceId): string => nameOf(state, instanceId);
 
   let fromModifiers = 0;
   const modifierSources: string[] = [];
-  for (const modifier of state.modifiers) {
+  for (const modifier of view.modifiers) {
     if (modifier.kind === 'power' && modifier.target === id) {
       fromModifiers += modifier.value;
-      modifierSources.push(nameOfCard(modifier.source));
+      modifierSources.push(nameOf(view, modifier.source));
     }
   }
 
-  const fromStatics = getPower(state, id) - getPowerWithoutStatics(state, id);
+  const fromStatics = card.power - card.powerWithoutStatics;
   const staticSources: string[] = [];
   if (fromStatics !== 0) {
     for (const ability of getAbilities(card.cardId)) {
@@ -1044,7 +1196,7 @@ function breakdownOf(state: GameState, id: InstanceId): PowerBreakdown {
   const grantedKeywords: string[] = [];
   for (const keyword of KEYWORDS) {
     const printed = def.keywords.includes(PRINTED_KEYWORD[keyword]);
-    if (!printed && hasKeyword(state, id, keyword)) {
+    if (!printed && card.keywords.includes(keyword)) {
       grantedKeywords.push(PRINTED_KEYWORD[keyword]);
     }
   }
@@ -1087,25 +1239,111 @@ export function powerLinesOf(parts: PowerBreakdown): string[] {
   return lines;
 }
 
-const breakdownCache = new WeakMap<GameState, Map<InstanceId, PowerBreakdown>>();
+const breakdownCache = new WeakMap<PlayerView, Map<InstanceId, PowerBreakdown>>();
 
-export function powerBreakdown(state: GameState, id: InstanceId): PowerBreakdown {
-  let perState = breakdownCache.get(state);
-  if (perState === undefined) {
-    perState = new Map();
-    breakdownCache.set(state, perState);
+export function powerBreakdown(view: PlayerView, id: InstanceId): PowerBreakdown {
+  let perView = breakdownCache.get(view);
+  if (perView === undefined) {
+    perView = new Map();
+    breakdownCache.set(view, perView);
   }
-  const cached = perState.get(id);
+  const cached = perView.get(id);
   if (cached !== undefined) {
     return cached;
   }
-  const value = breakdownOf(state, id);
-  perState.set(id, value);
+  const value = breakdownOf(view, id);
+  perView.set(id, value);
   return value;
 }
 
 export function usePowerBreakdown(id: InstanceId): PowerBreakdown {
-  return useStore((s) =>
-    s.gameState === null ? EMPTY_BREAKDOWN : powerBreakdown(s.gameState, id),
-  );
+  return useStore((s) => {
+    const view = selectView(s);
+    return view === null ? EMPTY_BREAKDOWN : powerBreakdown(view, id);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Zones, straight off the view
+
+export interface SideView {
+  leader: InstanceId;
+  characters: readonly InstanceId[];
+  stage: InstanceId | null;
+  /** Own hand: the ids. Foreign hand: `null`, and `handCount` backs. */
+  hand: readonly InstanceId[] | null;
+  handCount: number;
+  deckCount: number;
+  lifeCount: number;
+  trashCount: number;
+  donActive: number;
+  donRested: number;
+  donDeck: number;
+}
+
+const sideCache = new WeakMap<PlayerView, Map<PlayerId, SideView>>();
+
+/** One player's zones as the viewer is entitled to see them. */
+export function useSide(player: PlayerId): SideView | null {
+  return useStore((s) => {
+    const view = selectView(s);
+    if (view === null) {
+      return null;
+    }
+    let perView = sideCache.get(view);
+    if (perView === undefined) {
+      perView = new Map();
+      sideCache.set(view, perView);
+    }
+    const cached = perView.get(player);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const ps = view.players[player];
+    const don = (kind: 'active' | 'rested' | 'deck'): number =>
+      ps.don.filter((card) =>
+        kind === 'deck'
+          ? card.location.kind === 'donDeck'
+          : card.location.kind === 'cost' && card.location.orientation === kind,
+      ).length;
+    const side: SideView = {
+      leader: ps.leader,
+      characters: ps.characters,
+      stage: ps.stage,
+      hand: ps.hand.cards,
+      handCount: ps.hand.count,
+      deckCount: ps.deck.count,
+      lifeCount: ps.life.count,
+      trashCount: ps.trash.length,
+      donActive: don('active'),
+      donRested: don('rested'),
+      donDeck: don('deck'),
+    };
+    perView.set(player, side);
+    return side;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Network
+
+export interface NetworkView {
+  status: 'connecting' | 'open' | 'lost';
+  matchId: string;
+  seat: PlayerId | null;
+  error: string | null;
+}
+
+export function useNetwork(): NetworkView | null {
+  return useStore((s) => s.net);
+}
+
+/** The last rejection, cleared by the next update. */
+export function useNotice(): string | null {
+  return useStore((s) => s.notice);
+}
+
+/** Typed accessor for the raw card record, for the few places that need it. */
+export function useViewCard(id: InstanceId): ViewCard | null {
+  return useStore((s) => selectView(s)?.cards[id] ?? null);
 }

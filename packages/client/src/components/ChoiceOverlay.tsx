@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { playerLabel, useChoiceOverlay } from '../store/selectors';
 import { useStore } from '../store/store';
+import { CardBack } from './CardBack';
 import { CardTile } from './CardTile';
 import styles from './ChoiceOverlay.module.css';
 
@@ -24,6 +25,7 @@ export function ChoiceOverlay(): ReactElement | null {
     return null;
   }
 
+  const blind = view.blind;
   const partition = view.kind === 'partitionCards';
   // A partition is an ordering plus a side, so everything the ordering mode does
   // — click in draw order, show the position — it does too.
@@ -39,7 +41,11 @@ export function ChoiceOverlay(): ReactElement | null {
   const cardinality =
     view.kind === 'yesNo'
       ? null
-      : partition
+      : blind !== null
+        ? view.min === view.max
+          ? `Elegí exactamente ${view.min} sin verla`
+          : `Elegí hasta ${view.max} sin verlas`
+        : partition
         ? 'Tocá las cartas en el orden en que las vas a robar y elegí el extremo de cada una: dentro de cada lado, la primera se roba antes'
         : ordering
           ? 'Tocá las cartas en el orden en que las vas a robar: la primera queda arriba de todo'
@@ -49,7 +55,9 @@ export function ChoiceOverlay(): ReactElement | null {
               ? `Elegí hasta ${view.max} (podés no elegir ninguna)`
               : `Elegí entre ${view.min} y ${view.max}`;
 
-  const progress = partition
+  const progress = blind !== null
+    ? `seleccionadas ${blind.selected.length} de ${blind.count}`
+    : partition
     ? `${view.selected.length} de ${view.candidates.length} ordenadas — ${view.toTop.length} al tope, ${view.selected.length - view.toTop.filter((id) => view.selected.includes(id)).length} al fondo`
     : ordering
       ? `${view.selected.length} de ${view.candidates.length} ordenadas`
@@ -99,7 +107,27 @@ export function ChoiceOverlay(): ReactElement | null {
             <span className={styles.cardinality}>
               {cardinality} — {progress}
             </span>
+            {/* The one line that says why there is nothing to look at. A blind
+                choice offers backs, and the preview rail — which every other
+                choice leans on — has no face to enlarge here. Saying so is the
+                difference between a deliberate rule and a broken panel. */}
+            {blind === null ? null : (
+              <p className={styles.blindNote}>
+                Son cartas de la mano de tu rival: elegís a ciegas, por posición, y no hay
+                nada que ampliar.
+              </p>
+            )}
             <div className={styles.candidates}>
+              {blind === null
+                ? null
+                : Array.from({ length: blind.count }, (_, handle) => (
+                    <CardBack
+                      key={handle}
+                      label={`Carta oculta ${handle + 1} de ${blind.count}`}
+                      selected={blind.selected.includes(handle)}
+                      onClick={() => uiEvent({ kind: 'toggleChoiceHandle', handle })}
+                    />
+                  ))}
               {/* CardTile is itself a button and already fires a zone event,
                   which the reducer routes to a toggle while a choice is open —
                   so no wrapper button here, and no nested interactive element.

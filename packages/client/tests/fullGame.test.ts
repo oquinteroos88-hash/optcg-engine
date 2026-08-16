@@ -381,4 +381,4 @@ describe('a whole game of ST-01 against ST-02, clicked from end to end', () => {
     expect([...reasons].sort()).toEqual(['deckOut', 'lifeOut']);
     expect(errorSpy).not.toHaveBeenCalled();
   });
-});
+});

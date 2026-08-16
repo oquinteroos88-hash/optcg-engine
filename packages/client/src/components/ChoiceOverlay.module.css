@@ -150,3 +150,11 @@
   color: var(--color-text);
   border-color: var(--color-accent, currentColor);
 }
+
+.blindNote {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  max-width: 44ch;
+  text-align: center;
+}

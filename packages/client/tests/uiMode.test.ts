@@ -196,11 +196,11 @@ describe('ensureModeValid', () => {
   it('keeps a mode whose card still carries the affordance', () => {
     const { state: fullBoard, playable } = fullBoardScenario();
     const mode: UiMode = { kind: 'choosingTrash', owner: 'p1', cardToPlay: playable };
-    expect(ensureModeValid(mode, fullBoard)).toBe(mode);
+    expect(ensureModeValid(mode, getAffordances(fullBoard))).toBe(mode);
     // countering mode stays valid on the live counter-step state
     const { state, counterCard } = counterStepScenario();
     const counterMode: UiMode = { kind: 'countering', owner: 'p2', counterCard };
-    expect(ensureModeValid(counterMode, state)).toBe(counterMode);
+    expect(ensureModeValid(counterMode, getAffordances(state))).toBe(counterMode);
   });
 
   // The ownership stamp is what closes the hole: attachingDon has no instance
@@ -234,12 +234,12 @@ describe('ensureModeValid', () => {
       { kind: 'countering', owner: 'p1', counterCard: handCardId },
     ];
     for (const mode of staleModes) {
-      expect(ensureModeValid(mode, passed.state)).toEqual(IDLE);
+      expect(ensureModeValid(mode, getAffordances(passed.state))).toEqual(IDLE);
     }
 
     // A mode owned by the player who now holds priority is still evaluated on
     // its affordances rather than rejected outright.
-    expect(ensureModeValid({ kind: 'attachingDon', owner: 'p2' }, passed.state)).toEqual({
+    expect(ensureModeValid({ kind: 'attachingDon', owner: 'p2' }, getAffordances(passed.state))).toEqual({
       kind: 'attachingDon',
       owner: 'p2',
     });
@@ -249,7 +249,7 @@ describe('ensureModeValid', () => {
     const { state } = fullBoardScenario();
     const attacker = characterAt(state, 'p1', 0);
     const mode: UiMode = { kind: 'attacking', owner: 'p1', attacker };
-    expect(ensureModeValid(mode, state)).toBe(mode);
+    expect(ensureModeValid(mode, getAffordances(state))).toBe(mode);
 
     const result = applyAction(state, {
       type: 'DECLARE_ATTACK',
@@ -260,7 +260,7 @@ describe('ensureModeValid', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // Priority moved to the defender: the attacker's affordance is gone.
-      expect(ensureModeValid(mode, result.state)).toEqual(IDLE);
+      expect(ensureModeValid(mode, getAffordances(result.state))).toEqual(IDLE);
     }
   });
 
@@ -280,7 +280,7 @@ describe('ensureModeValid', () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(ensureModeValid(mode, result.state)).toEqual(IDLE);
+      expect(ensureModeValid(mode, getAffordances(result.state))).toEqual(IDLE);
     }
   });
 });

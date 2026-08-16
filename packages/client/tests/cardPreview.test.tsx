@@ -5,9 +5,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { GameState } from '@optcg/engine';
+import { getAffordances } from '../src/game/affordances';
 import { ensureModeValid } from '../src/game/uiMode';
 import { GameScreen } from '../src/screens/GameScreen';
-import { useStore } from '../src/store/store';
+import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { firstPendingState, firstStarterStateWhere } from './corpus';
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
@@ -25,9 +26,9 @@ afterEach(() => {
 function loadState(state: GameState): void {
   useStore.setState({
     screen: 'playing',
-    gameState: state,
+    ...hotSeatSnapshot(state),
     animQueue: [],
-    ui: { mode: ensureModeValid({ kind: 'idle' }, state), veilOpponentHand: false, hovered: null, viewingTrash: null },
+    ui: { mode: ensureModeValid({ kind: 'idle' }, getAffordances(state)), veilOpponentHand: false, hovered: null, viewingTrash: null },
     deviceAckFor: state.priority,
   });
 }

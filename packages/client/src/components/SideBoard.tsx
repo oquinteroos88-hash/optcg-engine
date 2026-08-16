@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import type { PlayerId } from '@optcg/engine';
-import { playerLabel, useCanAttachDon, useWhoActs } from '../store/selectors';
+import { playerLabel, useCanAttachDon, useSide, useWhoActs } from '../store/selectors';
 import { useStore } from '../store/store';
 import { CharacterRow } from './CharacterRow';
 import { DeckPile } from './DeckPile';
@@ -33,7 +33,7 @@ interface SideBoardProps {
  *   Characters · Leader/Stage/Deck (+ Life at the edge) · DON!! row · Hand
  */
 export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | null {
-  const gameState = useStore((s) => s.gameState);
+  const side = useSide(player);
   const veilOpponentHand = useStore((s) => s.ui.veilOpponentHand);
   const uiEvent = useStore((s) => s.uiEvent);
   const viewTrash = useStore((s) => s.viewTrash);
@@ -41,20 +41,12 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   const whoActs = useWhoActs();
   const canAttachDon = useCanAttachDon();
 
-  if (gameState === null) {
+  if (side === null) {
     return null;
   }
   // "Mine" is relative to who acts now, which is what affordances describe.
   const mine = whoActs === player;
   const label = playerLabel(player);
-  const ps = gameState.players[player];
-  const donActive = ps.don.filter(
-    (don) => don.location.kind === 'cost' && don.location.orientation === 'active',
-  ).length;
-  const donRested = ps.don.filter(
-    (don) => don.location.kind === 'cost' && don.location.orientation === 'rested',
-  ).length;
-  const donDeck = ps.don.filter((don) => don.location.kind === 'donDeck').length;
 
   return (
     <section
@@ -62,20 +54,20 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
       aria-label={label}
     >
       <div className={styles.field} role="group" aria-label={`Campo de ${label}`}>
-        <CharacterRow ids={ps.characters} mine={mine} />
+        <CharacterRow ids={side.characters} mine={mine} />
 
         <div className={styles.mainRow}>
-          <LifeStack count={ps.life.length} />
-          <LeaderSlot id={ps.leader} mine={mine} />
-          <StageSlot id={ps.stage} mine={mine} />
-          <DeckPile label="Mazo" count={ps.deck.length} />
+          <LifeStack count={side.lifeCount} />
+          <LeaderSlot id={side.leader} mine={mine} />
+          <StageSlot id={side.stage} mine={mine} />
+          <DeckPile label="Mazo" count={side.deckCount} />
         </div>
 
         <div className={styles.donRow}>
-          <DeckPile label="Mazo DON!!" count={donDeck} compact />
+          <DeckPile label="Mazo DON!!" count={side.donDeck} compact />
           <DonArea
-            active={donActive}
-            rested={donRested}
+            active={side.donActive}
+            rested={side.donRested}
             clickable={mine && canAttachDon}
             attaching={mine && attachingDon}
             onClick={() => uiEvent({ kind: 'clickDonArea' })}
@@ -83,17 +75,21 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
           {/* The one pile you may read: public information in the real game. */}
           <DeckPile
             label="Descarte"
-            count={ps.trash.length}
+            count={side.trashCount}
             compact
             onOpen={() => viewTrash(player)}
           />
         </div>
       </div>
 
-      {/* The veil hides whoever is NOT acting — during a battle that is the
-          attacker, so the defender can always read their own counters. */}
+      {/* A hand the view publishes in full is drawn face-up; one it publishes
+          as a count is drawn as that many backs, and there is nothing behind
+          them to reveal. The veil is the hot-seat courtesy on top of that —
+          it hides a hand this seat *may* read but its holder would rather not
+          show across the table. */}
       <HandRow
-        ids={ps.hand}
+        ids={side.hand}
+        count={side.handCount}
         mine={mine}
         veiled={!mine && veilOpponentHand}
         owner={label}

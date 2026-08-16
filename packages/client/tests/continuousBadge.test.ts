@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAbilities, getCardDef, getPower, getPowerWithoutStatics } from '@optcg/engine';
+import { getAbilities, getCardDef, getPower, getPowerWithoutStatics, playerView } from '@optcg/engine';
 import type { GameState, InstanceId } from '@optcg/engine';
 import { powerBreakdown } from '../src/store/selectors';
 import { starterCorpusStates } from './corpus';
@@ -34,7 +34,7 @@ describe('the power breakdown', () => {
     let checked = 0;
     for (const state of states) {
       for (const id of fieldIds(state)) {
-        const parts = powerBreakdown(state, id);
+        const parts = powerBreakdown(playerView(state, state.priority), id);
         expect(
           parts.printed + parts.fromDon + parts.fromModifiers + parts.fromStatics,
           `${id} in a corpus state`,
@@ -50,7 +50,7 @@ describe('the power breakdown', () => {
     // continuous contribution, and the only thing the client may call it.
     for (const state of states) {
       for (const id of fieldIds(state)) {
-        expect(powerBreakdown(state, id).fromStatics).toBe(
+        expect(powerBreakdown(playerView(state, state.priority), id).fromStatics).toBe(
           getPower(state, id) - getPowerWithoutStatics(state, id),
         );
       }
@@ -59,7 +59,7 @@ describe('the power breakdown', () => {
 
   it('sees at least one card lifted by a continuous effect', () => {
     const lifted = states.some((state) =>
-      fieldIds(state).some((id) => powerBreakdown(state, id).fromStatics !== 0),
+      fieldIds(state).some((id) => powerBreakdown(playerView(state, state.priority), id).fromStatics !== 0),
     );
     expect(lifted).toBe(true);
   });
@@ -72,7 +72,7 @@ describe('the power breakdown', () => {
     // what makes a future foreign static visible instead of silently wrong.
     for (const state of states) {
       for (const id of fieldIds(state)) {
-        const parts = powerBreakdown(state, id);
+        const parts = powerBreakdown(playerView(state, state.priority), id);
         if (parts.fromStatics !== 0) {
           expect(parts.staticSources.length, `${id} lifted by nothing named`).toBeGreaterThan(0);
         }
@@ -118,7 +118,7 @@ describe('the power breakdown', () => {
     if (modifier === undefined || modifier.kind !== 'power') {
       return;
     }
-    const parts = powerBreakdown(withModifier, modifier.target);
+    const parts = powerBreakdown(playerView(withModifier, withModifier.priority), modifier.target);
     expect(parts.fromModifiers).not.toBe(0);
     const sourceName = getCardDef(
       withModifier.cards[modifier.source]?.cardId ?? '',
@@ -132,7 +132,7 @@ describe('the power breakdown', () => {
     const granted = new Set<string>();
     for (const state of states) {
       for (const id of fieldIds(state)) {
-        for (const keyword of powerBreakdown(state, id).grantedKeywords) {
+        for (const keyword of powerBreakdown(playerView(state, state.priority), id).grantedKeywords) {
           granted.add(keyword);
         }
       }

@@ -1,9 +1,23 @@
-# The multiplayer protocol — PR #44
+# The multiplayer protocol — PR #44, revised by PR #45
 
 The wire contract between `packages/server` and a client. One number governs
-compatibility: **`PROTOCOL_VERSION = 1`** travels in every `join`, and a
-mismatch is refused with `protocolMismatch` before anything else happens — an
-old client fails loudly, never strangely.
+compatibility: **`PROTOCOL_VERSION = 2`** travels in every `create` and `join`,
+and a mismatch is refused with `protocolMismatch` before anything else happens
+— an old client fails loudly, never strangely.
+
+**Why 2 rather than an additive 1.** PR #45 put the affordance list in the
+payloads. On the wire that is additive, and an old client would ignore it — but
+a *new* client cannot work without it: `legalActions` needs a whole
+`GameState`, and a networked client holds a redacted view. A v2 client against
+a v1 server would receive payloads with no `actions`, render an empty
+affordance set, and sit there looking like a game in which nothing is legal.
+That is failing strangely, which is the exact outcome the number exists to
+prevent, so the number moved.
+
+The client imports this contract from `@optcg/server/protocol` — a browser-safe
+entry point of types and two constants, kept apart from the package root
+because that reaches for `ws` and `node:net`. Both ends read one file rather
+than keeping two copies that drift.
 
 The server holds one rule about the game: none. `applyAction` validates,
 `playerView` redacts state, the engine's `redactEvent` redacts history, and a
@@ -16,22 +30,58 @@ Client → server (JSON over WebSocket):
 
 | Shape | Meaning |
 | --- | --- |
-| `{ type: 'join', protocol, matchId, token }` | Take (or retake) the seat this token names. No accounts, no matchmaking: a match is registered server-side with two caller-minted tokens. |
+| `{ type: 'create', protocol, seed, deckIdP1, deckIdP2 }` | Open a match. The decks are **named**, not sent: the catalog belongs to whoever started the server, so a client cannot post a deck the server never validated. The seed is the creator's — it is the game's only randomness, and `replayMatch` needs it to be something somebody chose. |
+| `{ type: 'join', protocol, matchId, token }` | Take (or retake) the seat this token names. No accounts, no matchmaking. |
 | `{ type: 'action', action }` | An engine `Action`, verbatim — `ANSWER_CHOICE` with `{ kind: 'handles' }` where the choice is blind. The `action.player` must be the socket's authenticated seat. |
 
 Server → client:
 
 | Shape | Meaning |
 | --- | --- |
-| `{ type: 'joined', protocol, seat, view, journal }` | Successful join, first time and reconnection alike. `view` is the present (`playerView`); `journal` is the history exactly as this seat saw it live (see below). |
-| `{ type: 'update', view, events }` | After every accepted action: this seat's **whole** `playerView` plus that action's events redacted for it. Snapshots over diffs — correctness first, diffing is a future optimization. |
+| `{ type: 'created', protocol, matchId, tokens }` | The match exists. The creator keeps one seat token and sends the other to their opponent — that link *is* the invitation. |
+| `{ type: 'joined', protocol, seat, view, journal, actions }` | Successful join, first time and reconnection alike. `view` is the present (`playerView`); `journal` is the history exactly as this seat saw it live (see below); `actions` is what this seat may do now. |
+| `{ type: 'update', view, events, actions }` | After every accepted action: this seat's **whole** `playerView`, that action's events redacted for it, and its affordance list. Snapshots over diffs — correctness first, diffing is a future optimization. |
 | `{ type: 'rejected', reason }` | To the actor **alone**, with the engine's reason verbatim. The other seat never learns the attempt existed. Rejections are request/response, not history: never journaled. |
 | `{ type: 'error', code }` | Transport-level failure; `code` is a server code, never an engine reason. |
 
 The two error vocabularies never mix. Engine reasons answer game questions
 (`notYourPriority`, `choiceHandleOutOfRange`, …); server codes answer "who are
-you and what did you send": `protocolMismatch`, `unknownMatch`, `badToken`,
-`seatMismatch`, `notJoined`, `malformedMessage`.
+you and what did you send": `protocolMismatch`, `unknownMatch`, `unknownDeck`,
+`badToken`, `seatMismatch`, `notJoined`, `malformedMessage`.
+
+## The affordances travel
+
+`legalActions` has always been the affordance contract: what a client may
+offer is what the engine offers, indexed. PR #45 found the half of that
+sentence nobody had needed — **it had no way to cross a wire**. A client with a
+redacted view cannot run `legalActions`, which needs the whole state, hidden
+zones included; a client that computed its own would be encoding the rules a
+second time from strictly less information.
+
+So the engine computes, the server carries, the client indexes. The list is
+`legalActions(state, seat)` verbatim, and it leaks nothing — not by a filter
+here, but by what that function already is: every action it emits names cards
+the seat can act *with* (its own hand and field, the opponent's public field),
+and while a choice is open it emits only the bare `ANSWER_CHOICE` marker, whose
+answer space lives in the redacted `pending`. A blind choice therefore publishes
+a **handle count** and no identities, which is the one shape an affordance could
+have leaked through. The wire leak test checks the field like every other, from
+the opposite side.
+
+## The view is the present, not the history
+
+PR #45 also took `log` **off** `PlayerView`, and the reason is PR #44's own
+finding turned around. The engine's redaction is memoryless, so a log
+re-derived now is strictly more redacted than what the player watched — which
+is why the journal exists. A `log` on the view is therefore history that nobody
+may correctly render, and it was riding in every payload: **56% of the average
+update**, growing with the game. Removing it took the average update from 24.7KB
+to 10.8KB and made it constant in game length rather than linear.
+
+`redactLog` still exists for the one reader with no journal to catch up from —
+someone joining a match already in progress, or a test staging a mid-game
+position — and it is honest there precisely because such a reader never saw the
+live version to be short-changed against.
 
 `seatMismatch` exists because the engine validates whose **turn** it is, not
 who is **talking**: without the check, a seat could submit the opponent's
@@ -65,8 +115,8 @@ that journal. What you see on returning is what you saw live, because it is
 literally the same data. Re-derivation is forbidden as a source of history.
 
 **The measured cost, and the shape it forced.** Journaling whole `update`
-payloads is quadratic — every update carries a full view and every view
-carries the whole redacted log. Over the ability sweep that measured **8.4MB
+payloads was quadratic — every update carried a full view and every view
+carried the whole redacted log. Over the ability sweep that measured **8.4MB
 average / 16.1MB worst per seat per game**. The journal therefore stores the
 **event batches only**: same history, linear cost, measured at **34KB average
 / 50KB worst per seat per game** (~250× less). The declared trade: a
@@ -74,6 +124,10 @@ returning client cannot scrub through past *board states* — it has the full
 event history and the present, not the intermediate snapshots. The dishonest
 third option — re-derived history pretending to be what was seen — is the one
 thing this protocol rules out.
+
+(PR #45 then removed `log` from the view outright, for the correctness reason
+above, which halved the live payload as well. The journal's shape was decided
+before that and is unaffected: it was already the events.)
 
 A reconnecting token takes the seat; whatever socket held it is closed. A
 disconnected seat misses nothing: every emission is journaled whether or not
@@ -105,6 +159,7 @@ revert — the arbiter bites.
 
 ## Out of scope
 
-Accounts, matchmaking, spectators, deadlines and abandonment, diffs,
-persistence beyond process memory, and any UI — the client still plays
-hot-seat over the full state and is untouched by this PR.
+Accounts, room lists, spectators, deadlines and abandonment, diffs, and
+persistence beyond process memory. The invitation is a seat code somebody
+sends somebody, and that is deliberate: it is the least machinery that lets
+two people play.

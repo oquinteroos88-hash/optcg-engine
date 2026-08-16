@@ -19,6 +19,8 @@ import type {
 } from '@optcg/engine';
 import { getAffordances, indexAffordances } from '../game/affordances';
 import type { Affordances } from '../game/affordances';
+import { initialLocale, saveLocale } from '../i18n/locale';
+import type { Locale } from '../i18n/locale';
 import { groupEvents } from '../game/animQueue';
 import type { AnimGroup } from '../game/animQueue';
 import { toAction } from '../game/intent';
@@ -79,6 +81,15 @@ export interface UiState {
 export interface StoreState {
   screen: 'setup' | 'playing';
   mode: ClientMode;
+  /**
+   * The language everything on screen is drawn in.
+   *
+   * Store state because it is read from every corner of the tree and has to
+   * re-render all of it at once — and store state **only**: it is never part of
+   * a game frame, never derived from one, and never sent anywhere. Changing it
+   * mid-match is a re-render, which is why the control is offered during play.
+   */
+  locale: Locale;
   setup: SetupConfig | null;
   /**
    * Hot-seat only: the authoritative state this client owns and drives. Null
@@ -116,6 +127,8 @@ export interface StoreState {
    * a notice that the next update clears is the honest way to say so.
    */
   notice: string | null;
+  /** Switches language, in place and mid-match. Persisted; never dispatched. */
+  setLocale: (locale: Locale) => void;
   newGame: (cfg: SetupConfig) => void;
   /** Replays the stored setup — same seed, same game. */
   rematch: () => void;
@@ -295,6 +308,7 @@ export const useStore = create<StoreState>()((set, get) => {
   return {
     screen: 'setup',
     mode: 'hotseat',
+    locale: initialLocale(),
     setup: null,
     gameState: null,
     netView: null,
@@ -305,6 +319,17 @@ export const useStore = create<StoreState>()((set, get) => {
     deviceAckFor: null,
     net: null,
     notice: null,
+
+    setLocale: (locale) => {
+      if (get().locale === locale) {
+        return;
+      }
+      saveLocale(locale);
+      // Nothing else moves. No action, no socket write, no state rebuild: the
+      // board is derived from a `PlayerView` that knows nothing about language,
+      // so the whole of a language change is this line plus a render.
+      set({ locale });
+    },
 
     newGame: (cfg) => {
       const gameState = createGameFromSetup(cfg);

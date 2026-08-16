@@ -7,7 +7,14 @@ import type {
   PlayerView,
   ViewEvent,
 } from '@optcg/engine';
-import { applyAction, createGame, playerView, redactEvent, PLAYER_IDS } from '@optcg/engine';
+import {
+  applyAction,
+  createGame,
+  legalActions,
+  playerView,
+  redactEvent,
+  PLAYER_IDS,
+} from '@optcg/engine';
 import type { UpdatePayload } from './protocol.js';
 import { PROTOCOL_VERSION } from './protocol.js';
 
@@ -112,6 +119,7 @@ export function handleAction(match: MatchState, seat: PlayerId, action: Action):
       type: 'update',
       view: playerView(result.state, player),
       events,
+      actions: legalActions(result.state, player),
     };
     seatState.journal.push(events);
     seats[player] = seatState;
@@ -138,13 +146,23 @@ export function handleAction(match: MatchState, seat: PlayerId, action: Action):
 export function rejoinPayload(
   match: MatchState,
   seat: PlayerId,
-): { type: 'joined'; protocol: typeof PROTOCOL_VERSION; seat: PlayerId; view: PlayerView; journal: ViewEvent[][] } {
+): {
+  type: 'joined';
+  protocol: typeof PROTOCOL_VERSION;
+  seat: PlayerId;
+  view: PlayerView;
+  journal: ViewEvent[][];
+  actions: Action[];
+} {
   return {
     type: 'joined',
     protocol: PROTOCOL_VERSION,
     seat,
     view: playerView(match.game, seat),
     journal: match.seats[seat].journal,
+    // A returning client is as blind as a new one: it needs its affordances
+    // with its present, or it rejoins a board it cannot act on.
+    actions: legalActions(match.game, seat),
   };
 }
 

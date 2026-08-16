@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Decklist, PlayerId } from '@optcg/engine';
@@ -12,10 +13,17 @@ import { createMatch, handleAction, rejoinPayload } from './session.js';
  * each seat exactly the payloads the session emitted for it — nothing more
  * travels, and nothing here decides anything about the game.
  *
- * No accounts, no matchmaking: a match is registered with two seat tokens
- * (the caller mints them; this module has no randomness of its own, which
- * keeps the session's no-own-entropy guarantee true of the whole server), and
- * joining is `matchId + token`. A second socket presenting the same token is
+ * No accounts, no matchmaking: a `create` opens a match and hands back its id
+ * and two seat tokens, and the creator sends one of them to somebody — that
+ * link *is* the invitation. Joining is `matchId + token`.
+ *
+ * **The entropy this module has, and the entropy it does not.** It mints match
+ * ids and seat tokens, which name a match and its seats and never reach the
+ * board. The game's one source of randomness is still the seed the creator
+ * chose, which is what keeps `seed + actions = the match` true — the session's
+ * no-own-entropy guarantee is about the *game*, and it holds.
+ *
+ * A second socket presenting the same token is
  * a reconnection: it takes the seat, the old socket is closed, and the
  * journal is re-emitted — the minimum that lets a dropped player return
  * mid-choice and keep playing.
@@ -30,6 +38,8 @@ interface MatchEntry {
 export interface GameServer {
   /** The bound port — pass 0 at start to get an ephemeral one. */
   port: number;
+  /** The decks a `create` message may name, by id. */
+  decks: Record<string, Decklist>;
   /** Registers a match; tokens are the caller's to mint and hand out. */
   createMatch(opts: {
     matchId: string;
@@ -42,9 +52,18 @@ export interface GameServer {
   close(): Promise<void>;
 }
 
-export function startServer(opts: { port: number }): Promise<GameServer> {
+export function startServer(opts: {
+  port: number;
+  /**
+   * The deck catalog a `create` may name. Injected rather than imported: the
+   * library holds no card data, which is what keeps `@optcg/engine` its only
+   * game dependency. The runnable entry point supplies the real set.
+   */
+  decks?: Record<string, Decklist>;
+}): Promise<GameServer> {
   const matches = new Map<string, MatchEntry>();
   const seatsBySocket = new Map<WebSocket, { matchId: string; seat: PlayerId }>();
+  const decks: Record<string, Decklist> = { ...opts.decks };
   const wss = new WebSocketServer({ port: opts.port });
 
   wss.on('connection', (socket) => {
@@ -52,6 +71,10 @@ export function startServer(opts: { port: number }): Promise<GameServer> {
       const message = parseMessage(String(data));
       if (message === null) {
         send(socket, { type: 'error', code: SERVER_ERRORS.malformedMessage });
+        return;
+      }
+      if (message.type === 'create') {
+        handleCreate(socket, message);
         return;
       }
       if (message.type === 'join') {
@@ -71,6 +94,34 @@ export function startServer(opts: { port: number }): Promise<GameServer> {
       }
     });
   });
+
+  function handleCreate(
+    socket: WebSocket,
+    message: Extract<ClientMessage, { type: 'create' }>,
+  ): void {
+    if (message.protocol !== PROTOCOL_VERSION) {
+      send(socket, { type: 'error', code: SERVER_ERRORS.protocolMismatch });
+      return;
+    }
+    const p1 = decks[message.deckIdP1];
+    const p2 = decks[message.deckIdP2];
+    if (p1 === undefined || p2 === undefined) {
+      send(socket, { type: 'error', code: SERVER_ERRORS.unknownDeck });
+      return;
+    }
+    // The two things this server invents. Neither is game state: they name a
+    // match and its seats, and the game's only randomness is still the seed
+    // the creator chose — which is what keeps `seed + actions = the match`
+    // true of every match this opens.
+    const matchId = randomUUID();
+    const tokens: Record<PlayerId, string> = { p1: randomUUID(), p2: randomUUID() };
+    matches.set(matchId, {
+      match: createMatch(message.seed, { p1, p2 }),
+      tokens,
+      sockets: {},
+    });
+    send(socket, { type: 'created', protocol: PROTOCOL_VERSION, matchId, tokens });
+  }
 
   function handleJoin(socket: WebSocket, message: Extract<ClientMessage, { type: 'join' }>): void {
     if (message.protocol !== PROTOCOL_VERSION) {
@@ -151,6 +202,7 @@ export function startServer(opts: { port: number }): Promise<GameServer> {
       const address = wss.address() as AddressInfo;
       resolve({
         port: address.port,
+        decks,
         createMatch({ matchId, seed, decklists, tokens }) {
           matches.set(matchId, { match: createMatch(seed, decklists), tokens, sockets: {} });
         },
@@ -192,6 +244,14 @@ function parseMessage(raw: string): ClientMessage | null {
     return null;
   }
   const message = parsed as Record<string, unknown>;
+  if (message['type'] === 'create') {
+    return typeof message['protocol'] === 'number' &&
+      typeof message['seed'] === 'number' &&
+      typeof message['deckIdP1'] === 'string' &&
+      typeof message['deckIdP2'] === 'string'
+      ? (parsed as ClientMessage)
+      : null;
+  }
   if (message['type'] === 'join') {
     return typeof message['protocol'] === 'number' &&
       typeof message['matchId'] === 'string' &&

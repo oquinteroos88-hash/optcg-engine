@@ -1,5 +1,5 @@
-import type { GameState, InstanceId, PlayerId } from '@optcg/engine';
-import { cardAffordance, getAffordances } from './affordances';
+import type { InstanceId, PlayerId } from '@optcg/engine';
+import { cardAffordance } from './affordances';
 import type { Affordances } from './affordances';
 import type { ActionIntent } from './driver-types';
 
@@ -51,6 +51,18 @@ export type UiMode =
        * from `orderToBottom`.
        */
       toTop: readonly InstanceId[];
+      /**
+       * Selection for a **blind** choice, by handle rather than by id.
+       *
+       * A second list rather than a reuse of `selected`, for the reason the
+       * engine keeps `handles` apart from `cards` in its answer union: the two
+       * name different things. `selected` holds cards the player can see and
+       * point at; this holds positions in an order the player is not entitled
+       * to resolve. Sharing one list would mean inventing an id for a card
+       * with no face, which is the one thing the whole per-player layer exists
+       * to avoid. Empty and inert for every choice that is not blind.
+       */
+      handles: readonly number[];
     };
 
 export type UiEvent =
@@ -65,6 +77,8 @@ export type UiEvent =
   | { kind: 'toggleChoiceCandidate'; instanceId: InstanceId }
   /** Flips one candidate between the top and the bottom of the deck. */
   | { kind: 'toggleChoiceSide'; instanceId: InstanceId }
+  /** Toggles one faceless candidate of a blind choice, by handle. */
+  | { kind: 'toggleChoiceHandle'; handle: number }
   /** Submits the current selection (`selectCards`) — legal only within min/max. */
   | { kind: 'confirmChoice' }
   /** Submits a `yesNo` choice. */
@@ -193,7 +207,14 @@ function clickCard(
 }
 
 function answeringChoiceFor(aff: Affordances, choiceId: string): UiMode {
-  return { kind: 'answeringChoice', owner: aff.whoActs, choiceId, selected: [], toTop: [] };
+  return {
+    kind: 'answeringChoice',
+    owner: aff.whoActs,
+    choiceId,
+    selected: [],
+    toTop: [],
+    handles: [],
+  };
 }
 
 /**
@@ -324,6 +345,23 @@ function reduceAnsweringChoice(
       }
       return { mode: { ...mode, selected } };
     }
+    case 'toggleChoiceHandle': {
+      // A blind choice's candidates have no ids to click, so its toggle names
+      // a position instead. Inert on every other choice for `toggleChoiceSide`'s
+      // reason: the components fire what they render and the reducer decides
+      // what it means.
+      if (choice.blindHandles === null || ev.handle < 0 || ev.handle >= choice.blindHandles) {
+        return { mode };
+      }
+      const already = mode.handles.includes(ev.handle);
+      const handles = already
+        ? mode.handles.filter((handle) => handle !== ev.handle)
+        : [...mode.handles, ev.handle];
+      if (handles.length > choice.max) {
+        return { mode };
+      }
+      return { mode: { ...mode, handles } };
+    }
     case 'toggleChoiceSide': {
       // The one event that belongs to a single choice kind. It is inert
       // everywhere else rather than absent, because the alternative is a mode
@@ -345,6 +383,22 @@ function reduceAnsweringChoice(
     case 'confirmChoice': {
       if (choice.kind === 'yesNo') {
         return { mode };
+      }
+      // A blind choice answers in the only alphabet its chooser has. The
+      // cardinality gate is the same one; what changes is what is being
+      // counted, because there are no cards to count.
+      if (choice.blindHandles !== null) {
+        if (mode.handles.length < choice.min || mode.handles.length > choice.max) {
+          return { mode };
+        }
+        return {
+          mode: IDLE,
+          intent: {
+            type: 'ANSWER_CHOICE',
+            choiceId: choice.id,
+            answer: { kind: 'handles', selected: [...mode.handles] },
+          },
+        };
       }
       if (mode.selected.length < choice.min || mode.selected.length > choice.max) {
         return { mode };
@@ -418,9 +472,10 @@ function reduceIdle(mode: UiMode, ev: BoardEvent, aff: Affordances): UiModeResul
       }
       return { mode };
     }
-    // The three choice events only mean anything inside `answeringChoice`.
+    // The choice events only mean anything inside `answeringChoice`.
     case 'chooseMenuOption':
     case 'toggleChoiceCandidate':
+    case 'toggleChoiceHandle':
     case 'confirmChoice':
     case 'answerYesNo':
       return { mode };
@@ -428,12 +483,17 @@ function reduceIdle(mode: UiMode, ev: BoardEvent, aff: Affordances): UiModeResul
 }
 
 /**
- * Re-validate a mode against a (new) state: a mode opened by a player who no
- * longer holds priority is dropped outright, and otherwise the referenced card
+ * Re-validate a mode against a (new) affordance set: a mode opened by a player
+ * who no longer acts is dropped outright, and otherwise the referenced card
  * must still carry the corresponding affordance.
+ *
+ * Takes the affordances rather than the state, for the reason
+ * `indexAffordances` does: over a network there is no state to re-derive them
+ * from. `aff.whoActs` is the player this set was built for — priority in
+ * hot-seat, the seat in a networked game — and a mode belonging to anyone else
+ * is a mode from before the board moved.
  */
-export function ensureModeValid(mode: UiMode, state: GameState): UiMode {
-  const aff = getAffordances(state);
+export function ensureModeValid(mode: UiMode, aff: Affordances): UiMode {
   // An open choice imposes its mode: nothing clicks into `answeringChoice`, and
   // no other mode may survive next to it. Answering is the only legal move, so
   // the UI has to be in the only state that can produce it — including when the
@@ -442,7 +502,7 @@ export function ensureModeValid(mode: UiMode, state: GameState): UiMode {
   if (aff.pendingChoice !== null) {
     if (
       mode.kind === 'answeringChoice' &&
-      mode.owner === state.priority &&
+      mode.owner === aff.whoActs &&
       mode.choiceId === aff.pendingChoice.id
     ) {
       // Keep the selection, minus anything that stopped being a candidate — and
@@ -450,13 +510,19 @@ export function ensureModeValid(mode: UiMode, state: GameState): UiMode {
       // to a different one still marked for the top.
       const selected = mode.selected.filter((id) => aff.pendingChoice?.candidates.includes(id));
       const toTop = mode.toTop.filter((id) => aff.pendingChoice?.candidates.includes(id));
-      return selected.length === mode.selected.length && toTop.length === mode.toTop.length
+      // Handles are positions in a list that only exists while this exact
+      // choice does, so a surviving choice keeps them and nothing else can.
+      const limit = aff.pendingChoice.blindHandles ?? 0;
+      const handles = mode.handles.filter((handle) => handle < limit);
+      return selected.length === mode.selected.length &&
+        toTop.length === mode.toTop.length &&
+        handles.length === mode.handles.length
         ? mode
-        : { ...mode, selected, toTop };
+        : { ...mode, selected, toTop, handles };
     }
     return answeringChoiceFor(aff, aff.pendingChoice.id);
   }
-  if (mode.kind !== 'idle' && mode.owner !== state.priority) {
+  if (mode.kind !== 'idle' && mode.owner !== aff.whoActs) {
     return IDLE;
   }
   switch (mode.kind) {

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { GameEvent } from '@optcg/engine';
+import type { ViewEvent } from '@optcg/engine';
 import { groupEvents, resetAnimGroupIds } from '../src/game/animQueue';
 
-const drawn = (player: 'p1' | 'p2', instanceId: string): GameEvent => ({
+const drawn = (player: 'p1' | 'p2', instanceId: string): ViewEvent => ({
   type: 'cardDrawn',
   player,
   instanceId,
@@ -81,7 +81,7 @@ describe('groupEvents', () => {
 
   it('drops zero-visual events entirely', () => {
     const groups = groupEvents([
-      { type: 'gameStarted', matchId: 'm1', firstPlayer: 'p1' },
+      { type: 'gameStarted', firstPlayer: 'p1' },
       { type: 'lifeSet', player: 'p1', count: 5 },
       { type: 'mulliganTaken', player: 'p1', accepted: false },
       { type: 'mulliganTaken', player: 'p2', accepted: true },

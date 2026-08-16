@@ -10,6 +10,7 @@ import { ChoiceOverlay } from '../components/ChoiceOverlay';
 import { EventLog } from '../components/EventLog';
 import { GameOverOverlay } from '../components/GameOverOverlay';
 import { MulliganOverlay } from '../components/MulliganOverlay';
+import { NetStatus } from '../components/NetStatus';
 import { PassDeviceScreen } from '../components/PassDeviceScreen';
 import { PileViewer } from '../components/PileViewer';
 import { Table } from '../components/Table';
@@ -37,6 +38,7 @@ export function GameScreen(): ReactElement {
     <div className={styles.screen}>
       <AnimationDriver />
       <Banner />
+      <NetStatus />
       <div className={`${styles.main} ${blocked ? styles.blocked : ''}`}>
         {/* Two constant-width rails around a fluid board: the preview and the
             battle panel on the left, the log on the right. The preview slot is

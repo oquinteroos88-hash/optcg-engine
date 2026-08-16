@@ -1,17 +1,45 @@
 import type { Action, PlayerId, PlayerView, ViewEvent } from '@optcg/engine';
 
 /**
- * The wire protocol, versioned so an old client fails loudly instead of
- * strangely: the number travels in the join message and the server refuses a
- * mismatch with `protocolMismatch` before anything else happens.
+ * The wire protocol — **the browser-safe half of this package**, and the only
+ * part a client may import.
+ *
+ * It is a separate entry point (`@optcg/server/protocol`) for the reason
+ * `@optcg/cards/starters` is one: the package root reaches for `ws` and
+ * `node:net`, which a bundler targeting a browser cannot resolve. Everything
+ * here is types plus two frozen constants, so both ends of the wire read the
+ * same contract from one file instead of keeping two copies that drift.
+ *
+ * Versioned so an old client fails loudly instead of strangely: the number
+ * travels in the join message and the server refuses a mismatch with
+ * `protocolMismatch` before anything else happens.
+ *
+ * **2 — the affordance list joined the payloads (PR #45), and the bump is not
+ * a formality.** Adding a field is additive on the wire, but a client that has
+ * no `GameState` cannot compute what it may do: `legalActions` is the
+ * affordance contract and it needs the whole state to run. A v2 client against
+ * a v1 server would receive payloads with no `actions`, render an empty
+ * affordance set, and sit there looking like a game where nothing is legal —
+ * failing strangely, which is the exact outcome this number exists to prevent.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /**
  * What a client may send. Everything else coming over the socket is answered
  * with `malformedMessage` — the transport parses, it never interprets.
  */
 export type ClientMessage =
+  /**
+   * Open a match and get back its id and both seat tokens, to hand one to
+   * somebody else. The decks are **named**, not sent: the catalog belongs to
+   * whoever started the server, so the library stays free of card data and a
+   * client cannot post a deck the server has never validated.
+   *
+   * The seed is the creator's, and that is deliberate — it is the game's only
+   * randomness, and `replayMatch` needs it to be a thing somebody chose rather
+   * than a thing the server rolled.
+   */
+  | { type: 'create'; protocol: number; seed: number; deckIdP1: string; deckIdP2: string }
   | { type: 'join'; protocol: number; matchId: string; token: string }
   /** An engine action, handles included where the choice is blind. The seat is
    * the socket's, never the payload's: an action whose `player` is not the
@@ -26,6 +54,16 @@ export type ClientMessage =
  * snapshots over diffs, correctness first.
  */
 export type ServerToClient =
+  /**
+   * A match exists. `tokens` are the two seats; the creator keeps one and
+   * sends the other to their opponent — that link *is* the invitation, and it
+   * is the whole of matchmaking in this project.
+   *
+   * The ids and tokens are the only things the server invents, and they are
+   * not game state: they name matches and seats, never cards. The game's one
+   * source of randomness is still the seed above.
+   */
+  | { type: 'created'; protocol: typeof PROTOCOL_VERSION; matchId: string; tokens: Record<PlayerId, string> }
   /** The answer to a successful join — first join and reconnection alike.
    * `view` is the present; `journal` is the history exactly as this seat saw
    * it live: every emission's redacted events, stored verbatim at the moment
@@ -41,6 +79,7 @@ export type ServerToClient =
       seat: PlayerId;
       view: PlayerView;
       journal: ViewEvent[][];
+      actions: Action[];
     }
   | UpdatePayload
   /** Sent only to the seat that acted, with the engine's reason verbatim.
@@ -55,6 +94,25 @@ export interface UpdatePayload {
   type: 'update';
   view: PlayerView;
   events: ViewEvent[];
+  /**
+   * What this seat may do now — `legalActions(state, seat)`, verbatim.
+   *
+   * The affordance contract has always been the engine's list; what PR #45
+   * found is that it had no way to travel. A client with a redacted view
+   * cannot run `legalActions` — it needs the whole state, hidden zones
+   * included — so a networked client that computed its own affordances would
+   * be encoding the rules a second time from strictly less information. The
+   * engine computes, the server carries, the client indexes.
+   *
+   * It carries no identity the seat lacks, and that is a property of
+   * `legalActions` rather than of a filter here: every action it emits names
+   * cards this seat can act *with* — its own hand and field, the opponent's
+   * public field — and while a choice is open it emits only the bare
+   * `ANSWER_CHOICE` marker, whose payload lives in the redacted `pending`.
+   * The wire leak test checks the field like every other, from the opposite
+   * side.
+   */
+  actions: Action[];
 }
 
 /**
@@ -65,6 +123,8 @@ export interface UpdatePayload {
 export const SERVER_ERRORS = {
   protocolMismatch: 'protocolMismatch',
   unknownMatch: 'unknownMatch',
+  /** A `create` naming a deck the server was not started with. */
+  unknownDeck: 'unknownDeck',
   badToken: 'badToken',
   seatMismatch: 'seatMismatch',
   notJoined: 'notJoined',

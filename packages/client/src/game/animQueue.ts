@@ -1,4 +1,4 @@
-import type { GameEvent, InstanceId } from '@optcg/engine';
+import type { InstanceId, ViewEvent } from '@optcg/engine';
 
 export interface AnimGroup {
   id: number;
@@ -8,14 +8,14 @@ export interface AnimGroup {
    * claim to be the refresh phase.
    */
   kind: 'draw' | 'donMoved' | 'turn' | 'battle' | 'single';
-  events: readonly GameEvent[];
+  events: readonly ViewEvent[];
   durationMs: number;
   cardIds: readonly InstanceId[];
 }
 
 // Events with nothing to animate: game start bookkeeping and mulligan choices
 // (an accepted mulligan is visible through its cardDrawn burst).
-const ZERO_VISUAL = new Set<GameEvent['type']>(['gameStarted', 'lifeSet', 'mulliganTaken']);
+const ZERO_VISUAL = new Set<ViewEvent['type']>(['gameStarted', 'lifeSet', 'mulliganTaken']);
 
 const DRAW_MS = 300;
 const DON_MOVED_MS = 300;
@@ -31,41 +31,53 @@ export function resetAnimGroupIds(): void {
   nextGroupId = 1;
 }
 
-function cardIdsOf(event: GameEvent): InstanceId[] {
-  switch (event.type) {
-    case 'cardDrawn':
-    case 'cardPlayed':
-    case 'characterTrashedForRoom':
-    case 'lifeTaken':
-    case 'koed':
-      return [event.instanceId];
-    case 'donAttached':
-      return [event.to];
-    case 'attackDeclared':
-      return [event.attacker, event.target];
-    case 'blockDeclared':
-      return [event.blocker];
-    case 'counterPlayed':
-      return [event.instanceId, event.target];
-    case 'battleResolved':
-    case 'battleEndedEarly':
-      return [event.attacker, event.target];
-    case 'stageReplaced':
-      return [event.oldStage, event.newStage];
-    default:
-      return [];
-  }
+/**
+ * Which cards a group highlights.
+ *
+ * Redacted events name what the viewer may name and `null` otherwise, so the
+ * nulls drop out here: a card this seat cannot see is a card whose tile is not
+ * on the board to light up. The group still exists and still takes its time —
+ * the opponent drawing is a thing that visibly happens — it simply highlights
+ * nothing, which is exactly what a face-down card does.
+ */
+function cardIdsOf(event: ViewEvent): InstanceId[] {
+  const ids = ((): (InstanceId | null)[] => {
+    switch (event.type) {
+      case 'cardDrawn':
+      case 'cardPlayed':
+      case 'characterTrashedForRoom':
+      case 'lifeTaken':
+      case 'koed':
+        return [event.instanceId];
+      case 'donAttached':
+        return [event.to];
+      case 'attackDeclared':
+        return [event.attacker, event.target];
+      case 'blockDeclared':
+        return [event.blocker];
+      case 'counterPlayed':
+        return [event.instanceId, event.target];
+      case 'battleResolved':
+      case 'battleEndedEarly':
+        return [event.attacker, event.target];
+      case 'stageReplaced':
+        return [event.oldStage, event.newStage];
+      default:
+        return [];
+    }
+  })();
+  return ids.filter((id): id is InstanceId => id !== null);
 }
 
 /**
  * Groups a reducer's event batch into FIFO animation steps. Pure — no timers;
  * the AnimationDriver consumes the queue.
  */
-export function groupEvents(events: readonly GameEvent[]): AnimGroup[] {
+export function groupEvents(events: readonly ViewEvent[]): AnimGroup[] {
   const groups: AnimGroup[] = [];
   let i = 0;
 
-  const push = (kind: AnimGroup['kind'], slice: GameEvent[], durationMs: number): void => {
+  const push = (kind: AnimGroup['kind'], slice: ViewEvent[], durationMs: number): void => {
     groups.push({
       id: nextGroupId,
       kind,
@@ -88,7 +100,7 @@ export function groupEvents(events: readonly GameEvent[]): AnimGroup[] {
     }
 
     if (event.type === 'cardDrawn') {
-      const slice: GameEvent[] = [event];
+      const slice: ViewEvent[] = [event];
       let j = i + 1;
       while (j < events.length) {
         const next = events[j];
@@ -104,7 +116,7 @@ export function groupEvents(events: readonly GameEvent[]): AnimGroup[] {
     }
 
     if (event.type === 'donReturned' || event.type === 'donGained') {
-      const slice: GameEvent[] = [event];
+      const slice: ViewEvent[] = [event];
       let j = i + 1;
       while (j < events.length) {
         const next = events[j];

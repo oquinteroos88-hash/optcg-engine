@@ -320,3 +320,35 @@ every pure test in the repo still green.
 
 `tests/fullGame.test.ts` plays a whole game using nothing the UI does not offer,
 and fails if `dispatch` ever logs `UI bug: illegal action`.
+
+## The board draws a `PlayerView` — always
+
+Since PR #45 there is one render path, and it takes a redacted view rather than
+a `GameState`.
+
+Networked, the view is what the server sent: the client owns no state, runs no
+`applyAction`, computes no `legalActions`. Hot-seat, the client still owns the
+state — it is the harness the whole card corpus is driven through — but it
+*renders* `playerView(state, priority)` all the same. Two render paths would be
+the redaction rule encoded twice, and the copy nobody exercises is the copy
+that leaks.
+
+Three consequences worth knowing:
+
+- **The board follows the seat, not the turn.** The bottom half is the seat
+  being rendered, because the bottom half is the one with faces on it: the only
+  hand a view publishes in full is the viewer's own. In hot-seat that means the
+  board turns around with the device, which is what pass-and-play always meant.
+- **Kanjuro's chooser sees backs here too.** The hot-seat affordances used to
+  read `state.pending` straight off the state and showed the opponent's actual
+  hand face-up. CR 8-4-4-2 does not care whether the table is shared or
+  networked, so the redaction is the same on both.
+- **History comes from a journal, never from a re-derived log.** The store
+  keeps the redacted event batches per seat and folds those. Re-deriving would
+  show a player *less* than they watched, one card at a time, as shuffles
+  erased what reveals had taught them — PR #44's finding, on this side of the
+  wire.
+
+`selectView` is the one accessor; every hook in `store/selectors.ts` comes
+through it. In hot-seat it derives the view lazily and memoizes it on state
+identity, so a headless driver that never draws a board pays nothing for one.

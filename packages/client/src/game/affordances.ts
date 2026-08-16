@@ -1,5 +1,12 @@
-import { legalActions } from '@optcg/engine';
-import type { GameState, InstanceId, PendingChoice, PlayerId } from '@optcg/engine';
+import { legalActions, redactPending } from '@optcg/engine';
+import type {
+  Action,
+  GameState,
+  InstanceId,
+  PendingChoice,
+  PendingView,
+  PlayerId,
+} from '@optcg/engine';
 
 /**
  * What the acting player can do with one card, derived purely from legalActions.
@@ -69,6 +76,15 @@ export interface ChoiceView {
   candidates: readonly InstanceId[];
   min: number;
   max: number;
+  /**
+   * How many faceless candidates a **blind** choice offers, or null.
+   *
+   * `OP01-038` Kanjuro has the opponent choose out of a hand they may not see
+   * (CR 3-4-3, 8-4-4-2), so the view publishes a count and no identities, and
+   * the answer is a list of handles rather than of ids. `candidates` is empty
+   * exactly when this is set: there is nothing to name, which is the point.
+   */
+  blindHandles: number | null;
 }
 
 export interface Affordances {
@@ -158,10 +174,23 @@ function builderFor(byCard: Map<InstanceId, CardBuilder>, id: InstanceId): CardB
 }
 
 /**
- * One pass over legalActions(state, whoActs), pure indexing. No rule
- * predicates: phase, battle step and costs are never inspected here.
+ * One pass over a list of legal actions, pure indexing. No rule predicates:
+ * phase, battle step and costs are never inspected here.
+ *
+ * **It takes the list rather than the state, and that is the whole of what PR
+ * #45 changed here.** The affordance contract has always been "index whatever
+ * the engine offers"; what moved is where the offer comes from. Over a
+ * network there is no `GameState` to run `legalActions` against — the client
+ * holds a redacted view — so the list arrives on the wire and this function
+ * indexes it exactly as it indexed the local one. Hot-seat calls
+ * `getAffordances`, which produces the list locally and lands here too, so
+ * both modes share one indexer and cannot drift.
  */
-export function computeAffordances(state: GameState, whoActs: PlayerId): Affordances {
+export function indexAffordances(
+  actions: readonly Action[],
+  whoActs: PlayerId,
+  pending: PendingView | null,
+): Affordances {
   const byCard = new Map<InstanceId, CardBuilder>();
   let canPass = false;
   let canEndTurn = false;
@@ -169,7 +198,7 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
   let mustAnswerMulligan = false;
   let mustAnswerChoice = false;
 
-  for (const action of legalActions(state, whoActs)) {
+  for (const action of actions) {
     switch (action.type) {
       case 'PLAY_CARD': {
         const builder = builderFor(byCard, action.instanceId);
@@ -252,19 +281,31 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
     };
   }
 
-  // Read off the state, not off the list — see ChoiceView. Guarded by the
-  // marker so it stays null for anyone who is not the one being asked.
-  const pending = state.pending;
+  // Read off the redacted `pending`, not off the list — see ChoiceView. The
+  // marker guards it, so it stays null for anyone who is not the one asked;
+  // an `other` audience is somebody else's question and never reaches here.
   const pendingChoice: ChoiceView | null =
-    mustAnswerChoice && pending !== null
-      ? {
-          id: pending.id,
-          kind: pending.kind,
-          prompt: pending.prompt,
-          candidates: [...pending.candidates],
-          min: pending.min,
-          max: pending.max,
-        }
+    mustAnswerChoice && pending !== null && pending.audience !== 'other'
+      ? pending.audience === 'chooserBlind'
+        ? {
+            id: pending.id,
+            kind: pending.kind,
+            prompt: pending.prompt,
+            // Nothing to name: the whole point of a blind choice.
+            candidates: EMPTY_IDS,
+            min: pending.min,
+            max: pending.max,
+            blindHandles: pending.handleCount,
+          }
+        : {
+            id: pending.id,
+            kind: pending.kind,
+            prompt: pending.prompt,
+            candidates: [...pending.candidates],
+            min: pending.min,
+            max: pending.max,
+            blindHandles: null,
+          }
       : null;
 
   return {
@@ -273,6 +314,20 @@ export function computeAffordances(state: GameState, whoActs: PlayerId): Afforda
     global: { canEndTurn, canPass, canConcede, mustAnswerMulligan, mustAnswerChoice },
     whoActs,
   };
+}
+
+/**
+ * The hot-seat path: produce the list locally, then index it.
+ *
+ * `pending` comes through `playerView` rather than off `state.pending`
+ * directly, so the one thing the client reads from the state instead of from
+ * `legalActions` is read through the same redaction a networked seat gets.
+ * That is what keeps the two modes honest about a blind choice: hot-seat's
+ * chooser sees handles too, because Kanjuro's opponent may not read that hand
+ * across a shared table any more than across a wire.
+ */
+export function computeAffordances(state: GameState, whoActs: PlayerId): Affordances {
+  return indexAffordances(legalActions(state, whoActs), whoActs, redactPending(state, whoActs));
 }
 
 // Single-entry memo. Engine states are deeply frozen and structurally shared,

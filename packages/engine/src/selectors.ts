@@ -1,5 +1,5 @@
 import type { Ability, AbilityContext, Keyword } from './abilities/dsl.js';
-import { PRINTED_KEYWORD } from './abilities/dsl.js';
+import { KEYWORDS as KEYWORD_LIST, PRINTED_KEYWORD } from './abilities/dsl.js';
 import type { Lens } from './abilities/query.js';
 import { evalCondition, fieldIds, resolveSelector } from './abilities/query.js';
 import { mark } from './instrument.js';
@@ -63,13 +63,40 @@ export function hasKeywordWithoutStatics(
   if (card === undefined) {
     return false;
   }
-  if (getCardDef(card.cardId).keywords.includes(PRINTED_KEYWORD[keyword])) {
+  if (printedKeywords(card.cardId).has(keyword)) {
     return true;
   }
   return state.modifiers.some(
     (modifier) =>
       modifier.kind === 'grantKeyword' && modifier.target === id && modifier.keyword === keyword,
   );
+}
+
+/**
+ * The keywords printed on a card, as a set.
+ *
+ * Keyed on the definition **object**, not on the card id: a test that
+ * re-registers a set replaces the definitions, and a memo keyed on the id
+ * would answer for the previous registration. The printed list itself never
+ * changes — that is what makes it memoizable at all, and what keeps this a
+ * lookup rather than a reading of the rules.
+ */
+const printedKeywordCache = new WeakMap<object, Set<Keyword>>();
+
+function printedKeywords(cardId: string): Set<Keyword> {
+  const def = getCardDef(cardId);
+  const cached = printedKeywordCache.get(def);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const set = new Set<Keyword>();
+  for (const keyword of KEYWORD_LIST) {
+    if (def.keywords.includes(PRINTED_KEYWORD[keyword])) {
+      set.add(keyword);
+    }
+  }
+  printedKeywordCache.set(def, set);
+  return set;
 }
 
 /**
@@ -85,6 +112,46 @@ export function forEachStatic(
   id: InstanceId,
   visit: (grants: NonNullable<Ability['grants']>, ctx: AbilityContext) => void,
 ): void {
+  for (const live of liveStatics(state)) {
+    // `{self: true}` needs no selector pass at all — the source is the one
+    // card it names — which also keeps it clear of the `getPowerWithoutStatics`
+    // recursion anchor a selector would ride through.
+    const applies = live.audience === null ? id === live.ctx.source : live.audience.has(id);
+    if (applies) {
+      visit(live.grants, live.ctx);
+    }
+  }
+}
+
+interface LiveStatic {
+  ctx: AbilityContext;
+  grants: NonNullable<Ability['grants']>;
+  /** The cards it reaches, or null for a `{self: true}` static. */
+  audience: Set<InstanceId> | null;
+}
+
+const liveStaticsCache = new WeakMap<GameState, LiveStatic[]>();
+
+/**
+ * Every static in force on this board, with its audience already resolved.
+ *
+ * Neither the gate nor the audience depends on **which card is asking** — a
+ * static's condition is about its own source and its `affects` selector is
+ * about the board — so both were being recomputed once per asker for an answer
+ * that could not change. Harmless while callers asked about one card at a
+ * time; `playerView` asks about every card it publishes, and the repetition
+ * became the client's timeout.
+ *
+ * Same predicates, same lens, same order — only hoisted out of the per-card
+ * loop and memoized on the state, which is exact because states are frozen and
+ * replaced rather than mutated.
+ */
+function liveStatics(state: GameState): LiveStatic[] {
+  const cached = liveStaticsCache.get(state);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const live: LiveStatic[] = [];
   for (const player of PLAYER_IDS) {
     for (const sourceId of fieldIds(state, player)) {
       const source = state.cards[sourceId];
@@ -114,33 +181,65 @@ export function forEachStatic(
         if (affects === undefined) {
           continue;
         }
-        // `{self: true}` needs no selector pass at all — the source is the one
-        // card it names — which also keeps it clear of the `getPowerWithoutStatics`
-        // recursion anchor a selector would ride through.
-        const applies =
-          'self' in affects
-            ? id === sourceId
-            : resolveSelector(state, ctx, affects.selector, WITHOUT_STATICS).includes(id);
-        if (!applies) {
-          continue;
-        }
-        visit(ability.grants, ctx);
+        live.push({
+          ctx,
+          grants: ability.grants,
+          audience:
+            'self' in affects
+              ? null
+              : new Set(resolveSelector(state, ctx, affects.selector, WITHOUT_STATICS)),
+        });
       }
     }
   }
+  liveStaticsCache.set(state, live);
+  return live;
 }
 
 /**
- * Effective power. Never stored:
+ * Everything the continuous effects grant one card, walked **once**.
  *
- *   printed + attached DON!! x 1000 + power modifiers + applicable statics
+ * The three questions a board asks about a card — its power, its cost, its
+ * keywords — used to walk the statics once each, and `hasKeyword` once per
+ * keyword on top of that: seven passes over both fields to describe one card.
+ * That was invisible while the only caller asked about a card at a time, and
+ * stopped being invisible the day `playerView` started describing **every**
+ * card it publishes. The client's clicked-through full game went from 2.7s to
+ * 8.1s against a 5s budget, which is how it was found.
+ *
+ * So the walk happens once and all three read the result. It is the same
+ * traversal with three accumulators rather than three traversals — one
+ * implementation of "what does this static do to this card", which is what
+ * matters: the alternative that was rejected was an inverted loop in
+ * `playerView` accumulating grants itself, which would have been the rule
+ * written down a second time.
+ *
+ * Memoized by state identity, exact because engine states are frozen and
+ * replaced rather than mutated.
  */
-export function getPower(state: GameState, id: InstanceId): number {
-  let power = getPowerWithoutStatics(state, id);
+interface StaticGrants {
+  power: number;
+  cost: number;
+  keywords: Set<Keyword>;
+}
+
+const staticGrantsCache = new WeakMap<GameState, Map<InstanceId, StaticGrants>>();
+
+function staticGrantsFor(state: GameState, id: InstanceId): StaticGrants {
+  let perState = staticGrantsCache.get(state);
+  if (perState === undefined) {
+    perState = new Map();
+    staticGrantsCache.set(state, perState);
+  }
+  const cached = perState.get(id);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const grantsFor: StaticGrants = { power: 0, cost: 0, keywords: new Set() };
   forEachStatic(state, id, (grants, ctx) => {
     if (grants.power !== undefined) {
       mark('static.powerApplied');
-      power += grants.power;
+      grantsFor.power += grants.power;
     }
     if (grants.powerPer !== undefined) {
       // "+X power for every N cards …" — counted at read time, so the answer
@@ -156,11 +255,29 @@ export function getPower(state: GameState, id: InstanceId): number {
       const groups = Math.floor(matched / (per ?? 1));
       if (groups > 0) {
         mark('static.powerPerApplied');
-        power += groups * value;
+        grantsFor.power += groups * value;
       }
     }
+    if (grants.cost !== undefined) {
+      mark('static.costApplied');
+      grantsFor.cost += grants.cost;
+    }
+    if (grants.keyword !== undefined) {
+      mark('static.keywordApplied');
+      grantsFor.keywords.add(grants.keyword);
+    }
   });
-  return power;
+  perState.set(id, grantsFor);
+  return grantsFor;
+}
+
+/**
+ * Effective power. Never stored:
+ *
+ *   printed + attached DON!! x 1000 + power modifiers + applicable statics
+ */
+export function getPower(state: GameState, id: InstanceId): number {
+  return getPowerWithoutStatics(state, id) + staticGrantsFor(state, id).power;
 }
 
 /**
@@ -189,13 +306,7 @@ export function getCost(state: GameState, id: InstanceId): number {
   if (card === undefined) {
     throw new Error(`Unknown instance id: ${id}`);
   }
-  let cost = getCardDef(card.cardId).cost;
-  forEachStatic(state, id, (grants) => {
-    if (grants.cost !== undefined) {
-      mark('static.costApplied');
-      cost += grants.cost;
-    }
-  });
+  const cost = getCardDef(card.cardId).cost + staticGrantsFor(state, id).cost;
   return Math.max(0, cost);
 }
 
@@ -207,17 +318,10 @@ export function getCost(state: GameState, id: InstanceId): number {
  * has to block, and a check against the printed list alone would not see it.
  */
 export function hasKeyword(state: GameState, id: InstanceId, keyword: Keyword): boolean {
-  if (hasKeywordWithoutStatics(state, id, keyword)) {
-    return true;
-  }
-  let granted = false;
-  forEachStatic(state, id, (grants) => {
-    if (grants.keyword === keyword) {
-      mark('static.keywordApplied');
-      granted = true;
-    }
-  });
-  return granted;
+  return (
+    hasKeywordWithoutStatics(state, id, keyword) ||
+    staticGrantsFor(state, id).keywords.has(keyword)
+  );
 }
 
 /**

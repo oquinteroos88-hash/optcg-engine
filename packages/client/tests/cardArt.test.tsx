@@ -10,11 +10,12 @@
 // otherwise happen.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { playerView } from '@optcg/engine';
 import type { GameState, InstanceId } from '@optcg/engine';
 import { CardTile } from '../src/components/CardTile';
 import { cardArtSrc, cardImageSrc, hasCardImage } from '../src/game/cardImage';
 import { powerBreakdown } from '../src/store/selectors';
-import { useStore } from '../src/store/store';
+import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { firstStarterStateWhere } from './corpus';
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
@@ -32,7 +33,7 @@ afterEach(() => {
 function loadState(state: GameState): void {
   useStore.setState({
     screen: 'playing',
-    gameState: state,
+    ...hotSeatSnapshot(state),
     animQueue: [],
     ui: { mode: { kind: 'idle' }, veilOpponentHand: false, hovered: null, viewingTrash: null },
     deviceAckFor: state.priority,
@@ -196,17 +197,17 @@ describe('the art layer sits under the tile, never in place of it', () => {
     // information rather than move it.
     const lifted = firstStarterStateWhere((state) => {
       const ids = [state.players.p1.leader, ...state.players.p1.characters];
-      return ids.some((id) => powerBreakdown(state, id).fromStatics !== 0);
+      return ids.some((id) => powerBreakdown(playerView(state, state.priority), id).fromStatics !== 0);
     });
     const id = [lifted.players.p1.leader, ...lifted.players.p1.characters].find(
-      (candidate) => powerBreakdown(lifted, candidate).fromStatics !== 0,
+      (candidate) => powerBreakdown(playerView(lifted, lifted.priority), candidate).fromStatics !== 0,
     );
     expect(id).toBeDefined();
     if (id === undefined) {
       return;
     }
     loadState(lifted);
-    const parts = powerBreakdown(lifted, id);
+    const parts = powerBreakdown(playerView(lifted, lifted.priority), id);
     render(<CardTile id={id} zone="field" mine />);
 
     const sign = parts.fromStatics > 0 ? '+' : '';

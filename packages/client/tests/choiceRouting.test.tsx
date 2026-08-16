@@ -17,7 +17,7 @@ import type { GameState } from '@optcg/engine';
 import { getAffordances } from '../src/game/affordances';
 import { ensureModeValid } from '../src/game/uiMode';
 import { GameScreen } from '../src/screens/GameScreen';
-import { useStore } from '../src/store/store';
+import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { firstPendingState, firstStarterStateWhere } from './corpus';
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
@@ -36,9 +36,9 @@ afterEach(() => {
 function loadState(state: GameState): void {
   useStore.setState({
     screen: 'playing',
-    gameState: state,
+    ...hotSeatSnapshot(state),
     animQueue: [],
-    ui: { mode: ensureModeValid({ kind: 'idle' }, state), veilOpponentHand: false, hovered: null, viewingTrash: null },
+    ui: { mode: ensureModeValid({ kind: 'idle' }, getAffordances(state)), veilOpponentHand: false, hovered: null, viewingTrash: null },
     deviceAckFor: state.priority,
   });
 }
@@ -120,6 +120,15 @@ describe('the choice overlay', () => {
     pending.candidates = [...deck];
     pending.min = 0;
     pending.max = 1;
+    // A real search marks the whole deck known to the searcher before it
+    // offers anything (CR 8-4-4-4 has them check the faces), and staging the
+    // candidates by hand without that would build a state the engine cannot
+    // produce: a choice whose chooser may not see its own candidates. Invisible
+    // under perfect information; with a per-player view the tiles would simply
+    // not be there, which is what caught it.
+    for (const id of deck) {
+      wide.knownBy[id] = [pending.player];
+    }
 
     loadState(wide);
     render(<GameScreen />);

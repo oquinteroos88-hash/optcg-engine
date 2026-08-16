@@ -4,7 +4,7 @@ import type { GameState } from '@optcg/engine';
 import { ABIL_DECK } from '@optcg/engine/testdata/abilityDecks';
 import { buildScenario, characterAt } from '@optcg/engine/testdata/scenarios';
 import { createMatch, handleAction } from '../src/session.js';
-import { matchFromGame, runActions } from './helpers.js';
+import { driveMatch, matchFromGame, runActions } from './helpers.js';
 
 /**
  * The session without a network: pure functions over plain data, every game
@@ -57,6 +57,38 @@ describe('acting in turn', () => {
       accept: false,
     });
     expect(result).toEqual({ ok: false, reason: REASONS.notYourPriority });
+  });
+});
+
+describe('the affordances travel', () => {
+  it('gives the acting seat its list and the waiting seat exactly [CONCEDE]', () => {
+    const match = createMatch(7, decks);
+    const first = match.game.priority;
+    const waiting = first === 'p1' ? 'p2' : 'p1';
+    const result = handleAction(match, first, { type: 'MULLIGAN', player: first, accept: false });
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+    // Whoever holds priority now has real moves; the other seat holds the one
+    // action CR 1-2-3 never takes away. Both come off `legalActions`, so the
+    // server invents neither.
+    const acting = result.match.game.priority;
+    expect(result.emitted[acting].actions.length).toBeGreaterThan(1);
+    expect(result.emitted[acting === 'p1' ? 'p2' : 'p1'].actions).toEqual([
+      { type: 'CONCEDE', player: acting === 'p1' ? 'p2' : 'p1' },
+    ]);
+    expect(waiting).toBeDefined();
+  });
+
+  it('round-trips: every offered action is accepted, over a whole game', { timeout: 240_000 }, () => {
+    // The client's affordance round-trip, run where the affordances now come
+    // from — the wire. An offered action the engine then refuses would be a
+    // board showing a button that does nothing.
+    for (let seed = 1; seed <= 3; seed += 1) {
+      const run = driveMatch(seed, decks, { checkOffered: true });
+      expect(run.offeredChecked).toBeGreaterThan(0);
+      expect(run.offeredRejected).toEqual([]);
+    }
   });
 });
 

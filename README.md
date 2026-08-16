@@ -1,7 +1,49 @@
 # optcg-engine
 
 A deterministic, fully serializable rules engine for the One Piece Card Game,
-plus a card dataset and a local web client to play against it.
+plus a card dataset, an authoritative match server, and a web client — playable
+locally on one device or against somebody else over a network.
+
+## Two people can play, with all 155 cards
+
+**As of 16 August 2026 the project is a game two people can play over a
+network**, with the full ST-01, ST-02 and OP-01 card pool, and with neither
+player's client ever holding what that player is not entitled to see.
+
+That last clause is the whole of the work behind it, done in three steps:
+[`playerView`](packages/engine/README.md) derives what one seat may see from
+the state (PR #43), [`@optcg/server`](packages/server/README.md) routes and
+redacts by delegating every game question to the engine (PR #44), and the
+client renders a `PlayerView` and nothing else (PR #45). The opponent's hand is
+a count of backs because that is what arrived; a blind choice — `OP01-038`
+Kanjuro asking you to pick out of a hand you may not read — is answered by
+opaque handle, over the wire and across a shared table alike.
+
+The arbiter is a leak test that runs over every state of a full sweep, both
+seats, checking that nothing the server emits contains the id of a card that
+seat does not know — with the list of unknown cards computed from the opposite
+side, so a bug in the redaction cannot excuse itself.
+
+### How to play with somebody
+
+Two commands, two browsers.
+
+```bash
+pnpm --filter @optcg/server start
+```
+
+```bash
+pnpm dev
+```
+
+Open the client, choose **Jugar en red**, and **Crear partida**: the server
+answers with a match id and two seat codes. Keep one, send the other to your
+opponent — that link is the whole of matchmaking, and it is what they paste
+into **Unirse**. The seat code is saved locally, so a dropped connection comes
+back to the same seat with everything that happened while it was away.
+
+For one device and two players, **Jugar** still opens the hot-seat game it
+always did.
 
 ## Both sets are complete
 
@@ -30,7 +72,8 @@ that made them.
 | --- | --- |
 | [`@optcg/engine`](packages/engine/README.md) | The rules core: a pure reducer, no UI, no I/O. `packages/engine/SPEC.md` is the binding contract. |
 | [`@optcg/cards`](packages/cards/README.md) | Normalized card data and the abilities that bind it to the engine. |
-| [`@optcg/client`](packages/client/README.md) | A React client for playing a local hot-seat game, ST-01 against ST-02. |
+| [`@optcg/server`](packages/server/README.md) | The authoritative match server: routes, persists, replays, and answers no game question itself. |
+| [`@optcg/client`](packages/client/README.md) | A React client for playing hot-seat on one device or networked against somebody else. |
 
 ## Quick start
 
@@ -44,7 +87,7 @@ pnpm test
 
 `build`, `typecheck` and `test` are recursive: pnpm walks the workspace in
 dependency order, so the engine is compiled before the packages that import its
-`dist`. `test` runs with `--no-bail`, so all three packages report even when one
+`dist`. `test` runs with `--no-bail`, so all four packages report even when one
 of them fails.
 
 ```bash

@@ -12,7 +12,12 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
-export function SetupScreen(): ReactElement {
+interface SetupProps {
+  /** Opens the network lobby. Hot-seat stays exactly what it was. */
+  onNetwork: () => void;
+}
+
+export function SetupScreen({ onNetwork }: SetupProps): ReactElement {
   const newGame = useStore((s) => s.newGame);
   const [seed, setSeed] = useState<number>(randomSeed);
   const [deckIdP1, setDeckIdP1] = useState<string>(DEFAULT_DECK_P1);
@@ -88,6 +93,10 @@ export function SetupScreen(): ReactElement {
           onClick={() => newGame({ seed, deckIdP1, deckIdP2, firstPlayer })}
         >
           Jugar
+        </button>
+
+        <button type="button" className={styles.network} onClick={onNetwork}>
+          Jugar en red
         </button>
       </div>
     </div>

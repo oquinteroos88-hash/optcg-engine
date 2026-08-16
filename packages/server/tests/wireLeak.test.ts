@@ -45,6 +45,13 @@ describe('nothing the server emits leaks', () => {
         for (const leak of payloadLeaks(run.match.game, seat, rejoin.view)) {
           leaks.push(`seed ${seed}: rejoin view — ${leak}`);
         }
+        // The affordance field gets the same treatment as everything else.
+        // Inside `update` it already rides along in the payload above; here it
+        // is checked on its own because the rejoin payload is arbitrated part
+        // by part against different states.
+        for (const leak of payloadLeaks(run.match.game, seat, rejoin.actions)) {
+          leaks.push(`seed ${seed}: rejoin actions — ${leak}`);
+        }
         const batchStates = [
           run.initialState,
           ...run.emissions.filter((emission) => emission.seat === seat).map((e) => e.state),

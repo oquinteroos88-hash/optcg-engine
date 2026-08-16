@@ -39,24 +39,46 @@ export type CardZone = 'leader' | 'characters' | 'stage' | 'hand' | 'deck' | 'tr
  * drift from wherever the reducer chose to put the card.
  */
 export function zoneOf(state: GameState, id: InstanceId): { holder: PlayerId; zone: CardZone } {
+  const found = zoneIndex(state).get(id);
+  if (found === undefined) {
+    throw new Error(`Engine bug: ${id} is in no zone`);
+  }
+  return found;
+}
+
+/**
+ * Where every card is, built once per state.
+ *
+ * The scan it replaces walked both players' zones per question, which is fine
+ * for one card and quadratic for a hundred — and `playerView` asks about a
+ * hundred every time it runs. Memoized on state identity, exact because states
+ * are frozen and replaced rather than mutated.
+ */
+const zoneCache = new WeakMap<GameState, Map<InstanceId, { holder: PlayerId; zone: CardZone }>>();
+
+function zoneIndex(state: GameState): Map<InstanceId, { holder: PlayerId; zone: CardZone }> {
+  const cached = zoneCache.get(state);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const index = new Map<InstanceId, { holder: PlayerId; zone: CardZone }>();
   for (const holder of PLAYER_IDS) {
     const ps = state.players[holder];
-    if (ps.leader === id) {
-      return { holder, zone: 'leader' };
+    index.set(ps.leader, { holder, zone: 'leader' });
+    for (const id of ps.characters) {
+      index.set(id, { holder, zone: 'characters' });
     }
-    if (ps.characters.includes(id)) {
-      return { holder, zone: 'characters' };
-    }
-    if (ps.stage === id) {
-      return { holder, zone: 'stage' };
+    if (ps.stage !== null) {
+      index.set(ps.stage, { holder, zone: 'stage' });
     }
     for (const zone of ['hand', 'deck', 'trash', 'life'] as const) {
-      if (ps[zone].includes(id)) {
-        return { holder, zone };
+      for (const id of ps[zone]) {
+        index.set(id, { holder, zone });
       }
     }
   }
-  throw new Error(`Engine bug: ${id} is in no zone`);
+  zoneCache.set(state, index);
+  return index;
 }
 
 /**

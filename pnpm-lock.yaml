@@ -36,6 +36,9 @@ importers:
       '@optcg/engine':
         specifier: workspace:*
         version: link:../engine
+      '@optcg/server':
+        specifier: workspace:*
+        version: link:../server
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -64,6 +67,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.1
         version: 18.3.7(@types/react@18.3.31)
+      '@types/ws':
+        specifier: ^8.18.0
+        version: 8.18.1
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.7.0(vite@6.4.3(@types/node@24.13.3))
@@ -79,6 +85,9 @@ importers:
       vitest:
         specifier: ^3.2.0
         version: 3.2.7(@types/node@24.13.3)(jsdom@30.0.1)
+      ws:
+        specifier: ^8.18.0
+        version: 8.21.3
 
   packages/engine:
     dependencies:
@@ -101,6 +110,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@optcg/cards':
+        specifier: workspace:*
+        version: link:../cards
       '@optcg/engine':
         specifier: workspace:*
         version: link:../engine

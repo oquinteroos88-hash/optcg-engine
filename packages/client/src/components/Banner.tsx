@@ -1,35 +1,31 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useBanner } from '../store/selectors';
-import type { PhaseKey } from '../store/selectors';
-import styles from './Banner.module.css';
 
-const PHASE_LABELS: Record<PhaseKey, string> = {
-  mulligan: 'Mulligan',
-  main: 'Fase principal',
-  blockStep: 'Paso de bloqueo',
-  counterStep: 'Paso de contraataque',
-  finished: 'Partida terminada',
-};
+import styles from './Banner.module.css';
 
 export function Banner(): ReactElement | null {
   const banner = useBanner();
+  const m = useMessages();
   if (banner === null) {
     return null;
   }
   return (
     <div className={styles.banner}>
       <span className={styles.turn}>
-        Turno de {playerLabel(banner.activePlayer)} — {PHASE_LABELS[banner.phase]}
+        {m.board.turnOf(playerLabel(banner.activePlayer, m))} — {m.board.phase[banner.phase]}
       </span>
       {/* The choice label wins: a [Trigger] is answered by the damaged player,
           who is not "responding" to a battle in any sense they would recognise. */}
       {banner.choiceOpen ? (
-        <span className={styles.defender}>{playerLabel(banner.priority)} decide un efecto</span>
+        <span className={styles.defender}>
+          {m.board.decidesEffect(playerLabel(banner.priority, m))}
+        </span>
       ) : banner.defenderResponds ? (
-        <span className={styles.defender}>{playerLabel(banner.priority)} responde</span>
+        <span className={styles.defender}>{m.board.responds(playerLabel(banner.priority, m))}</span>
       ) : null}
       {banner.phase === 'finished' && banner.winner !== null ? (
-        <span className={styles.winner}>Gana {playerLabel(banner.winner)}</span>
+        <span className={styles.winner}>{m.board.wins(playerLabel(banner.winner, m))}</span>
       ) : null}
     </div>
   );

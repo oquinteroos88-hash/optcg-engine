@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { config } from '../config';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useNeedsHandoff } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './PassDeviceScreen.module.css';
@@ -10,6 +11,7 @@ import styles from './PassDeviceScreen.module.css';
  */
 export function PassDeviceScreen(): ReactElement | null {
   const nextPlayer = useNeedsHandoff();
+  const m = useMessages();
   const ackDevice = useStore((s) => s.ackDevice);
 
   if (!config.passDeviceScreen || nextPlayer === null) {
@@ -19,10 +21,10 @@ export function PassDeviceScreen(): ReactElement | null {
   return (
     <div className={styles.overlay}>
       <div className={styles.dialog}>
-        <h2 className={styles.title}>Pasá el dispositivo a {playerLabel(nextPlayer)}</h2>
-        <p className={styles.hint}>Cuando lo tengas en mano, tocá “Listo” para ver tu posición.</p>
+        <h2 className={styles.title}>{m.handoff.title(playerLabel(nextPlayer, m))}</h2>
+        <p className={styles.hint}>{m.handoff.hint}</p>
         <button type="button" className={styles.ready} onClick={ackDevice}>
-          Listo
+          {m.common.ready}
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { PlayerId } from '@optcg/engine';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useCanAttachDon, useSide, useWhoActs } from '../store/selectors';
 import { useStore } from '../store/store';
 import { CharacterRow } from './CharacterRow';
@@ -34,6 +35,7 @@ interface SideBoardProps {
  */
 export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | null {
   const side = useSide(player);
+  const m = useMessages();
   const veilOpponentHand = useStore((s) => s.ui.veilOpponentHand);
   const uiEvent = useStore((s) => s.uiEvent);
   const viewTrash = useStore((s) => s.viewTrash);
@@ -46,25 +48,25 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   }
   // "Mine" is relative to who acts now, which is what affordances describe.
   const mine = whoActs === player;
-  const label = playerLabel(player);
+  const label = playerLabel(player, m);
 
   return (
     <section
       className={`${styles.sideBoard} ${mirrored ? styles.mirrored : ''}`}
       aria-label={label}
     >
-      <div className={styles.field} role="group" aria-label={`Campo de ${label}`}>
+      <div className={styles.field} role="group" aria-label={m.board.fieldOf(label)}>
         <CharacterRow ids={side.characters} mine={mine} />
 
         <div className={styles.mainRow}>
           <LifeStack count={side.lifeCount} />
           <LeaderSlot id={side.leader} mine={mine} />
           <StageSlot id={side.stage} mine={mine} />
-          <DeckPile label="Mazo" count={side.deckCount} />
+          <DeckPile label={m.board.deck} count={side.deckCount} />
         </div>
 
         <div className={styles.donRow}>
-          <DeckPile label="Mazo DON!!" count={side.donDeck} compact />
+          <DeckPile label={m.board.donDeck} count={side.donDeck} compact />
           <DonArea
             active={side.donActive}
             rested={side.donRested}
@@ -74,7 +76,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
           />
           {/* The one pile you may read: public information in the real game. */}
           <DeckPile
-            label="Descarte"
+            label={m.board.trash}
             count={side.trashCount}
             compact
             onOpen={() => viewTrash(player)}

@@ -1,14 +1,8 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useBattleView, useGlobalAffordances } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './BattleOverlay.module.css';
-
-const STEP_LABELS: Record<'attack' | 'block' | 'counter' | 'damage', string> = {
-  attack: 'Paso de ataque',
-  block: 'Paso de bloqueo',
-  counter: 'Paso de contraataque',
-  damage: 'Paso de daño',
-};
 
 /**
  * Renders straight off `state.battle` — never queue-driven — so the powers it
@@ -21,6 +15,7 @@ const STEP_LABELS: Record<'attack' | 'block' | 'counter' | 'damage', string> = {
 export function BattleOverlay(): ReactElement | null {
   const battle = useBattleView();
   const global = useGlobalAffordances();
+  const m = useMessages();
   const pass = useStore((s) => s.pass);
 
   if (battle === null) {
@@ -30,11 +25,15 @@ export function BattleOverlay(): ReactElement | null {
   return (
     <div className={styles.wrapper}>
       <div className={styles.panel}>
-        <span className={styles.step}>{STEP_LABELS[battle.step]}</span>
+        <span className={styles.step}>{m.battle.step[battle.step]}</span>
         <div className={styles.matchup}>
           <div className={styles.side}>
-            <span className={styles.role}>Ataca · {playerLabel(battle.attackerOwner)}</span>
-            <span className={styles.name}>{battle.attackerName}</span>
+            <span className={styles.role}>
+              {m.battle.attacks(playerLabel(battle.attackerOwner, m))}
+            </span>
+            {/* Card names are never translated: the art prints them in English
+                and so does this. */}
+            <span className={styles.name}>{battle.attackerName ?? m.common.hiddenCard}</span>
             <span className={styles.power}>{battle.attackerPower}</span>
           </div>
           <span className={styles.arrow} aria-hidden="true">
@@ -42,16 +41,16 @@ export function BattleOverlay(): ReactElement | null {
           </span>
           <div className={styles.side}>
             <span className={styles.role}>
-              Defiende · {playerLabel(battle.defender)}
-              {battle.wasBlocked ? ' (bloqueado)' : ''}
+              {m.battle.defends(playerLabel(battle.defender, m))}
+              {battle.wasBlocked ? m.battle.blocked : ''}
             </span>
-            <span className={styles.name}>{battle.targetName}</span>
+            <span className={styles.name}>{battle.targetName ?? m.common.hiddenCard}</span>
             <span className={styles.power}>{battle.targetPower}</span>
           </div>
         </div>
         {global.canPass ? (
           <button type="button" className={styles.pass} onClick={pass}>
-            {battle.step === 'block' ? 'No bloquear' : 'No contraatacar'}
+            {battle.step === 'block' ? m.battle.dontBlock : m.battle.dontCounter}
           </button>
         ) : null}
       </div>

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { useCardMenu } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './CardMenu.module.css';
@@ -17,6 +18,7 @@ import styles from './CardMenu.module.css';
  */
 export function CardMenu(): ReactElement | null {
   const menu = useCardMenu();
+  const m = useMessages();
   const uiEvent = useStore((s) => s.uiEvent);
 
   if (menu === null) {
@@ -35,11 +37,11 @@ export function CardMenu(): ReactElement | null {
             onClick={() => uiEvent({ kind: 'chooseMenuOption', index })}
           >
             <span className={styles.label}>{option.label}</span>
-            {option.hint === null ? null : (
-              <span className={styles.hint} lang="en">
-                {option.hint}
-              </span>
-            )}
+            {/* Printed card text, in whatever language the player reads it. No
+                `lang` attribute: it follows the document's, which is the
+                locale's, and marking it `en` unconditionally is what this
+                change removes. */}
+            {option.hint === null ? null : <span className={styles.hint}>{option.hint}</span>}
           </button>
         ))}
         <button
@@ -47,7 +49,7 @@ export function CardMenu(): ReactElement | null {
           className={styles.cancel}
           onClick={() => uiEvent({ kind: 'escape' })}
         >
-          Cancelar
+          {m.common.cancel}
         </button>
       </div>
     </div>

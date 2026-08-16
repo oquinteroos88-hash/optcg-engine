@@ -1,24 +1,7 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { useNetwork, useNotice, useOpponentChoosing, playerLabel } from '../store/selectors';
 import styles from './NetStatus.module.css';
-
-const ERROR_TEXT: Record<string, string> = {
-  protocolMismatch: 'El servidor habla otra versión del protocolo. Actualizá el cliente.',
-  unknownMatch: 'Esa partida no existe en el servidor.',
-  badToken: 'Ese código de asiento no es válido para esta partida.',
-  seatMismatch: 'Ese movimiento era del otro asiento.',
-  notJoined: 'Todavía no entraste a la partida.',
-  malformedMessage: 'El servidor no entendió el mensaje.',
-  unknownDeck: 'El servidor no conoce ese mazo.',
-};
-
-const CHOICE_KIND_TEXT: Record<string, string> = {
-  selectCards: 'elegir cartas',
-  yesNo: 'responder sí o no',
-  selectOption: 'elegir una opción',
-  orderCards: 'ordenar cartas',
-  partitionCards: 'repartir cartas entre los extremos del mazo',
-};
 
 /**
  * The three things a networked board has to say that a local one does not.
@@ -36,38 +19,54 @@ const CHOICE_KIND_TEXT: Record<string, string> = {
  * **A move came back refused**, which with the affordances travelling should
  * not happen. A lost race still can, so it is a notice that the next update
  * clears rather than a state the player has to escape.
+ *
+ * **The code travels; the sentence does not.** Every string in here is chosen
+ * on this device from a code the server sent — `ReasonCode` and
+ * `ServerErrorCode` are stable contract, and the wire carries no prose in any
+ * language. A code with no entry falls through to itself rather than to
+ * silence, which is what the fallbacks are for.
  */
 export function NetStatus(): ReactElement | null {
   const net = useNetwork();
   const notice = useNotice();
   const opponent = useOpponentChoosing();
+  const m = useMessages();
 
   if (net === null && notice === null && opponent === null) {
     return null;
   }
 
+  const serverError = net?.error ?? null;
+  const errorText =
+    serverError === null
+      ? null
+      : (m.serverError[serverError as keyof typeof m.serverError] ??
+        m.net.serverErrorFallback(serverError));
+  const noticeText =
+    notice === null
+      ? null
+      : (m.reason[notice as keyof typeof m.reason] ?? notice);
+
   return (
     <div className={styles.bar}>
       {net !== null && net.status !== 'open' ? (
         <span className={styles.offline} role="status">
-          {net.error === null
-            ? net.status === 'connecting'
-              ? 'Conectando…'
-              : 'Se cortó la conexión. Reintentando… No perdés nada: al volver vas a ver todo lo que pasó.'
-            : (ERROR_TEXT[net.error] ?? `Error del servidor: ${net.error}`)}
+          {errorText ?? (net.status === 'connecting' ? m.net.connecting : m.net.lost)}
         </span>
       ) : null}
 
       {opponent === null ? null : (
         <span className={styles.waiting} role="status">
-          {playerLabel(opponent.player)} está decidiendo (
-          {CHOICE_KIND_TEXT[opponent.kind] ?? opponent.kind})
+          {m.net.opponentDeciding(
+            playerLabel(opponent.player, m),
+            m.net.choiceKind[opponent.kind] ?? opponent.kind,
+          )}
         </span>
       )}
 
-      {notice === null ? null : (
+      {noticeText === null ? null : (
         <span className={styles.notice} role="alert">
-          El servidor rechazó esa jugada: {notice}
+          {m.net.rejected(noticeText)}
         </span>
       )}
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { cardArtSrc, hasCardImage } from '../game/cardImage';
+import { useMessages } from '../i18n/useMessages';
 import { usePreview } from '../store/selectors';
 import styles from './CardPreview.module.css';
 
@@ -19,13 +20,14 @@ import styles from './CardPreview.module.css';
  */
 export function CardPreview(): ReactElement {
   const view = usePreview();
+  const m = useMessages();
   const [failed, setFailed] = useState<string | null>(null);
 
   if (view === null) {
     return (
-      <aside className={styles.panel} aria-label="Vista de carta">
+      <aside className={styles.panel} aria-label={m.preview.paneLabel}>
         <div className={styles.empty} aria-hidden="true">
-          Pasá el mouse por una carta
+          {m.preview.empty}
         </div>
       </aside>
     );
@@ -34,7 +36,7 @@ export function CardPreview(): ReactElement {
   const showArt = hasCardImage(view.cardId) && failed !== view.cardId;
 
   return (
-    <aside className={styles.panel} aria-label="Vista de carta">
+    <aside className={styles.panel} aria-label={m.preview.paneLabel}>
       <div className={styles.art}>
         {showArt ? (
           <img
@@ -57,22 +59,25 @@ export function CardPreview(): ReactElement {
         )}
       </div>
 
+      {/* The name, exactly as the card prints it. Never translated: the art
+          says "Monkey.D.Luffy", so this says "Monkey.D.Luffy", and a child can
+          match the panel against the picture. */}
       <h2 className={styles.name}>{view.name}</h2>
-      {view.fromEffect ? <span className={styles.reason}>Efecto en resolución</span> : null}
+      {view.fromEffect ? <span className={styles.reason}>{m.preview.fromEffect}</span> : null}
 
       <dl className={styles.stats}>
         {view.cost === null ? null : (
           <div className={styles.stat}>
-            <dt>Coste</dt>
+            <dt>{m.preview.cost}</dt>
             <dd>{view.cost}</dd>
           </div>
         )}
         <div className={styles.stat}>
-          <dt>Poder</dt>
+          <dt>{m.preview.power}</dt>
           <dd>{view.power}</dd>
         </div>
         <div className={styles.stat}>
-          <dt>Contra</dt>
+          <dt>{m.preview.counter}</dt>
           <dd>{view.counter === null ? '—' : `+${view.counter}`}</dd>
         </div>
       </dl>
@@ -81,28 +86,37 @@ export function CardPreview(): ReactElement {
           continuous effect will ever get: statics emit no events. */}
       {view.powerLines.length > 0 ? (
         <ul className={styles.breakdown}>
-          <li className={styles.printed}>{view.printedPower} impreso</li>
+          <li className={styles.printed}>{m.preview.printedPower(view.printedPower)}</li>
           {view.powerLines.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
       ) : null}
 
-      {/* Printed text, in English: it is card text. A two-ability card arrives
-          as one string with line breaks in it, so each line gets its own
-          paragraph rather than running together. */}
+      {/* Printed text, in the language the player reads. A two-ability card
+          arrives as one string with line breaks in it, so each line gets its
+          own paragraph rather than running together. */}
       {view.effectText === null
         ? null
         : view.effectText.split('\n').map((line) => (
-            <p key={line} className={styles.text} lang="en">
+            <p key={line} className={styles.text}>
               {line}
             </p>
           ))}
       {view.triggerText === null ? null : (
-        <p className={styles.text} lang="en">
-          <span className={styles.marker}>[Trigger]</span> {view.triggerText}
+        <p className={styles.text}>
+          <span className={styles.marker}>{m.card.triggerPrefix}</span> {view.triggerText}
         </p>
       )}
+      {/* Said once, small, and only where a translation is actually on screen.
+          There is no official Spanish printing of this game, so a reader is
+          entitled to know that these words are not Bandai's. A note, not a
+          banner: it must not compete with the card. */}
+      {view.translated ? (
+        <p className={styles.translationNote} title={m.preview.unofficialTranslation}>
+          {m.preview.unofficialTranslation}
+        </p>
+      ) : null}
     </aside>
   );
 }

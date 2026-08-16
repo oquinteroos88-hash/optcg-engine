@@ -1,16 +1,12 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useGameOver } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './GameOverOverlay.module.css';
 
-const REASON_LABELS: Record<'lifeOut' | 'deckOut' | 'concede', string> = {
-  lifeOut: 'se quedó sin vida',
-  deckOut: 'se quedó sin mazo',
-  concede: 'se rindió',
-};
-
 export function GameOverOverlay(): ReactElement | null {
   const gameOver = useGameOver();
+  const m = useMessages();
   const rematch = useStore((s) => s.rematch);
   const toSetup = useStore((s) => s.toSetup);
 
@@ -22,16 +18,16 @@ export function GameOverOverlay(): ReactElement | null {
   return (
     <div className={styles.overlay}>
       <div className={styles.dialog}>
-        <h2 className={styles.title}>Gana {playerLabel(gameOver.winner)}</h2>
+        <h2 className={styles.title}>{m.gameOver.title(playerLabel(gameOver.winner, m))}</h2>
         <p className={styles.reason}>
-          {playerLabel(loser)} {REASON_LABELS[gameOver.endReason]}
+          {m.gameOver.reason(playerLabel(loser, m), gameOver.endReason)}
         </p>
         <div className={styles.actions}>
           <button type="button" className={styles.primary} onClick={rematch}>
-            Revancha (misma semilla)
+            {m.gameOver.rematch}
           </button>
           <button type="button" className={styles.secondary} onClick={toSetup}>
-            Nueva partida
+            {m.gameOver.newGame}
           </button>
         </div>
       </div>

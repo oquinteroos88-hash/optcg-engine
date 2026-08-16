@@ -8,7 +8,6 @@ import { es } from '../src/i18n/es';
 import { LOCALES, localeFromNavigator, messagesFor } from '../src/i18n';
 import { printedTextOf } from '../src/game/printed';
 import { logEntries } from '../src/store/selectors';
-import { starterCorpusStates } from './corpus';
 
 registerStarterCards();
 
@@ -186,7 +185,13 @@ describe('the guard of PR #38, with Spanish active', () => {
     expect(hasName(state, leader, 'Personaje')).toBe(false);
   });
 
-  it('keeps every starter name identical in both locales', () => {
+  it('keeps every starter name identical in both locales, and translates every text', () => {
+    // `starterCards` is exactly the card pool the client can put on a board:
+    // the two starter decklists are the only real decks in `DECK_CATALOG`, and
+    // the TEST decks print no text at all. Sweeping the playout corpus for card
+    // ids would cost a full ten-seed build to reach the same 34, and this suite
+    // shares a CPU with `fullGame.test.ts`, whose budget has no room to lend.
+    expect(starterCards).toHaveLength(34);
     for (const card of starterCards) {
       // The card's own name is not a message and has no Spanish form: the art
       // prints it in English and so does the panel.
@@ -204,19 +209,13 @@ describe('the guard of PR #38, with Spanish active', () => {
     }
   });
 
-  it('translates the printed text of every card the client can put on a board', () => {
-    // Not a sample: every card id the starter corpus ever produces has to have
-    // Spanish text, because any of them can end up under the pointer.
-    const seen = new Set<string>();
-    for (const state of starterCorpusStates()) {
-      for (const card of Object.values(state.cards)) {
-        seen.add(card.cardId);
-      }
-    }
-    expect(seen.size).toBeGreaterThan(20);
-    for (const cardId of seen) {
-      expect(printedTextOf(cardId, 'es').translated, cardId).toBe(true);
-    }
+  it('shows nothing at all for a card outside the set, in either language', () => {
+    // The TEST cards print no text and are not in `cards.es.json`. A vanilla
+    // card and an unknown one look the same here, and should: neither has
+    // anything to show, and neither is silently "untranslated".
+    expect(printedTextOf('TEST-001', 'es').effectText).toBeNull();
+    expect(printedTextOf('TEST-001', 'es').translated).toBe(false);
+    expect(printedTextOf('TEST-001', 'en').effectText).toBeNull();
   });
 });
 

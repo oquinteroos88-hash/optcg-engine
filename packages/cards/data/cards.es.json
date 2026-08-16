@@ -1,0 +1,632 @@
+{
+  "translatedFrom": {
+    "repository": "buhbbl/punk-records",
+    "commit": "2a48b092cf4c77acbe22367b8334bbc75102c702",
+    "fields": ["effectText", "triggerText"],
+    "sets": ["OP-01", "ST-01", "ST-02"],
+    "glossary": "docs/i18n-glossary.md",
+    "note": "Unofficial fan translation. The English in cards.en.json at the commit above is the authority: the ability scripts were derived from it and none of them read this file. Re-ingesting the English at a newer commit requires re-checking every entry here."
+  },
+  "cards": {
+    "OP01-001": {
+      "effectText": "[DON!! x1] [Tu Turno] Todos tus Personajes ganan +1000 de poder.",
+      "triggerText": null
+    },
+    "OP01-002": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno] ➁ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.): Si tienes 5 Personajes, devuelve 1 de tus Personajes a la mano de su dueño. Después, juega hasta 1 Personaje con un coste de 5 o menos de tu mano que sea de un color distinto al del Personaje devuelto.",
+      "triggerText": null
+    },
+    "OP01-003": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno] ➃ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.): Pon hasta 1 de tus cartas de Personaje de tipo {Supernovas} o {Straw Hat Crew} con un coste de 5 o menos como activa. Gana +1000 de poder durante este turno.",
+      "triggerText": null
+    },
+    "OP01-004": {
+      "effectText": "[DON!! x1] [Tu Turno] [Una Vez por Turno] Roba 1 carta cuando tu rival active un Evento.",
+      "triggerText": null
+    },
+    "OP01-005": {
+      "effectText": "[Al Jugar] Agrega hasta 1 carta de Personaje roja que no sea [Uta] con un coste de 3 o menos de tu descarte a tu mano.",
+      "triggerText": null
+    },
+    "OP01-006": {
+      "effectText": "[Al Jugar] Dale −2000 de poder a hasta 1 Personaje de tu rival durante este turno.",
+      "triggerText": null
+    },
+    "OP01-007": {
+      "effectText": "[Al Quedar K.O.] Deja K.O. hasta 1 Personaje de tu rival con 4000 de poder o menos.",
+      "triggerText": null
+    },
+    "OP01-008": {
+      "effectText": "[Al Jugar] Puedes agregar 1 carta de tu área de Vida a tu mano: Este Personaje gana [Rush] durante este turno. (Esta carta puede atacar en el turno en que se juega.)",
+      "triggerText": null
+    },
+    "OP01-009": {
+      "effectText": "[Disparador] Juega esta carta.",
+      "triggerText": null
+    },
+    "OP01-010": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-011": {
+      "effectText": "[Al Jugar] Puedes poner 1 carta de tu mano en el fondo de tu mazo: Roba 1 carta.",
+      "triggerText": null
+    },
+    "OP01-012": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-013": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno] Puedes agregar 1 carta de tu área de Vida a tu mano: Este Personaje gana +2000 de poder durante este turno. Después, dale a este Personaje hasta 2 cartas DON!! agotadas.",
+      "triggerText": null
+    },
+    "OP01-014": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[DON!! x1] [Al Bloquear] Juega hasta 1 carta de Personaje roja con un coste de 2 o menos de tu mano.",
+      "triggerText": null
+    },
+    "OP01-015": {
+      "effectText": "[DON!! x1] [Al Atacar] Puedes descartar 1 carta de tu mano: Agrega hasta 1 carta de Personaje de tipo {Straw Hat Crew} que no sea [Tony Tony.Chopper] con un coste de 4 o menos de tu descarte a tu mano.",
+      "triggerText": null
+    },
+    "OP01-016": {
+      "effectText": "[Al Jugar] Mira 5 cartas del tope de tu mazo; revela hasta 1 carta de tipo {Straw Hat Crew} que no sea [Nami] y agrégala a tu mano. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+      "triggerText": null
+    },
+    "OP01-017": {
+      "effectText": "[DON!! x1] [Al Atacar] Deja K.O. hasta 1 Personaje de tu rival con 3000 de poder o menos.",
+      "triggerText": null
+    },
+    "OP01-018": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-019": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[DON!! x2] [Turno del Rival] Este Personaje gana +3000 de poder.",
+      "triggerText": null
+    },
+    "OP01-020": {
+      "effectText": "[Activar: Principal] Puedes agotar este Personaje: Hasta 1 de tus cartas de Líder o Personaje gana +2000 de poder durante este turno.",
+      "triggerText": null
+    },
+    "OP01-021": {
+      "effectText": "[DON!! x1] Este Personaje también puede atacar a los Personajes activos de tu rival.",
+      "triggerText": null
+    },
+    "OP01-022": {
+      "effectText": "[DON!! x1] [Al Atacar] Dales −2000 de poder a hasta 2 Personajes de tu rival durante este turno.",
+      "triggerText": null
+    },
+    "OP01-023": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-024": {
+      "effectText": "[DON!! x2] Este Personaje no puede quedar K.O. en combate por Personajes de atributo ＜Strike＞.<br>[Activar: Principal] [Una Vez por Turno] Dale a este Personaje hasta 2 cartas DON!! agotadas.",
+      "triggerText": null
+    },
+    "OP01-025": {
+      "effectText": "[Rush] (Esta carta puede atacar en el turno en que se juega.)",
+      "triggerText": null
+    },
+    "OP01-026": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +4000 de poder durante este combate. Después, deja K.O. hasta 1 Personaje de tu rival con 4000 de poder o menos.",
+      "triggerText": "[Disparador] Dale −10000 de poder a hasta 1 de las cartas de Líder o Personaje de tu rival durante este turno."
+    },
+    "OP01-027": {
+      "effectText": "[Principal] Dale −10000 de poder a hasta 1 Personaje de tu rival durante este turno.",
+      "triggerText": null
+    },
+    "OP01-028": {
+      "effectText": "[Contraataque] Dale −2000 de poder a hasta 1 de las cartas de Líder o Personaje de tu rival durante este turno.",
+      "triggerText": "[Disparador] Activa el efecto [Contraataque] de esta carta."
+    },
+    "OP01-029": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +2000 de poder durante este combate. Después, si tienes 2 o menos cartas de Vida, esa carta gana +2000 de poder adicionales.",
+      "triggerText": "[Disparador] Hasta 1 de tus cartas de Líder o Personaje gana +1000 de poder durante este turno."
+    },
+    "OP01-030": {
+      "effectText": "[Principal] Mira 5 cartas del tope de tu mazo; revela hasta 1 carta de Personaje de tipo {Straw Hat Crew} y agrégala a tu mano. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+      "triggerText": "[Disparador] Activa el efecto [Principal] de esta carta."
+    },
+    "OP01-031": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno] Puedes descartar 1 carta de tipo {Land of Wano} de tu mano: Pon hasta 2 de tus cartas DON!! como activas.",
+      "triggerText": null
+    },
+    "OP01-032": {
+      "effectText": "[DON!! x1] Si tu rival tiene 2 o más Personajes agotados, este Personaje gana +2000 de poder.",
+      "triggerText": null
+    },
+    "OP01-033": {
+      "effectText": "[Al Jugar] Agota hasta 1 Personaje de tu rival con un coste de 4 o menos.",
+      "triggerText": null
+    },
+    "OP01-034": {
+      "effectText": "[DON!! x2] [Al Atacar] Pon hasta 1 de tus cartas DON!! como activa.",
+      "triggerText": null
+    },
+    "OP01-035": {
+      "effectText": "[DON!! x1] [Al Atacar] [Una Vez por Turno] Agota hasta 1 Personaje de tu rival con un coste de 5 o menos.",
+      "triggerText": null
+    },
+    "OP01-036": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-037": {
+      "effectText": "-",
+      "triggerText": "[Disparador] Juega esta carta."
+    },
+    "OP01-038": {
+      "effectText": "[DON!! x1] [Al Atacar] Deja K.O. hasta 1 Personaje agotado de tu rival con un coste de 2 o menos.<br>[Al Quedar K.O.] Tu rival elige 1 carta de tu mano; descarta esa carta.",
+      "triggerText": null
+    },
+    "OP01-039": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[DON!! x1] [Al Bloquear] Si tienes 3 o más Personajes, roba 1 carta.",
+      "triggerText": null
+    },
+    "OP01-040": {
+      "effectText": "[Al Jugar] Si tu Líder es [Kouzuki Oden], juega hasta 1 carta de Personaje de tipo {The Akazaya Nine} con un coste de 3 o menos de tu mano.<br>[DON!! x1] [Al Atacar] [Una Vez por Turno] Pon hasta 1 de tus cartas de Personaje de tipo {The Akazaya Nine} con un coste de 3 o menos como activa.",
+      "triggerText": null
+    },
+    "OP01-041": {
+      "effectText": "[Activar: Principal] ➀ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste) Puedes agotar este Personaje: Mira 5 cartas del tope de tu mazo; revela hasta 1 carta de tipo {Land of Wano} y agrégala a tu mano. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+      "triggerText": null
+    },
+    "OP01-042": {
+      "effectText": "[Al Jugar] ③ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.): Si tu Líder es [Kouzuki Oden], pon hasta 1 de tus cartas de Personaje de tipo {Land of Wano} con un coste de 3 o menos como activa.",
+      "triggerText": null
+    },
+    "OP01-043": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-044": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[Al Jugar] Si no tienes a [Penguin], juega hasta 1 [Penguin] de tu mano.",
+      "triggerText": null
+    },
+    "OP01-045": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-046": {
+      "effectText": "[DON!! x1] [Al Atacar] Si tu Líder es [Kouzuki Oden], pon hasta 2 de tus cartas DON!! como activas.",
+      "triggerText": null
+    },
+    "OP01-047": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[Al Jugar] Puedes devolver 1 Personaje a tu mano: Juega hasta 1 carta de Personaje con un coste de 3 o menos de tu mano.",
+      "triggerText": null
+    },
+    "OP01-048": {
+      "effectText": "[Al Jugar] Agota hasta 1 Personaje de tu rival con un coste de 3 o menos.",
+      "triggerText": null
+    },
+    "OP01-049": {
+      "effectText": "[DON!! x1] [Al Atacar] Juega hasta 1 carta de Personaje de tipo {Heart Pirates} que no sea [Bepo] con un coste de 4 o menos de tu mano.",
+      "triggerText": null
+    },
+    "OP01-050": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[Al Jugar] Si no tienes a [Shachi], juega hasta 1 [Shachi] de tu mano.",
+      "triggerText": null
+    },
+    "OP01-051": {
+      "effectText": "[DON!! x1] [Turno del Rival] Si este Personaje está agotado, tu rival no puede atacar ninguna carta que no sea el Personaje [Eustass\"Captain\"Kid].<br>[Activar: Principal] [Una Vez por Turno] Puedes agotar este Personaje: Juega hasta 1 carta de Personaje con un coste de 3 o menos de tu mano.",
+      "triggerText": null
+    },
+    "OP01-052": {
+      "effectText": "[Al Atacar] [Una Vez por Turno] Si tienes 2 o más Personajes agotados, roba 1 carta.",
+      "triggerText": null
+    },
+    "OP01-053": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-054": {
+      "effectText": "[Al Jugar] Deja K.O. hasta 1 Personaje agotado de tu rival con un coste de 4 o menos.",
+      "triggerText": null
+    },
+    "OP01-055": {
+      "effectText": "[Principal] Puedes agotar 2 de tus Personajes: Roba 2 cartas.",
+      "triggerText": null
+    },
+    "OP01-056": {
+      "effectText": "[Principal] Deja K.O. hasta 2 Personajes agotados de tu rival con un coste de 5 o menos.",
+      "triggerText": null
+    },
+    "OP01-057": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +2000 de poder durante este combate. Después, pon hasta 1 de tus Personajes como activo.",
+      "triggerText": "[Disparador] Deja K.O. hasta 1 Personaje agotado de tu rival con un coste de 4 o menos."
+    },
+    "OP01-058": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +4000 de poder durante este combate. Después, agota hasta 1 Personaje de tu rival con un coste de 4 o menos.",
+      "triggerText": "[Disparador] Agota hasta 1 Personaje de tu rival."
+    },
+    "OP01-059": {
+      "effectText": "[Principal] Puedes descartar 1 carta de tipo {Land of Wano} de tu mano: Pon hasta 1 de tus cartas de Personaje de tipo {Land of Wano} con un coste de 3 o menos como activa.",
+      "triggerText": null
+    },
+    "OP01-060": {
+      "effectText": "[DON!! x2] [Al Atacar] ➀ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.): Revela 1 carta del tope de tu mazo. Si esa carta es una carta de Personaje de tipo {The Seven Warlords of the Sea} con un coste de 4 o menos, puedes jugar esa carta agotada.",
+      "triggerText": null
+    },
+    "OP01-061": {
+      "effectText": "[DON!! x1] [Tu Turno] [Una Vez por Turno] Cuando un Personaje de tu rival quede K.O., agrega hasta 1 carta DON!! de tu mazo de DON!! y ponla como activa.",
+      "triggerText": null
+    },
+    "OP01-062": {
+      "effectText": "[DON!! x1] Cuando actives un Evento, puedes robar 1 carta si tienes 4 o menos cartas en tu mano y no robaste ninguna carta con el efecto de este Líder durante este turno.",
+      "triggerText": null
+    },
+    "OP01-063": {
+      "effectText": "[DON!! x1] [Activar: Principal] Puedes agotar este Personaje: Elige 1 carta de la mano de tu rival; tu rival revela esa carta. Si la carta revelada es un Evento, pon hasta 1 carta del área de Vida de tu rival en el fondo del mazo de su dueño.",
+      "triggerText": null
+    },
+    "OP01-064": {
+      "effectText": "[DON!! x1] [Al Atacar] Puedes descartar 1 carta de tu mano: Devuelve hasta 1 Personaje de tu rival con un coste de 3 o menos a la mano de su dueño.",
+      "triggerText": null
+    },
+    "OP01-065": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-066": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-067": {
+      "effectText": "[Banish] (Cuando esta carta hace daño, la carta objetivo va al descarte sin activar su Disparador.)<br>[DON!! x1] Dales −1 de coste a los Eventos azules de tu mano.",
+      "triggerText": null
+    },
+    "OP01-068": {
+      "effectText": "[Tu Turno] Este Personaje gana [Doble Ataque] si tienes 5 o más cartas en tu mano.<br>(Esta carta hace 2 de daño.)",
+      "triggerText": null
+    },
+    "OP01-069": {
+      "effectText": "[Al Quedar K.O.] Juega hasta 1 [Smiley] de tu mazo, después baraja tu mazo.",
+      "triggerText": null
+    },
+    "OP01-070": {
+      "effectText": "[Al Jugar] Pon hasta 1 Personaje con un coste de 7 o menos en el fondo del mazo de su dueño.",
+      "triggerText": null
+    },
+    "OP01-071": {
+      "effectText": "[Al Jugar] Pon hasta 1 Personaje con un coste de 3 o menos en el fondo del mazo de su dueño.",
+      "triggerText": "[Disparador] Juega esta carta."
+    },
+    "OP01-072": {
+      "effectText": "[DON!! x1] [Tu Turno] Este Personaje gana +1000 de poder por cada carta en tu mano.",
+      "triggerText": null
+    },
+    "OP01-073": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[Al Jugar] Mira 5 cartas del tope de tu mazo y ponlas en el tope o en el fondo del mazo en el orden que quieras.",
+      "triggerText": null
+    },
+    "OP01-074": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[Al Quedar K.O.] Juega hasta 1 [Pacifista] con un coste de 4 o menos de tu mano.",
+      "triggerText": null
+    },
+    "OP01-075": {
+      "effectText": "Según las reglas de este juego, puedes tener cualquier cantidad de esta carta en tu mazo.<br>[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)",
+      "triggerText": null
+    },
+    "OP01-076": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-077": {
+      "effectText": "[Al Jugar] Mira 5 cartas del tope de tu mazo y ponlas en el tope o en el fondo del mazo en el orden que quieras.",
+      "triggerText": null
+    },
+    "OP01-078": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[DON!! x1] [Al Atacar]/[Al Bloquear] Roba 1 carta si tienes 5 o menos cartas en tu mano.",
+      "triggerText": null
+    },
+    "OP01-079": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[Al Quedar K.O.] Si tu Líder tiene el tipo {Baroque Works}, agrega hasta 1 Evento de tu descarte a tu mano.",
+      "triggerText": null
+    },
+    "OP01-080": {
+      "effectText": "[Al Quedar K.O.] Roba 1 carta.",
+      "triggerText": null
+    },
+    "OP01-081": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-082": {
+      "effectText": "-",
+      "triggerText": "[Disparador] Juega esta carta."
+    },
+    "OP01-083": {
+      "effectText": "[DON!! x1] [Tu Turno] Si tu Líder tiene el tipo {Baroque Works}, este Personaje gana +1000 de poder por cada 2 Eventos en tu descarte.",
+      "triggerText": null
+    },
+    "OP01-084": {
+      "effectText": "[DON!! x1] [Al Atacar] Mira 5 cartas del tope de tu mazo; revela hasta 1 carta de Evento de tipo {Baroque Works} y agrégala a tu mano. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+      "triggerText": null
+    },
+    "OP01-085": {
+      "effectText": "[Al Jugar] Si tu Líder tiene el tipo {Baroque Works}, selecciona hasta 1 Personaje de tu rival con un coste de 4 o menos. El Personaje seleccionado no puede atacar hasta el final del próximo turno de tu rival.",
+      "triggerText": null
+    },
+    "OP01-086": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +4000 de poder durante este combate. Después, devuelve hasta 1 Personaje activo con un coste de 3 o menos a la mano de su dueño.",
+      "triggerText": "[Disparador] Devuelve hasta 1 Personaje con un coste de 4 o menos a la mano de su dueño."
+    },
+    "OP01-087": {
+      "effectText": "[Contraataque] Juega hasta 1 carta de Personaje de tipo {Baroque Works} con un coste de 3 o menos de tu mano.",
+      "triggerText": "[Disparador] Activa el efecto [Contraataque] de esta carta."
+    },
+    "OP01-088": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +2000 de poder durante este combate. Después, mira 3 cartas del tope de tu mazo y ponlas en el tope o en el fondo del mazo en el orden que quieras.",
+      "triggerText": "[Disparador] Roba 2 cartas y descarta 1 carta de tu mano."
+    },
+    "OP01-089": {
+      "effectText": "[Contraataque] Si tu Líder tiene el tipo {The Seven Warlords of the Sea}, devuelve hasta 1 Personaje con un coste de 5 o menos a la mano de su dueño.",
+      "triggerText": null
+    },
+    "OP01-090": {
+      "effectText": "[Principal] Mira 5 cartas del tope de tu mazo; revela hasta 1 carta de tipo {Baroque Works} que no sea [Baroque Works] y agrégala a tu mano. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+      "triggerText": null
+    },
+    "OP01-091": {
+      "effectText": "[Tu Turno] Si tienes 10 cartas DON!! en tu campo, dales −1000 de poder a todos los Personajes de tu rival.",
+      "triggerText": null
+    },
+    "OP01-092": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-093": {
+      "effectText": "[Al Jugar] ① (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.): Agrega hasta 1 carta DON!! de tu mazo de DON!! y agótala.",
+      "triggerText": null
+    },
+    "OP01-094": {
+      "effectText": "[Al Jugar] DON!! −6 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Si tu Líder tiene el tipo {Animal Kingdom Pirates}, deja K.O. a todos los Personajes que no sean este Personaje.",
+      "triggerText": null
+    },
+    "OP01-095": {
+      "effectText": "[Al Jugar] Roba 1 carta si tienes 8 o más cartas DON!! en tu campo.",
+      "triggerText": null
+    },
+    "OP01-096": {
+      "effectText": "[Al Jugar] DON!! −2 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Deja K.O. hasta 1 Personaje de tu rival con un coste de 3 o menos y hasta 1 Personaje de tu rival con un coste de 2 o menos.",
+      "triggerText": null
+    },
+    "OP01-097": {
+      "effectText": "[Al Jugar] DON!! −1 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Este Personaje gana [Rush] durante este turno. Después, dale −2000 de poder a hasta 1 Personaje de tu rival durante este turno.<br>(Esta carta puede atacar en el turno en que se juega.)",
+      "triggerText": null
+    },
+    "OP01-098": {
+      "effectText": "[Al Jugar] Revela hasta 1 [Artificial Devil Fruit SMILE] de tu mazo y agrégala a tu mano. Después, baraja tu mazo.",
+      "triggerText": null
+    },
+    "OP01-099": {
+      "effectText": "Los Personajes de tipo {Kurozumi Clan} que no sean tu [Kurozumi Semimaru] no pueden quedar K.O. en combate.",
+      "triggerText": null
+    },
+    "OP01-100": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)",
+      "triggerText": null
+    },
+    "OP01-101": {
+      "effectText": "[DON!! x1] [Al Atacar] Puedes descartar 1 carta de tu mano: Agrega hasta 1 carta DON!! de tu mazo de DON!! y agótala.",
+      "triggerText": null
+    },
+    "OP01-102": {
+      "effectText": "[Al Atacar] DON!! −1 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Tu rival descarta 1 carta de su mano.",
+      "triggerText": null
+    },
+    "OP01-103": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-104": {
+      "effectText": "-",
+      "triggerText": "[Disparador] Juega esta carta."
+    },
+    "OP01-105": {
+      "effectText": "[Al Jugar] Elige 2 cartas de la mano de tu rival; tu rival revela esas cartas.",
+      "triggerText": null
+    },
+    "OP01-106": {
+      "effectText": "[Al Jugar] Agrega hasta 1 carta DON!! de tu mazo de DON!! y agótala.",
+      "triggerText": "[Disparador] Juega esta carta."
+    },
+    "OP01-107": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-108": {
+      "effectText": "[Al Quedar K.O.] DON!! −1 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Deja K.O. hasta 1 Personaje de tu rival con un coste de 5 o menos.",
+      "triggerText": null
+    },
+    "OP01-109": {
+      "effectText": "[DON!! x1] [Tu Turno] Si tienes 8 o más cartas DON!! en tu campo, este Personaje gana +1000 de poder.",
+      "triggerText": null
+    },
+    "OP01-110": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "OP01-111": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[Al Bloquear] DON!! −1 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Este Personaje gana +1000 de poder durante este turno.",
+      "triggerText": null
+    },
+    "OP01-112": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno] DON!! −1 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Este Personaje también puede atacar a los Personajes activos de tu rival durante este turno.",
+      "triggerText": null
+    },
+    "OP01-113": {
+      "effectText": "[Al Quedar K.O.] Agrega hasta 1 carta DON!! de tu mazo de DON!! y agótala.",
+      "triggerText": null
+    },
+    "OP01-114": {
+      "effectText": "[Al Jugar] DON!! −1 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Tu rival descarta 1 carta de su mano.",
+      "triggerText": null
+    },
+    "OP01-115": {
+      "effectText": "[Principal] Deja K.O. hasta 1 Personaje de tu rival con un coste de 2 o menos y después agrega hasta 1 carta DON!! de tu mazo de DON!! y ponla como activa.",
+      "triggerText": "[Disparador] Activa el efecto [Principal] de esta carta."
+    },
+    "OP01-116": {
+      "effectText": "[Principal] Mira 5 cartas del tope de tu mazo; juega hasta 1 carta de Personaje de tipo {SMILE} con un coste de 3 o menos. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+      "triggerText": "[Disparador] Activa el efecto [Principal] de esta carta."
+    },
+    "OP01-117": {
+      "effectText": "[Principal] DON!! −1 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Agota hasta 1 Personaje de tu rival con un coste de 6 o menos.",
+      "triggerText": null
+    },
+    "OP01-118": {
+      "effectText": "[Contraataque] DON!! −2 (Puedes devolver esa cantidad de cartas DON!! de tu campo a tu mazo de DON!!.): Hasta 1 de tus cartas de Líder o Personaje gana +2000 de poder durante este combate. Después, roba 1 carta.",
+      "triggerText": "[Disparador] Agrega hasta 1 carta DON!! de tu mazo de DON!! y ponla como activa."
+    },
+    "OP01-119": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +4000 de poder durante este combate. Después, si tienes 2 o menos cartas de Vida, agrega hasta 1 carta DON!! de tu mazo de DON!! y agótala.",
+      "triggerText": "[Disparador] Agrega hasta 1 carta DON!! de tu mazo de DON!! y ponla como activa."
+    },
+    "OP01-120": {
+      "effectText": "[Rush] (Esta carta puede atacar en el turno en que se juega.)<br>[Al Atacar] Tu rival no puede activar un Personaje con [Bloqueador] que tenga 2000 de poder o menos durante este combate.",
+      "triggerText": null
+    },
+    "OP01-121": {
+      "effectText": "El nombre de esta carta también se trata como [Kouzuki Oden] según las reglas.<br>[Doble Ataque] (Esta carta hace 2 de daño.)<br>[Banish] (Cuando esta carta hace daño, la carta objetivo va al descarte sin activar su Disparador.)",
+      "triggerText": null
+    },
+    "ST01-001": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno] Dale a este Líder o a 1 de tus Personajes hasta 1 carta DON!! agotada.",
+      "triggerText": null
+    },
+    "ST01-002": {
+      "effectText": "[DON!! x2] [Al Atacar] Tu rival no puede activar un Personaje con [Bloqueador] que tenga 5000 de poder o más durante este combate.",
+      "triggerText": "[Disparador] Juega esta carta."
+    },
+    "ST01-003": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST01-004": {
+      "effectText": "[DON!! x2] Este Personaje gana [Rush].<br>(Esta carta puede atacar en el turno en que se juega.)",
+      "triggerText": null
+    },
+    "ST01-005": {
+      "effectText": "[DON!! x1] [Al Atacar] Hasta 1 de tus cartas de Líder o Personaje que no sea esta carta gana +1000 de poder durante este turno.",
+      "triggerText": null
+    },
+    "ST01-006": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)",
+      "triggerText": null
+    },
+    "ST01-007": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno] Dale hasta 1 carta DON!! agotada a tu Líder o a 1 de tus Personajes.",
+      "triggerText": null
+    },
+    "ST01-008": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST01-009": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST01-010": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST01-011": {
+      "effectText": "[Al Jugar] Dale hasta 2 cartas DON!! agotadas a tu Líder o a 1 de tus Personajes.",
+      "triggerText": null
+    },
+    "ST01-012": {
+      "effectText": "[Rush] (Esta carta puede atacar en el turno en que se juega.)<br>[DON!! x2] [Al Atacar] Tu rival no puede activar [Bloqueador] durante este combate.",
+      "triggerText": null
+    },
+    "ST01-013": {
+      "effectText": "[DON!! x1] Este Personaje gana +1000 de poder.",
+      "triggerText": null
+    },
+    "ST01-014": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +3000 de poder durante este combate.",
+      "triggerText": "[Disparador] Hasta 1 de tus cartas de Líder o Personaje gana +1000 de poder durante este turno."
+    },
+    "ST01-015": {
+      "effectText": "[Principal] Deja K.O. hasta 1 Personaje de tu rival con 6000 de poder o menos.",
+      "triggerText": "[Disparador] Activa el efecto [Principal] de esta carta."
+    },
+    "ST01-016": {
+      "effectText": "[Principal] Selecciona hasta 1 de tus cartas de Líder o Personaje de tipo {Straw Hat Crew}. Tu rival no puede activar [Bloqueador] si ese Líder o Personaje ataca durante este turno.",
+      "triggerText": "[Disparador] Deja K.O. hasta 1 Personaje con [Bloqueador] de tu rival con un coste de 3 o menos."
+    },
+    "ST01-017": {
+      "effectText": "[Activar: Principal] Puedes agotar este Escenario: Hasta 1 carta de Líder o Personaje de tipo {Straw Hat Crew} en tu campo gana +1000 de poder durante este turno.",
+      "triggerText": null
+    },
+    "ST02-001": {
+      "effectText": "[Activar: Principal] [Una Vez por Turno]  ③ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.) Puedes descartar 1 carta de tu mano: Pon este Líder como activo.",
+      "triggerText": null
+    },
+    "ST02-002": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST02-003": {
+      "effectText": "[DON!! x1] Si tienes 3 o más Personajes, esta carta gana +2000 de poder.",
+      "triggerText": null
+    },
+    "ST02-004": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)",
+      "triggerText": null
+    },
+    "ST02-005": {
+      "effectText": "[Al Jugar] Deja K.O. hasta 1 Personaje agotado de tu rival con un coste de 3 o menos.",
+      "triggerText": "[Disparador] Juega esta carta."
+    },
+    "ST02-006": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST02-007": {
+      "effectText": "[Activar: Principal] ➀ (Puedes agotar esa cantidad de cartas DON!! de tu área de coste.) Puedes agotar este Personaje: Mira 5 cartas del tope de tu mazo; revela hasta 1 carta de tipo {Supernovas} y agrégala a tu mano. Después, pon el resto en el fondo de tu mazo en el orden que quieras.",
+      "triggerText": null
+    },
+    "ST02-008": {
+      "effectText": "[DON!! x1] [Al Atacar] Agota hasta 1 carta DON!! de tu rival.",
+      "triggerText": null
+    },
+    "ST02-009": {
+      "effectText": "[Al Jugar] Pon hasta 1 de tus Personajes agotados de tipo {Supernovas} o {Heart Pirates} con un coste de 5 o menos como activo.",
+      "triggerText": null
+    },
+    "ST02-010": {
+      "effectText": "[DON!! x1] [Una Vez por Turno] [Tu Turno] Si este Personaje combate contra un Personaje de tu rival, pon esta carta como activa.",
+      "triggerText": null
+    },
+    "ST02-011": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST02-012": {
+      "effectText": "-",
+      "triggerText": null
+    },
+    "ST02-013": {
+      "effectText": "[Bloqueador] (Después de que tu rival declare un ataque, puedes agotar esta carta para convertirla en el nuevo objetivo del ataque.)<br>[DON!! x1] [Fin de Tu Turno] Pon este Personaje como activo.",
+      "triggerText": null
+    },
+    "ST02-014": {
+      "effectText": "[DON!! x1] [Tu Turno] Si este Personaje está agotado, tus Líderes y Personajes de tipo {Supernovas} o {Navy} ganan +1000 de poder.",
+      "triggerText": null
+    },
+    "ST02-015": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +2000 de poder durante este combate. Después, pon hasta 1 de tus cartas DON!! como activa.",
+      "triggerText": "[Disparador] Pon hasta 2 de tus cartas DON!! como activas."
+    },
+    "ST02-016": {
+      "effectText": "[Contraataque] Hasta 1 de tus cartas de Líder o Personaje gana +4000 de poder durante este combate. Después, pon hasta 1 de tus cartas DON!! como activa.",
+      "triggerText": null
+    },
+    "ST02-017": {
+      "effectText": "[Principal] Agota hasta 1 Personaje de tu rival.",
+      "triggerText": "[Disparador] Juega hasta 1 carta de tipo {Supernovas} con un coste de 2 o menos de tu mano."
+    }
+  }
+}

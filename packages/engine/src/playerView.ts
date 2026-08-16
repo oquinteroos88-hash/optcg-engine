@@ -15,8 +15,6 @@ import type {
   StackItem,
 } from './types.js';
 import { PLAYER_IDS } from './types.js';
-import type { ViewEvent } from './viewEvents.js';
-import { redactLog } from './viewEvents.js';
 import { blindHandleOrder, knows } from './visibility.js';
 
 /**
@@ -56,8 +54,24 @@ export interface PlayerView {
   stack: ViewStackItem[];
   pending: PendingView | null;
   resume: ResumeStep[];
-  log: ViewEvent[];
   rules: GameState['rules'];
+  /**
+   * **No `log`, and its absence is a decision PR #45 took by trying to render
+   * one.** A view is the *present*; history is the journal, and PR #44 already
+   * settled why the two cannot be the same thing — the engine's redaction is
+   * memoryless, so a log re-derived now is strictly *more* redacted than what
+   * the player watched live (a revealed card since shuffled back nulls out
+   * even in the reveal that showed it). A `log` on the view is therefore
+   * history that nobody may correctly render, sitting in every payload: it was
+   * **56% of the average update** on the wire and it grew with the game.
+   *
+   * So the reader that wants history keeps a journal of the batches it was
+   * sent, exactly as the server does. `redactLog` still exists for the one
+   * reader that has no journal to keep — someone joining a match already in
+   * progress with nothing to catch up from — and it is honest there precisely
+   * because such a reader never saw the live version to be short-changed
+   * against.
+   */
 }
 
 /**
@@ -223,7 +237,6 @@ export function playerView(state: GameState, viewer: PlayerId): PlayerView {
     stack: state.stack.map((item) => viewStackItem(item, sees)),
     pending: state.pending === null ? null : pendingView(state.pending, viewer),
     resume: [...state.resume],
-    log: redactLog(state, viewer),
     rules: state.rules,
   };
 }
@@ -251,6 +264,19 @@ function viewStackItem(item: StackItem, sees: (id: InstanceId) => boolean): View
     source: visible ? item.source : null,
     abilityId: visible ? item.abilityId : null,
   };
+}
+
+/**
+ * The open choice as one seat may read it, without building a whole view.
+ *
+ * The affordance indexer needs exactly this and nothing else — the answer
+ * space of an open choice is the one thing a client takes from the state
+ * rather than from `legalActions` — and deriving a full `PlayerView` to read a
+ * single field means computing the power and keywords of a hundred cards to
+ * answer a question about one. Same redaction, same function underneath.
+ */
+export function redactPending(state: GameState, viewer: PlayerId): PendingView | null {
+  return state.pending === null ? null : pendingView(state.pending, viewer);
 }
 
 function pendingView(pending: PendingChoice, viewer: PlayerId): PendingView {

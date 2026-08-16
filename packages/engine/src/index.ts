@@ -5,7 +5,7 @@ export { legalActions } from './legalActions.js';
 // (the view), one log redaction. Consumers ask the engine rather than deciding
 // visibility themselves — the law that keeps the answer in one place.
 export { blindHandleOrder, knows, zoneOf } from './visibility.js';
-export { playerView } from './playerView.js';
+export { playerView, redactPending } from './playerView.js';
 export type {
   PendingView,
   PlayerView,

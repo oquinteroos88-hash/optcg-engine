@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import type { PlayerId } from '@optcg/engine';
-import { DECK_CATALOG } from '../game/decks';
+import { DECK_CATALOG, deckName } from '../game/decks';
+import { useMessages } from '../i18n/useMessages';
+import { LanguagePicker } from '../components/LanguagePicker';
 import { useStore } from '../store/store';
 import styles from './SetupScreen.module.css';
 
@@ -19,6 +21,7 @@ interface SetupProps {
 
 export function SetupScreen({ onNetwork }: SetupProps): ReactElement {
   const newGame = useStore((s) => s.newGame);
+  const m = useMessages();
   const [seed, setSeed] = useState<number>(randomSeed);
   const [deckIdP1, setDeckIdP1] = useState<string>(DEFAULT_DECK_P1);
   const [deckIdP2, setDeckIdP2] = useState<string>(DEFAULT_DECK_P2);
@@ -27,10 +30,14 @@ export function SetupScreen({ onNetwork }: SetupProps): ReactElement {
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
-        <h1 className={styles.title}>Nueva partida</h1>
+        <h1 className={styles.title}>{m.setup.title}</h1>
+
+        {/* First control on the first screen: a player who cannot read the rest
+            of this panel has to be able to fix that before anything else. */}
+        <LanguagePicker />
 
         <label className={styles.field}>
-          <span>Semilla</span>
+          <span>{m.setup.seed}</span>
           <div className={styles.seedRow}>
             <input
               type="number"
@@ -38,35 +45,35 @@ export function SetupScreen({ onNetwork }: SetupProps): ReactElement {
               onChange={(e) => setSeed(Number(e.target.value) || 0)}
             />
             <button type="button" onClick={() => setSeed(randomSeed())}>
-              Aleatoria
+              {m.setup.randomSeed}
             </button>
           </div>
         </label>
 
         <label className={styles.field}>
-          <span>Mazo Jugador 1</span>
+          <span>{m.setup.deckP1}</span>
           <select value={deckIdP1} onChange={(e) => setDeckIdP1(e.target.value)}>
             {DECK_CATALOG.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.name}
+                {deckName(entry, m)}
               </option>
             ))}
           </select>
         </label>
 
         <label className={styles.field}>
-          <span>Mazo Jugador 2</span>
+          <span>{m.setup.deckP2}</span>
           <select value={deckIdP2} onChange={(e) => setDeckIdP2(e.target.value)}>
             {DECK_CATALOG.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.name}
+                {deckName(entry, m)}
               </option>
             ))}
           </select>
         </label>
 
         <fieldset className={styles.field}>
-          <legend>Primer jugador</legend>
+          <legend>{m.setup.firstPlayer}</legend>
           <label className={styles.radio}>
             <input
               type="radio"
@@ -74,7 +81,7 @@ export function SetupScreen({ onNetwork }: SetupProps): ReactElement {
               checked={firstPlayer === 'p1'}
               onChange={() => setFirstPlayer('p1')}
             />
-            Jugador 1
+            {m.common.playerOne}
           </label>
           <label className={styles.radio}>
             <input
@@ -83,7 +90,7 @@ export function SetupScreen({ onNetwork }: SetupProps): ReactElement {
               checked={firstPlayer === 'p2'}
               onChange={() => setFirstPlayer('p2')}
             />
-            Jugador 2
+            {m.common.playerTwo}
           </label>
         </fieldset>
 
@@ -92,11 +99,11 @@ export function SetupScreen({ onNetwork }: SetupProps): ReactElement {
           className={styles.play}
           onClick={() => newGame({ seed, deckIdP1, deckIdP2, firstPlayer })}
         >
-          Jugar
+          {m.setup.play}
         </button>
 
         <button type="button" className={styles.network} onClick={onNetwork}>
-          Jugar en red
+          {m.setup.network}
         </button>
       </div>
     </div>

@@ -1,11 +1,14 @@
 import type { ReactElement } from 'react';
+import { useMessages } from '../i18n/useMessages';
 import { useGlobalAffordances, useInputBlocked } from '../store/selectors';
 import { useStore } from '../store/store';
+import { LanguagePicker } from './LanguagePicker';
 import styles from './ActionBar.module.css';
 
 export function ActionBar(): ReactElement {
   const global = useGlobalAffordances();
   const blocked = useInputBlocked();
+  const m = useMessages();
   const endTurn = useStore((s) => s.endTurn);
   const concede = useStore((s) => s.concede);
   const toggleVeil = useStore((s) => s.toggleVeil);
@@ -19,17 +22,21 @@ export function ActionBar(): ReactElement {
           asserted in tests/affordances.forward.test.ts. */}
       {global.canEndTurn ? (
         <button type="button" className={styles.button} onClick={endTurn} disabled={blocked}>
-          Terminar turno
+          {m.board.endTurn}
         </button>
       ) : null}
       <div className={styles.spacer} />
+      {/* Mid-match, and never disabled by the animation queue: the language is
+          presentation, so changing it is not a move and cannot be blocked by
+          one. Two seats can read the same match in two languages. */}
+      <LanguagePicker />
       <label className={styles.toggle}>
         <input type="checkbox" checked={veilOpponentHand} onChange={toggleVeil} />
-        Velar mano rival
+        {m.board.veilOpponentHand}
       </label>
       {global.canConcede ? (
         <button type="button" className={styles.danger} onClick={concede} disabled={blocked}>
-          Rendirse
+          {m.board.concede}
         </button>
       ) : null}
     </div>

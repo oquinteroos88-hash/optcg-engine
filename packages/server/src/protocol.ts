@@ -1,9 +1,18 @@
 import type { Action, PlayerId, PlayerView, ViewEvent } from '@optcg/engine';
 
 /**
- * The wire protocol, versioned so an old client fails loudly instead of
- * strangely: the number travels in the join message and the server refuses a
- * mismatch with `protocolMismatch` before anything else happens.
+ * The wire protocol — **the browser-safe half of this package**, and the only
+ * part a client may import.
+ *
+ * It is a separate entry point (`@optcg/server/protocol`) for the reason
+ * `@optcg/cards/starters` is one: the package root reaches for `ws` and
+ * `node:net`, which a bundler targeting a browser cannot resolve. Everything
+ * here is types plus two frozen constants, so both ends of the wire read the
+ * same contract from one file instead of keeping two copies that drift.
+ *
+ * Versioned so an old client fails loudly instead of strangely: the number
+ * travels in the join message and the server refuses a mismatch with
+ * `protocolMismatch` before anything else happens.
  *
  * **2 — the affordance list joined the payloads (PR #45), and the bump is not
  * a formality.** Adding a field is additive on the wire, but a client that has
@@ -20,6 +29,17 @@ export const PROTOCOL_VERSION = 2;
  * with `malformedMessage` — the transport parses, it never interprets.
  */
 export type ClientMessage =
+  /**
+   * Open a match and get back its id and both seat tokens, to hand one to
+   * somebody else. The decks are **named**, not sent: the catalog belongs to
+   * whoever started the server, so the library stays free of card data and a
+   * client cannot post a deck the server has never validated.
+   *
+   * The seed is the creator's, and that is deliberate — it is the game's only
+   * randomness, and `replayMatch` needs it to be a thing somebody chose rather
+   * than a thing the server rolled.
+   */
+  | { type: 'create'; protocol: number; seed: number; deckIdP1: string; deckIdP2: string }
   | { type: 'join'; protocol: number; matchId: string; token: string }
   /** An engine action, handles included where the choice is blind. The seat is
    * the socket's, never the payload's: an action whose `player` is not the
@@ -34,6 +54,16 @@ export type ClientMessage =
  * snapshots over diffs, correctness first.
  */
 export type ServerToClient =
+  /**
+   * A match exists. `tokens` are the two seats; the creator keeps one and
+   * sends the other to their opponent — that link *is* the invitation, and it
+   * is the whole of matchmaking in this project.
+   *
+   * The ids and tokens are the only things the server invents, and they are
+   * not game state: they name matches and seats, never cards. The game's one
+   * source of randomness is still the seed above.
+   */
+  | { type: 'created'; protocol: typeof PROTOCOL_VERSION; matchId: string; tokens: Record<PlayerId, string> }
   /** The answer to a successful join — first join and reconnection alike.
    * `view` is the present; `journal` is the history exactly as this seat saw
    * it live: every emission's redacted events, stored verbatim at the moment
@@ -93,6 +123,8 @@ export interface UpdatePayload {
 export const SERVER_ERRORS = {
   protocolMismatch: 'protocolMismatch',
   unknownMatch: 'unknownMatch',
+  /** A `create` naming a deck the server was not started with. */
+  unknownDeck: 'unknownDeck',
   badToken: 'badToken',
   seatMismatch: 'seatMismatch',
   notJoined: 'notJoined',

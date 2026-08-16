@@ -27,9 +27,17 @@ const ALLOWED_ENGINE_VALUES = new Set([
 
 const SRC = join(import.meta.dirname, '..', 'src');
 
+/**
+ * `main.ts` is the runnable application rather than the library: it registers
+ * a card set and hands the transport a deck catalog, which is exactly the
+ * knowledge the library must not have. Excluded here and nowhere else, so the
+ * boundary stays a line somebody drew rather than one that eroded.
+ */
+const APPLICATION_ENTRY = 'main.ts';
+
 function sourceFiles(): string[] {
   return readdirSync(SRC)
-    .filter((name) => name.endsWith('.ts'))
+    .filter((name) => name.endsWith('.ts') && name !== APPLICATION_ENTRY)
     .map((name) => join(SRC, name));
 }
 

@@ -36,6 +36,9 @@ importers:
       '@optcg/engine':
         specifier: workspace:*
         version: link:../engine
+      '@optcg/server':
+        specifier: workspace:*
+        version: link:../server
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -101,6 +104,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@optcg/cards':
+        specifier: workspace:*
+        version: link:../cards
       '@optcg/engine':
         specifier: workspace:*
         version: link:../engine

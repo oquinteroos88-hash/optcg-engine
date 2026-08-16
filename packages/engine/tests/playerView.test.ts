@@ -447,6 +447,40 @@ describe('the view is a pure derivation', () => {
     }
   });
 
+  it('carries the three rule readings a board draws, computed from the whole state', () => {
+    // The gap PR #45 found: a client renders effective power and keywords, and
+    // both need the full state — statics live on the other side of the table
+    // and can gate on zones the viewer cannot see. So the view carries them.
+    const state = buildScenario({
+      decks,
+      p1: {
+        characters: [
+          { cardId: 'ABIL-003' }, // Standard Bearer: +1000 to your other Characters
+          { cardId: 'ABIL-004' }, // Shield Caller: [Blocker] to your cost-2 others
+          { cardId: 'ABIL-009' }, // cost 3, printed 3000, no keywords
+        ],
+      },
+    });
+    const bearer = characterAt(state, 'p1', 0);
+    const caller = characterAt(state, 'p1', 1);
+    const duelist = characterAt(state, 'p1', 2);
+
+    for (const viewer of ['p1', 'p2'] as const) {
+      const cards = playerView(state, viewer).cards;
+      // The static's contribution is the difference between the two readings,
+      // which is the only way a badge can ever be explained: continuous
+      // effects emit no events at all.
+      expect(cards[duelist]?.power).toBe(4000);
+      expect(cards[duelist]?.powerWithoutStatics).toBe(3000);
+      // Granted, not printed — the Shield Caller reaches the cost-2 Bearer and
+      // not the cost-3 Duelist, so the keyword lists differ by the rule rather
+      // than by the card face.
+      expect(cards[bearer]?.keywords).toEqual(['blocker']);
+      expect(cards[duelist]?.keywords).toEqual([]);
+      expect(cards[caller]?.keywords).toEqual([]);
+    }
+  });
+
   it('a player’s own life cards are as secret as the opponent’s — CR 3-10-2', () => {
     const state = buildScenario({ decks });
     const own = playerView(state, 'p1');

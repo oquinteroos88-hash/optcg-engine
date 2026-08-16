@@ -1,3 +1,6 @@
+import type { Keyword } from './abilities/dsl.js';
+import { KEYWORDS } from './abilities/dsl.js';
+import { getPower, getPowerWithoutStatics, hasKeyword } from './selectors.js';
 import type {
   Battle,
   CardInstance,
@@ -46,7 +49,7 @@ export interface PlayerView {
    * not appear even as a property name. Keys in sorted order, so equal states
    * stringify equal.
    */
-  cards: Record<InstanceId, CardInstance>;
+  cards: Record<InstanceId, ViewCard>;
   battle: Battle | null;
   modifiers: Modifier[];
   legality: LegalityRule[];
@@ -55,6 +58,35 @@ export interface PlayerView {
   resume: ResumeStep[];
   log: ViewEvent[];
   rules: GameState['rules'];
+}
+
+/**
+ * A card instance plus the three rule readings a board has to draw, computed
+ * here because **only the engine can compute them and only from the whole
+ * state**.
+ *
+ * `getPower` walks every live modifier and every `static` on both fields, and a
+ * static's own condition may ask about zones this viewer cannot see —
+ * `OP01-068` Gecko Moria gates on its controller's hand size, `OP01-109`
+ * Who's.Who on DON!! — so a client re-deriving power from a redacted view
+ * would not merely be encoding a rule twice, it would get a different number.
+ * That is why these three ride on the view rather than being recomputed by
+ * whoever renders it: the engine computes, the server carries, the client
+ * draws.
+ *
+ * `powerWithoutStatics` is here for one reason, and it is a UI reason: the
+ * difference between the two is exactly the continuous contribution, which is
+ * the only way a board can explain a badge — continuous effects emit no events
+ * and write nothing to the state, so the log can never account for one.
+ */
+export interface ViewCard extends CardInstance {
+  /** Effective power, everything applied (CR 2-6-3). */
+  power: number;
+  /** The same without continuous effects; the difference is their whole
+   * contribution. */
+  powerWithoutStatics: number;
+  /** Every keyword the card answers to now, printed or granted. */
+  keywords: Keyword[];
 }
 
 export interface PlayerZonesView {
@@ -156,10 +188,15 @@ export function playerView(state: GameState, viewer: PlayerId): PlayerView {
   // Sorted keys: `JSON.stringify` follows insertion order, and two equal
   // states must not stringify differently because their records were built in
   // a different sequence.
-  const cards = {} as Record<InstanceId, CardInstance>;
+  const cards = {} as Record<InstanceId, ViewCard>;
   for (const id of Object.keys(state.cards).sort()) {
     if (sees(id)) {
-      cards[id] = state.cards[id] as CardInstance;
+      cards[id] = {
+        ...(state.cards[id] as CardInstance),
+        power: getPower(state, id),
+        powerWithoutStatics: getPowerWithoutStatics(state, id),
+        keywords: KEYWORDS.filter((keyword) => hasKeyword(state, id, keyword)),
+      };
     }
   }
 

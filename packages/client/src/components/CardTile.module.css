@@ -1,7 +1,9 @@
 .card {
   position: relative;
   width: var(--card-w);
-  height: var(--card-h);
+  /* The physical card, stated once. `--card-h` derives from the same ratio, so
+     a tile and the slot that holds it can never disagree about the shape. */
+  aspect-ratio: 63 / 88;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);

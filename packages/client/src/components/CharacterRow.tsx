@@ -15,10 +15,16 @@ export function CharacterRow({ ids, mine }: CharacterRowProps): ReactElement {
     <div className={styles.row}>
       {Array.from({ length: SLOT_COUNT }, (_, i) => {
         const id = ids[i];
-        return id === undefined ? (
-          <div key={`empty-${i}`} className={styles.empty} />
-        ) : (
-          <CardTile key={id} id={id} zone="field" mine={mine} />
+        // The square slot is the cell, not the card: a rested Character rotates
+        // inside it and the row does not move. See `--slot` in tokens.css.
+        return (
+          <div key={id ?? `empty-${i}`} className={styles.slot}>
+            {id === undefined ? (
+              <div className={styles.empty} />
+            ) : (
+              <CardTile id={id} zone="field" mine={mine} />
+            )}
+          </div>
         );
       })}
     </div>

@@ -9,7 +9,10 @@ export function LeaderSlot({ id, mine }: { id: InstanceId; mine: boolean }): Rea
   return (
     <div className={styles.leaderSlot}>
       <span className={styles.label}>{m.board.leader}</span>
-      <CardTile id={id} zone="field" mine={mine} />
+      {/* Square cell: a rested Leader turns inside it. See `--slot`. */}
+      <div className={styles.slot}>
+        <CardTile id={id} zone="field" mine={mine} />
+      </div>
     </div>
   );
 }

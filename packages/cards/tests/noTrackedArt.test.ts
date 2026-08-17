@@ -2,7 +2,14 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { starterCards } from '../src/starters.js';
-import { archivePaths, artSource, donArtPath } from '../scripts/card-art-source.ts';
+import {
+  archivePaths,
+  artSource,
+  cardBackPath,
+  donArtPath,
+  donBackPath,
+  playmatEntries,
+} from '../scripts/card-art-source.ts';
 
 /**
  * The repository redistributes no card art, and this is what keeps that true.
@@ -68,6 +75,16 @@ describe('no card art is tracked by git', () => {
       'packages/client/public/cards/ST01-001.png',
       'packages/client/public/cards/ST01-001_small.jpg',
       'packages/client/public/cards/don.png',
+      // The optional extras, and the manifest that names them. The manifest is
+      // not artwork, but it is a description of one machine's archive and it
+      // lands in the same published directory, so it is covered by the same
+      // rule rather than by a rule of its own.
+      'packages/cards/card-art/Back/CardBackRegular.png',
+      'packages/cards/card-art/playmats/op01-launch.png',
+      'packages/client/public/cards/CardBackRegular.png',
+      'packages/client/public/cards/DonBack.png',
+      'packages/client/public/cards/playmats/op01-launch.png',
+      'packages/client/public/cards/manifest.json',
       // And anywhere at all, under any name a future script picks.
       'somewhere/else/entirely.png',
     ]) {
@@ -104,6 +121,20 @@ describe('every starter card resolves to an archive path, by name alone', () => 
     // `resolve` absolutizes against the drive on Windows, so the claim is the
     // tail of the path, which is the part this function decides.
     expect(donArtPath('/archive').replace(/\\/g, '/')).toMatch(/[/]archive[/]Don[/]Don\.png$/);
+  });
+
+  it('keeps the two backs out of the per-card scheme too, and names them as Bandai does', () => {
+    expect(cardBackPath('/archive').replace(/\\/g, '/')).toMatch(
+      /[/]archive[/]Back[/]CardBackRegular\.png$/,
+    );
+    expect(donBackPath('/archive').replace(/\\/g, '/')).toMatch(/[/]archive[/]Back[/]DonBack\.png$/);
+  });
+
+  it('discovers playmats instead of listing them, and finds none where there is no folder', () => {
+    // The point of the folder scan: dropping a mat in is all it takes, and a
+    // mat this repository has never heard of works exactly as well as one it
+    // has. There is no allowlist to add a name to.
+    expect(playmatEntries('/archive-that-is-not-there')).toEqual([]);
   });
 
   it('resolves an archive location without needing one to exist', () => {

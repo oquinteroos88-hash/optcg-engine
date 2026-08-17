@@ -18,10 +18,27 @@
  *
  * Requires Node >= 22.6 for TypeScript type stripping. Nothing else.
  */
-import { copyFileSync, existsSync, mkdirSync, statSync, symlinkSync, unlinkSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  statSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STARTER_DECKLISTS } from '../dist/starters.generated.js';
-import { archivePaths, artSource, donArtPath } from './card-art-source.ts';
+import {
+  archivePaths,
+  artSource,
+  cardBackPath,
+  donArtPath,
+  donBackPath,
+  playmatDir,
+  playmatEntries,
+} from './card-art-source.ts';
 
 /** Vite serves `public/` verbatim, so this lands at `/cards/<file>`. */
 const DEST = new URL('../../client/public/cards/', import.meta.url);
@@ -119,6 +136,33 @@ function main(): void {
   }
   // One shared image for every DON!! zone; it is a card, not a card of the set.
   publish(donArtPath(source.dir), 'don.png');
+
+  // The optional extras: the two backs and however many playmats are there.
+  publish(cardBackPath(source.dir), 'CardBackRegular.png');
+  publish(donBackPath(source.dir), 'DonBack.png');
+  const mats = playmatEntries(source.dir);
+  if (mats.length > 0) {
+    mkdirSync(new URL('playmats/', DEST), { recursive: true });
+    for (const mat of mats) {
+      publish(resolve(playmatDir(source.dir), `${mat.id}.png`), mat.file);
+    }
+  }
+
+  // The manifest: the only way the client learns any of this exists.
+  //
+  // Vite serves `public/` verbatim with no index, so a browser cannot list the
+  // folder, and probing for filenames would mean hardcoding which mats are
+  // allowed to exist. Writing down what was actually placed is the detection.
+  // It lands inside the gitignored destination, so it is never committed
+  // either, and a machine with no archive returns above and writes none — the
+  // client's fetch 404s and it draws its own back and its own mat.
+  const manifest = {
+    version: 1,
+    cardBack: existsSync(cardBackPath(source.dir)) ? 'CardBackRegular.png' : null,
+    donBack: existsSync(donBackPath(source.dir)) ? 'DonBack.png' : null,
+    playmats: mats,
+  };
+  writeFileSync(fileURLToPath(new URL('manifest.json', DEST)), `${JSON.stringify(manifest, null, 2)}\n`);
 
   // `method` only means anything if something was actually placed by it.
   const how = placed === 0 ? '' : ` by ${method}`;

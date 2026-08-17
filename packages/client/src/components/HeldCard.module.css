@@ -1,0 +1,28 @@
+/*
+  Over the board, and untouchable. The finger that opened this is still down on
+  a card underneath; if this took pointer events the release would land here.
+*/
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgba(6, 9, 15, 0.72);
+}
+
+.panel {
+  width: min(78vw, 340px);
+  max-height: 88vh;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  background: var(--color-surface);
+}
+
+/* The rail sizes the panel by its own width token; here the wrapper decides. */
+.panel > * {
+  width: 100%;
+}

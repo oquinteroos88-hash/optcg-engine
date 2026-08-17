@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'motion/react';
 import type { MouseEvent, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
 import { cardImageSrc, hasCardImage } from '../game/cardImage';
+import { useLongPress } from '../game/longPress';
 import { useMessages } from '../i18n/useMessages';
 import {
   powerLinesOf,
@@ -39,6 +40,11 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const m = useMessages();
   const uiEvent = useStore((s) => s.uiEvent);
   const hover = useStore((s) => s.hover);
+  const pressCard = useStore((s) => s.pressCard);
+  const press = useLongPress(
+    useCallback(() => pressCard(id), [pressCard, id]),
+    useCallback(() => pressCard(null), [pressCard]),
+  );
   /**
    * The art is a local cache that a fresh clone does not have, so "no image" is
    * the normal state and not an error. `failed` stops asking; `ok` is what
@@ -62,6 +68,11 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const handleClick = (e: MouseEvent<HTMLButtonElement>): void => {
     // Cards must not bubble into the table background (which clears the mode).
     e.stopPropagation();
+    // The click a browser fires after a long press was a look, not a move.
+    // Exactly one is swallowed, and only when the press really opened a view.
+    if (press.consumeClick()) {
+      return;
+    }
     if (zone === 'hand') {
       uiEvent({ kind: 'clickHandCard', instanceId: id });
     } else {
@@ -139,6 +150,12 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
       {...(clickable ? { whileHover: { y: highlighted ? -3 : -4 } } : {})}
       className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass} ${artClass}`}
       onClick={handleClick}
+      /* Hold to look. Only on a pointer that has no hover — a mouse keeps the
+         two handlers below and never reaches this. See game/longPress.ts. */
+      onPointerDown={press.onPointerDown}
+      onPointerMove={press.onPointerMove}
+      onPointerUp={press.onPointerUp}
+      onPointerCancel={press.onPointerCancel}
       onMouseEnter={() => hover(id)}
       onMouseLeave={() => hover(null)}
       // Keyboard parity: tabbing through the board previews too.

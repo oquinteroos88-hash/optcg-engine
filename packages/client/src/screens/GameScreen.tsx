@@ -10,6 +10,7 @@ import { CardPreview } from '../components/CardPreview';
 import { ChoiceOverlay } from '../components/ChoiceOverlay';
 import { EventLog } from '../components/EventLog';
 import { GameOverOverlay } from '../components/GameOverOverlay';
+import { HeldCard } from '../components/HeldCard';
 import { MulliganOverlay } from '../components/MulliganOverlay';
 import { NetStatus } from '../components/NetStatus';
 import { PassDeviceScreen } from '../components/PassDeviceScreen';
@@ -87,6 +88,9 @@ export function GameScreen(): ReactElement {
         {/* Above the menu and the battle panel: an open choice is the only legal
             move its owner has, so nothing may sit on top of it. */}
         <ChoiceOverlay />
+        {/* The held-card view, over everything but below nothing it can block:
+            it takes no pointer events at all. */}
+        <HeldCard />
         <MulliganOverlay />
         <GameOverOverlay />
         <PassDeviceScreen />

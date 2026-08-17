@@ -31,6 +31,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { applyAction, getCardDef } from '@optcg/engine';
 import type { GameState } from '@optcg/engine';
 import { fanGeometry } from '../src/components/HandRow';
+import { LONG_PRESS_MS } from '../src/game/longPress';
 import {
   NO_ASSETS,
   assetManifest,
@@ -905,5 +906,181 @@ describe('the url helper', () => {
     expect(backgroundImage('')).toBe('none');
     expect(backgroundImage('playmats/x.png')).toBe('url("/cards/playmats/x.png")');
     expect(NO_ASSETS.playmats).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// The gestures a finger has and a mouse does not.
+//
+// Here rather than in a touch suite of its own, for the reason at the top of
+// this file: one more .tsx file is one more jsdom worker against the canary,
+// and adding one put it over on the very run that measured it.
+
+/**
+ * Two turns past the opening, so the acting seat can actually afford a card.
+ *
+ * On turn 1 with one DON!! nothing in a starter hand is playable, and a tap on
+ * an unplayable card correctly does nothing at all — which makes it useless for
+ * telling "the tap arrived" from "the tap was swallowed". Four engine calls buy
+ * a board where the difference is visible.
+ */
+function playableBoard(): GameState {
+  let state = openingBoard();
+  for (let i = 0; i < 4; i += 1) {
+    const result = applyAction(state, { type: 'END_TURN', player: state.activePlayer });
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+    state = result.state;
+  }
+  return state;
+}
+
+const heldBoard: GameState = playableBoard();
+
+/**
+ * A card of the acting seat's hand that the affordances say may be played.
+ *
+ * By position: the hand renders in the view's own order, so the index of the
+ * first playable id is the index of its tile. The affordances decide, never
+ * this test — the same rule the UI itself follows.
+ */
+function playableHandCard(): HTMLElement {
+  const seat = heldBoard.priority;
+  const hand = heldBoard.players[seat].hand;
+  const affordances = useStore.getState().affordances;
+  const index = hand.findIndex((id) => affordances?.byCard[id]?.canPlay === true);
+  expect(index, 'expected a playable card in hand').toBeGreaterThanOrEqual(0);
+
+  const label = seat === 'p1' ? 'Jugador 1' : 'Jugador 2';
+  const group = screen.getByRole('group', { name: `Mano de ${label}` });
+  const tile = within(group).getAllByRole('button')[index];
+  if (tile === undefined) {
+    throw new Error('hand tile and hand id are out of step');
+  }
+  return tile;
+}
+/** The first card of the acting seat's hand — something real to hold. */
+function handCard(): HTMLElement {
+  const seat = heldBoard.priority === 'p1' ? 'Jugador 1' : 'Jugador 2';
+  const hand = screen.getByRole('group', { name: `Mano de ${seat}` });
+  const tiles = within(hand).getAllByRole('button');
+  const first = tiles[0];
+  if (first === undefined) {
+    throw new Error('expected a card in hand');
+  }
+  return first;
+}
+
+/**
+ * jsdom fires no pointer events of its own and `PointerEvent` is not
+ * implemented, so the coordinates ride on a plain event. Testing Library's
+ * `fireEvent.pointerDown` builds one from whatever it is handed, which is
+ * exactly what the component reads: `pointerType` and two numbers.
+ */
+function press(el: HTMLElement, init: Record<string, unknown> = {}): void {
+  fireEvent.pointerDown(el, { pointerType: 'touch', clientX: 100, clientY: 100, ...init });
+}
+
+// ---------------------------------------------------------------------------
+
+describe('holding a card', () => {
+  // Scoped to this block, not the file: the rest of the suite renders real
+  // components with real timers, and a global fake clock would change what
+  // every one of them is testing.
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('opens the enlarged view, and lets go of it on release', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = handCard();
+
+    press(card);
+    expect(useStore.getState().pressing).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+    });
+    expect(useStore.getState().pressing).not.toBeNull();
+
+    fireEvent.pointerUp(card, { pointerType: 'touch' });
+    expect(useStore.getState().pressing).toBeNull();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('is a look and not a move: the press dispatches nothing', () => {
+    // The claim that matters. A player reading a card must not play it.
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const before = useStore.getState().gameState;
+    const card = handCard();
+
+    press(card);
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+    });
+
+    expect(useStore.getState().gameState).toBe(before);
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+  });
+
+  it('swallows the click the browser fires after it, and only that one', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = playableHandCard();
+
+    press(card);
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+    });
+    fireEvent.pointerUp(card, { pointerType: "touch" });
+    fireEvent.click(card);
+    // The look did not become a move.
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+
+    // And the very next tap does what a tap has always done.
+    fireEvent.click(card);
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+  });
+
+  it('does not fire when the finger moves — that is a scroll, not a hold', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = handCard();
+
+    press(card);
+    fireEvent.pointerMove(card, { pointerType: 'touch', clientX: 100, clientY: 160 });
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS * 2);
+    });
+    expect(useStore.getState().pressing).toBeNull();
+  });
+
+  it('ignores a mouse, which already has a hover', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = playableHandCard();
+
+    fireEvent.pointerDown(card, { pointerType: 'mouse', clientX: 100, clientY: 100 });
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS * 2);
+    });
+    expect(useStore.getState().pressing).toBeNull();
+    // And a mouse click is still a move, with nothing swallowed.
+    fireEvent.click(card);
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+  });
+});
+
+describe('tap is untouched', () => {
+  it('still selects a card in hand, with no pointer sequence at all', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    fireEvent.click(playableHandCard());
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
   });
 });

@@ -42,6 +42,8 @@
   --pile-w: var(--card-w);
   /* Between zones of the mat. Tight: the printed sheet has no gutters. */
   --mat-gap: clamp(2px, 0.5vw, 8px);
+  /* A pile reduced to its number, on the condensed opponent half. */
+  --counter-w: clamp(30px, 8vw, 46px);
 
   --log-w: clamp(170px, 18vw, 260px);
   /* The preview rail. Constant, and reserved even when empty: the board must

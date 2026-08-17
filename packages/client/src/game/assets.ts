@@ -139,6 +139,11 @@ function snapshot(): AssetManifest {
   return manifest;
 }
 
+/** What has been learned so far, outside a render. */
+export function assetManifest(): AssetManifest {
+  return manifest;
+}
+
 /**
  * What this machine has, starting at `NO_ASSETS`.
  *

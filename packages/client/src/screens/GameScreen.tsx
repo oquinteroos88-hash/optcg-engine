@@ -16,6 +16,7 @@ import { PileViewer } from '../components/PileViewer';
 import { Table } from '../components/Table';
 import { TrashChoiceModal } from '../components/TrashChoiceModal';
 import { backgroundImage, useAssetManifest } from '../game/assets';
+import { useCondensedLayout } from '../game/layout';
 import { useChoosingTrash, useInputBlocked } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './GameScreen.module.css';
@@ -25,6 +26,8 @@ export function GameScreen(): ReactElement {
   const blocked = useInputBlocked();
   const cardToPlay = useChoosingTrash();
   const assets = useAssetManifest();
+  // A phone held upright: the two rails stop being rails. See the stylesheet.
+  const condensed = useCondensedLayout();
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -52,7 +55,11 @@ export function GameScreen(): ReactElement {
       <AnimationDriver />
       <Banner />
       <NetStatus />
-      <div className={`${styles.main} ${blocked ? styles.blocked : ''}`}>
+      <div
+        className={`${styles.main} ${blocked ? styles.blocked : ''} ${
+          condensed ? styles.condensed : ''
+        }`}
+      >
         {/* Two constant-width rails around a fluid board: the preview and the
             battle panel on the left, the log on the right. The preview slot is
             always rendered, empty or not, so nothing on the board moves when

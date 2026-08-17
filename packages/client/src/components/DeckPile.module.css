@@ -31,6 +31,16 @@
   height: calc(var(--card-h) * 0.4);
 }
 
+/* Counter mode: a chip with a number, for the condensed opponent half. */
+.counter .stack {
+  width: auto;
+  min-width: var(--counter-w);
+  height: auto;
+  padding: 1px var(--space-1);
+  background-image: none;
+  background: var(--color-surface-2);
+}
+
 .empty {
   background-image: none;
   border-style: dashed;

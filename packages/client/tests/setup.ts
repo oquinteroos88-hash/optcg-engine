@@ -17,3 +17,29 @@ import '@optcg/engine/testdata/decks';
  * creation.
  */
 globalThis.localStorage?.setItem('optcg.locale', 'es');
+
+/**
+ * Every suite runs on a landscape screen unless it says otherwise.
+ *
+ * jsdom does not implement `matchMedia` at all, and `useCondensedLayout` calls
+ * it on every render — so without this the nine jsdom suites would throw on a
+ * board. The default answer is "not portrait", which is the full sheet.
+ *
+ * Guarded, because this file also runs for the `node`-environment suites where
+ * there is no `window` to hang it on — the same reason the line above uses
+ * optional chaining. And it never replaces a stub a suite installed for itself:
+ * see `tests/matchMedia.ts`, which is how a suite asks for the other layout.
+ */
+if (typeof globalThis.window !== 'undefined' && typeof globalThis.matchMedia !== 'function') {
+  globalThis.matchMedia = ((query: string): MediaQueryList =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }) as unknown as MediaQueryList) as typeof globalThis.matchMedia;
+}

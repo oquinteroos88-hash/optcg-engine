@@ -98,6 +98,100 @@
     'character character character character character life';
 }
 
+/* ---------------------------------------------------------------------------
+   Portrait.
+
+   A phone held upright cannot hold two full sheets side by side, and the
+   printed mat has nothing to say about a phone. The answer is not a second
+   component: it is a third and fourth template over the same nine areas, with
+   the same markup and the same accessible names underneath.
+*/
+
+/*
+  The far half condenses. Its Character Area and Leader survive at a smaller
+  scale — that is where the game is read from — and its piles become the
+  counters they always were: the view publishes a number for each of them and
+  nothing else, so no information is lost with the picture.
+*/
+/* On the half, not on the field: the hand sits outside the mat, and the far
+   half's hand is a row of backs whose only content is how many there are. At
+   full size it was costing a hundred pixels to say "five". */
+.condensed.mirrored {
+  --card-w: clamp(30px, 8.5vw, 48px);
+}
+
+.condensed.mirrored .field {
+  /* A gutter, because at this size the zone names of adjacent cells end up
+     shoulder to shoulder and read as one word. */
+  column-gap: var(--space-2);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-areas:
+    'life deck don cost trash'
+    'leader stage character character character';
+}
+
+/* One phase track is enough on a screen this size, and the one that is silent
+   to a screen reader is the one to drop. */
+.condensed.mirrored .phases {
+  display: none;
+}
+
+/* Rather than dropping a name when space is short: the names are what the
+   sheet is for. */
+.condensed .zoneLabel {
+  padding: 0 var(--space-1);
+}
+
+/* Every gutter is a card the hand does not get. On a phone the sheet is drawn
+   tight to its edges. */
+.condensed {
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}
+
+.condensed .field {
+  padding: var(--space-1);
+}
+
+.condensed.mirrored .field {
+  column-gap: var(--space-2);
+}
+
+/*
+  Your half keeps the sheet, reflowed to four columns, with the phase track on
+  a strip of its own: the free centre-left space the mat prints it in does not
+  exist at 375px, and folding it into the Banner would put a per-turn structure
+  inside a per-moment one.
+
+  The card shrinks, and it has to. A slot is square — it reserves the space a
+  rested card needs in both axes — so three rows of slots cost three times the
+  card's LONG edge. At the landscape floor of 52px that is 216px of an 812px
+  phone before a single label, and what fell off the bottom was your own hand.
+*/
+.condensed:not(.mirrored) {
+  --card-w: clamp(34px, 10vw, 56px);
+}
+
+.condensed:not(.mirrored) .field {
+  grid-template-columns: var(--pile-w) minmax(0, 1fr) minmax(0, 1fr) var(--pile-w);
+  grid-template-areas:
+    'life character character character'
+    'life leader stage deck'
+    'life don cost trash'
+    'phases phases phases phases';
+}
+
+/*
+  Below about 340px five Character slots cannot fit at any size that is still a
+  card. This is the one place the layout degrades instead of reflowing, and it
+  degrades in the Character Area alone — never the mat, because a mat that
+  scrolls has stopped being a mat.
+*/
+.condensed .character {
+  overflow-x: auto;
+  justify-items: start;
+}
+
 /* --------------------------------------------------------------------------
    The cells. Each one is the mat's box for that zone; what goes inside it is
    the zone's own component, unchanged.

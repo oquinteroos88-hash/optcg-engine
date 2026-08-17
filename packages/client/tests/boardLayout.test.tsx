@@ -1,39 +1,70 @@
 // @vitest-environment jsdom
 //
-// The layout claims that can be checked without a browser.
+// The board: its sheet, its zones, its phases, its assets and its fan.
 //
 // jsdom has no layout engine — every box is 0x0 and `getComputedStyle` does not
 // resolve a stylesheet — so nothing here measures pixels. What it can check is
-// structure and declared style, which is where the two bugs this PR fixes
-// actually lived: a `rotate(180deg)` on a container full of text, and a preview
-// that grew into the board instead of into a reserved rail.
+// structure and declared style, which is where the two bugs the mirror rewrite
+// fixed actually lived: a `rotate(180deg)` on a container full of text, and a
+// preview that grew into the board instead of into a reserved rail.
+//
+// ONE FILE, AND DELIBERATELY SO. Every `.tsx` suite spins up its own jsdom
+// worker, and those workers share CPUs with `fullGame.test.ts`, whose budget is
+// Vitest's default five seconds and whose heaviest test spends about that on
+// its own. Measured on a sixteen-core machine: this package at 26 test files
+// passes every time, at 27 it fails about half of them — and the variable is
+// the file count, not the test count, since 26 files carrying fourteen MORE
+// tests than master stayed green across every run. So the board's suites live
+// together. The budget is not the thing to move; the file count is.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { getCardDef } from '@optcg/engine';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { applyAction, getCardDef } from '@optcg/engine';
 import type { GameState } from '@optcg/engine';
 import { fanGeometry } from '../src/components/HandRow';
+import {
+  NO_ASSETS,
+  assetManifest,
+  backgroundImage,
+  loadAssetManifest,
+  resetAssetManifest,
+} from '../src/game/assets';
+import type { AssetManifest } from '../src/game/assets';
+import { NEUTRAL_PLAYMAT, loadPlaymat } from '../src/game/playmat';
 import { messagesFor } from '../src/i18n';
 import { GameScreen } from '../src/screens/GameScreen';
 import { TURN_PHASES } from '../src/store/selectors';
 import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { firstStarterStateWhere } from './corpus';
+import { resetViewport, setViewport } from './matchMedia';
 import { openingBoard } from './openingBoard';
 
 /** The suites run in Spanish — see `tests/setup.ts`. */
 const m = messagesFor('es');
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
+const realFetch = globalThis.fetch;
+
+function forgetPlaymats(): void {
+  globalThis.localStorage?.removeItem('optcg.playmat.p1');
+  globalThis.localStorage?.removeItem('optcg.playmat.p2');
+  useStore.setState({ playmats: { p1: NEUTRAL_PLAYMAT, p2: NEUTRAL_PLAYMAT } });
+}
 
 beforeEach(() => {
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  resetAssetManifest();
+  forgetPlaymats();
 });
 
 afterEach(() => {
   cleanup();
   errorSpy.mockRestore();
+  resetAssetManifest();
+  forgetPlaymats();
+  globalThis.fetch = realFetch;
   useStore.getState().toSetup();
 });
 
@@ -84,11 +115,12 @@ function styleSheet(name: string): string {
   return readFileSync(join(COMPONENTS, name), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
-/** Every `selector { … }` rule of a stylesheet, body keyed by selector. */
-function rules(sheet: string): Map<string, string> {
-  const out = new Map<string, string>();
+/** Every `selector { … }` rule of a stylesheet, bodies grouped by selector. */
+function rules(sheet: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
   for (const [, selector = '', body = ''] of sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    out.set(selector.trim(), body);
+    const key = selector.trim();
+    out.set(key, [...(out.get(key) ?? []), body]);
   }
   return out;
 }
@@ -96,13 +128,22 @@ function rules(sheet: string): Map<string, string> {
 /**
  * A `grid-template-areas` as data: one array of area names per row, in the
  * order they are painted, top to bottom.
+ *
+ * Bodies are grouped rather than overwritten, and exactly one of them may
+ * declare the template. Keying a selector to its last rule is what this used to
+ * do, and it silently read an empty template off a second `.condensed.mirrored
+ * .field { column-gap }` block that had been added below the real one — a test
+ * that reads the wrong rule and passes is worse than no test.
  */
 function templateAreas(sheet: string, selector: string): readonly (readonly string[])[] {
-  const body = rules(sheet).get(selector);
-  expect(body, `no rule for ${selector}`).toBeDefined();
-  const declaration = /grid-template-areas:([^;]*);/.exec(body ?? '');
-  expect(declaration, `no grid-template-areas in ${selector}`).not.toBeNull();
-  return [...(declaration?.[1] ?? '').matchAll(/'([^']*)'/g)].map(([, row = '']) =>
+  const bodies = rules(sheet).get(selector);
+  expect(bodies, `no rule for ${selector}`).toBeDefined();
+  const declaring = (bodies ?? []).flatMap((body) => {
+    const found = /grid-template-areas:([^;]*);/.exec(body);
+    return found === null ? [] : [found[1] ?? ''];
+  });
+  expect(declaring, `${selector} must declare grid-template-areas exactly once`).toHaveLength(1);
+  return [...(declaring[0] ?? '').matchAll(/'([^']*)'/g)].map(([, row = '']) =>
     row.trim().split(/\s+/),
   );
 }
@@ -129,14 +170,17 @@ const MAT_AREAS = [
   'phases',
 ] as const;
 
+/** The half's stylesheet, read once: every template claim below is about it. */
+const sheet = styleSheet('SideBoard.module.css');
+
 // ---------------------------------------------------------------------------
 
 describe('nothing that carries text is turned upside down', () => {
   // Phase 1 mirrored the opponent's half with `transform: rotate(180deg)`,
   // which put the Character rows against the centre line and made every label
-  // on that half unreadable. The mirror is now `flex-direction: column-reverse`
-  // — an order, not a rotation.
-  const sideBoard = styleSheet('SideBoard.module.css');
+  // on that half unreadable. The mirror is now a second `grid-template-areas`
+  // — a placement, not a rotation.
+  const sideBoard = sheet;
 
   it('mirrors the opponent half by placing its zones, not by rotating it', () => {
     // This used to assert `column-reverse`, which was a proxy: what the mirror
@@ -252,14 +296,26 @@ describe('the details the table has and a diagram does not', () => {
   it('shows the top of the trash face-up, because the trash is public', () => {
     // CR 3-5-2. The deck stays a count in the same row, which is the contrast
     // that makes this meaningful rather than decorative.
-    const withTrash = firstStarterStateWhere(
-      (state) => state.pending === null && state.players.p1.trash.length > 0,
-    );
+    // The pile is moved by hand rather than played into. What is under test is
+    // a rendering of `SideView.trashTop`, not how a card gets there, and the
+    // corpus query that would reach such a position is a ten-seed playout this
+    // file cannot afford — see the note on `populated`.
+    const top = playing.players.p1.hand[0];
+    expect(top).toBeDefined();
+    const withTrash: GameState = {
+      ...playing,
+      players: {
+        ...playing.players,
+        p1: {
+          ...playing.players.p1,
+          hand: playing.players.p1.hand.slice(1),
+          trash: [top ?? '', ...playing.players.p1.trash],
+        },
+      },
+    };
     loadState(withTrash);
     render(<GameScreen />);
     const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
-    const top = withTrash.players.p1.trash[0];
-    expect(top).toBeDefined();
     const name = cardNameOf(withTrash, top ?? '');
     expect(within(field).getByText(name)).toBeDefined();
     // Still one button, still addressed by the same name every suite uses.
@@ -267,10 +323,9 @@ describe('the details the table has and a diagram does not', () => {
   });
 
   it('leaves an empty trash with nothing to look at and nothing to click', () => {
-    const empty = firstStarterStateWhere(
-      (state) => state.pending === null && state.players.p1.trash.length === 0,
-    );
-    loadState(empty);
+    // Straight out of the mulligan: nobody has discarded anything yet, so this
+    // costs three engine calls rather than a corpus scan.
+    loadState(playing);
     render(<GameScreen />);
     const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
     const pile = within(field).getByRole('button', { name: /^Descarte/ }) as HTMLButtonElement;
@@ -278,16 +333,24 @@ describe('the details the table has and a diagram does not', () => {
   });
 
   it('draws attached DON!! under the card carrying them, as many as four', () => {
-    const withDon = firstStarterStateWhere((state) =>
-      state.players.p1.don.some((don) => don.location.kind === 'attached'),
-    );
-    loadState(withDon);
+    // One action past the opening board — p1 has exactly one DON!! on turn 1
+    // and gives it to its Leader. Also cheaper than a corpus scan, and this
+    // file already shares a CPU with `fullGame.test.ts`.
+    const attached = applyAction(playing, {
+      type: 'ATTACH_DON',
+      player: 'p1',
+      to: playing.players.p1.leader,
+      count: 1,
+    });
+    if (!attached.ok) {
+      throw new Error(attached.reason);
+    }
+    loadState(attached.state);
     render(<GameScreen />);
     const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
     // They are pictures of a fact the tile's badge already states, so they are
     // decoration and marked as such — never a second announcement of it.
-    const fans = field.querySelectorAll('[aria-hidden="true"] > div');
-    expect(fans.length).toBeGreaterThan(0);
+    expect(field.querySelectorAll('[aria-hidden="true"] > div').length).toBeGreaterThan(0);
   });
 });
 
@@ -307,8 +370,14 @@ function phaseTrack(): HTMLElement {
 /** The board straight out of the mulligan: cheap, and always in `main`. */
 const playing = openingBoard();
 
+/** The same board, under the name the asset suites below already used. */
+const board = playing;
+
 describe('the printed phase track', () => {
-  it('prints all five phases, in turn order', () => {
+  it('prints all five phases in turn order, lights the one the wire carries', () => {
+    // Which is always Main while anyone is looking: Refresh, Draw and DON!! run
+    // inside one reducer step, and the engine asserts that a resting playing
+    // state is in `main`. The five boxes are signage; this is the honest light.
     loadState(playing);
     render(<GameScreen />);
     const boxes = [...phaseTrack().children].map((box) => box.textContent ?? '');
@@ -316,6 +385,13 @@ describe('the printed phase track', () => {
     for (const [i, phase] of TURN_PHASES.entries()) {
       expect(boxes[i], phase).toContain(m.board.turnPhase[phase]);
     }
+    expect(playing.phase).toBe('main');
+    expect(phaseTrack().querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+
+    // Both sheets really do have the track printed, and both draw it. The
+    // phase is one global fact, so a screen reader is told it once.
+    expect(screen.getAllByRole('group', { name: m.board.phaseTrack })).toHaveLength(1);
+    expect(document.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
   });
 
   it('keeps DON!! spelled DON!!, because it is a name', () => {
@@ -329,26 +405,6 @@ describe('the printed phase track', () => {
     // than a copy-paste, so the difference is pinned here and in the glossary.
     expect(m.board.turnPhase.main).toBe('Principal');
     expect(m.board.phase.main).toBe('Fase principal');
-  });
-
-  it('lights exactly one box, and it is the phase the wire carries', () => {
-    // Which is always Main while anyone is looking: Refresh, Draw and DON!! run
-    // inside one reducer step, and the engine asserts that a resting playing
-    // state is in `main`. The five boxes are signage; this is the honest light.
-    loadState(playing);
-    render(<GameScreen />);
-    expect(playing.phase).toBe('main');
-    expect(within(phaseTrack()).getAllByText(m.board.turnPhase.main)).toHaveLength(1);
-    expect(phaseTrack().querySelectorAll('[aria-current="step"]')).toHaveLength(1);
-  });
-
-  it('is drawn on both mats and named on only one', () => {
-    // Both sheets really do have it printed. The phase is one global fact, so
-    // a screen reader is told it once.
-    loadState(playing);
-    render(<GameScreen />);
-    expect(screen.getAllByRole('group', { name: m.board.phaseTrack })).toHaveLength(1);
-    expect(document.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
   });
 });
 
@@ -390,6 +446,85 @@ describe('the moment, which is the part that moves', () => {
     expect(m.board.phase.blockStep).toBe('Paso de Bloqueo');
     // And it is a mark ON the lit box, not a sixth box.
     expect([...phaseTrack().children]).toHaveLength(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Portrait.
+
+describe('the condensed portrait sheet', () => {
+  afterEach(() => {
+    resetViewport();
+  });
+
+  it('leaves both halves full on a landscape screen', () => {
+    setViewport('landscape');
+    loadState(populated);
+    render(<GameScreen />);
+    for (const label of ['Jugador 1', 'Jugador 2']) {
+      const side = screen.getByRole('region', { name: label });
+      expect(side.className, label).not.toContain('condensed');
+    }
+  });
+
+  it('condenses the far half, keeps yours whole, and drops nothing from either', () => {
+    setViewport('portrait');
+    loadState(populated);
+    render(<GameScreen />);
+    const viewer = populated.priority === 'p1' ? 'Jugador 1' : 'Jugador 2';
+    const other = viewer === 'Jugador 1' ? 'Jugador 2' : 'Jugador 1';
+    // Both halves carry the class; only the far one carries `mirrored` too,
+    // and that pair is what selects the condensed opponent template.
+    expect(screen.getByRole('region', { name: other }).className).toContain('condensed');
+    expect(screen.getByRole('region', { name: other }).className).toContain('mirrored');
+    expect(screen.getByRole('region', { name: viewer }).className).toContain('condensed');
+    expect(screen.getByRole('region', { name: viewer }).className).not.toContain('mirrored');
+
+    for (const label of ['Jugador 1', 'Jugador 2']) {
+      const field = screen.getByRole('group', { name: `Campo de ${label}` });
+      // Nothing is dropped. The far half gets smaller, not emptier — what it
+      // loses is pictures of numbers, and it keeps the numbers.
+      expect(within(field).getByText('Líder'), label).toBeDefined();
+      expect(within(field).getByText('Área de Personajes'), label).toBeDefined();
+      expect(within(field).getByText('Vida'), label).toBeDefined();
+      expect(within(field).getByText('Mazo'), label).toBeDefined();
+      expect(within(field).getByRole('button', { name: /^DON!!/ }), label).toBeDefined();
+    }
+  });
+
+  it('follows the screen when it turns, rather than only reading it once', () => {
+    // The half of `useCondensedLayout` a stub returning a constant never
+    // touches: rotating a phone mid-match has to redraw the table.
+    setViewport('landscape');
+    loadState(populated);
+    render(<GameScreen />);
+    const opponent = populated.priority === 'p1' ? 'Jugador 2' : 'Jugador 1';
+    expect(screen.getByRole('region', { name: opponent }).className).not.toContain('condensed');
+
+    act(() => {
+      setViewport('portrait');
+    });
+    expect(screen.getByRole('region', { name: opponent }).className).toContain('condensed');
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('has a portrait template for each half, over the same nine zones', () => {
+    const condensedFar = templateAreas(sheet, '.condensed.mirrored .field');
+    const condensedNear = templateAreas(sheet, '.condensed:not(.mirrored) .field');
+    for (const [name, template] of [
+      ['far', condensedFar],
+      ['near', condensedNear],
+    ] as const) {
+      const named = [...new Set(template.flat())].sort();
+      // `phases` is absent from the far template on purpose: one track is
+      // enough on a phone, and the one to drop is the one no screen reader
+      // was being told about anyway.
+      const expected = name === 'far' ? MAT_AREAS.filter((area) => area !== 'phases') : MAT_AREAS;
+      expect(named, name).toEqual([...expected].sort());
+      expect([...new Set(template.map((row) => row.length))], name).toHaveLength(1);
+    }
+    // And the near half still has its Character Area against the centre line.
+    expect(condensedNear[0]).toContain('character');
   });
 });
 
@@ -461,5 +596,257 @@ describe('the fan', () => {
       fireEvent.keyDown(window, { key: 'Escape' });
     }
     expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// The assets this machine has, and what the player may pick from them.
+//
+// The board straight out of the mulligan is enough for all of it: what these
+// check is which pictures are declared over it, not what is on it.
+
+const TWO_MATS: AssetManifest = {
+  cardBack: null,
+  donBack: null,
+  playmats: [
+    { id: 'east_blue', file: 'playmats/east_blue.png', name: 'East Blue' },
+    { id: 'op01-launch', file: 'playmats/op01-launch.png', name: 'Op01 Launch' },
+  ],
+};
+
+
+/** Renders, then lets any manifest promise settle before asserting. */
+async function renderBoard(): Promise<void> {
+  loadState(board);
+  render(<GameScreen />);
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+/** The custom property the optional official back is declared through. */
+function declaredCardBack(): string {
+  const screenEl = screen.getByRole('region', { name: 'Jugador 1' }).closest('[style]');
+  return screenEl?.getAttribute('style') ?? '';
+}
+// ---------------------------------------------------------------------------
+
+describe('a machine with no local card art', () => {
+  /** Drives the loader without a screen: none of these claims needs one. */
+  async function load(): Promise<void> {
+    loadAssetManifest();
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  it('asks once for the manifest, and treats a 404 as "there is nothing here"', async () => {
+    const asked: string[] = [];
+    globalThis.fetch = vi.fn((input: unknown) => {
+      asked.push(String(input));
+      return Promise.resolve(new Response('', { status: 404 }));
+    }) as unknown as typeof fetch;
+
+    await load();
+    // Twice would be twice: the manifest is a fact about the machine, and the
+    // machine does not change while the tab is open.
+    loadAssetManifest();
+    expect(asked).toEqual(['/cards/manifest.json']);
+    expect(assetManifest()).toBe(NO_ASSETS);
+  });
+
+  it('survives a fetch that rejects, without an unhandled rejection', async () => {
+    globalThis.fetch = vi.fn(() => Promise.reject(new Error('offline'))) as unknown as typeof fetch;
+    await load();
+    expect(assetManifest()).toBe(NO_ASSETS);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('survives a body that parses but is not a manifest', async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(new Response('"a string"', { status: 200 })),
+    ) as unknown as typeof fetch;
+    await load();
+    expect(assetManifest()).toBe(NO_ASSETS);
+  });
+
+  it('runs at all where there is no fetch to call', async () => {
+    // Not hypothetical: `loadAssetManifest` is called from a render, and a
+    // render must not depend on a global an environment may not have.
+    // @ts-expect-error — deleting a global is the point of the test.
+    delete globalThis.fetch;
+    await load();
+    expect(assetManifest()).toBe(NO_ASSETS);
+  });
+
+  it('draws the board anyway, with nothing declared over the shipped back', async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(new Response('', { status: 404 })),
+    ) as unknown as typeof fetch;
+    await renderBoard();
+    expect(declaredCardBack()).toContain('--card-back: none');
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('the back this repository ships', () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(new Response('', { status: 404 })),
+    ) as unknown as typeof fetch;
+  });
+
+  it('is drawn in every zone the game asks a back for', async () => {
+    await renderBoard();
+    // Deck and DON!! deck, per player, plus the Life column of both, plus the
+    // opponent hand — the five places the real game shows a face-down card.
+    for (const label of ['Jugador 1', 'Jugador 2']) {
+      const field = screen.getByRole('group', { name: `Campo de ${label}` });
+      expect(within(field).getByText('Mazo')).toBeDefined();
+      expect(within(field).getByText(m.board.donDeck)).toBeDefined();
+      expect(within(field).getByText('Vida')).toBeDefined();
+      // One SVG back per pile that has cards in it, and one per Life card.
+      expect(field.querySelectorAll('svg').length).toBeGreaterThan(0);
+    }
+  });
+
+  it('is vector, so nothing this repository commits is an image file', async () => {
+    // The committed fallback has to be an SVG element rather than an asset:
+    // every raster extension is gitignored repository-wide, and the client's
+    // vitest config loads no Vite plugins to resolve an imported one with.
+    await renderBoard();
+    const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
+    const svg = field.querySelector('svg');
+    expect(svg).not.toBeNull();
+    expect(svg?.getAttribute('viewBox')).toBe('0 0 63 88');
+    // And it is decoration, not content: it carries no accessible name.
+    expect(svg?.getAttribute('aria-hidden')).toBe('true');
+    expect(field.querySelector('img[src$=".png"]')).toBeNull();
+  });
+});
+
+describe('a machine that does have the local archive', () => {
+  it('paints the official back over the shipped one', async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            version: 1,
+            cardBack: 'CardBackRegular.png',
+            donBack: 'DonBack.png',
+            playmats: [],
+          }),
+          { status: 200 },
+        ),
+      ),
+    ) as unknown as typeof fetch;
+
+    await renderBoard();
+
+    expect(declaredCardBack()).toContain('url("/cards/CardBackRegular.png")');
+    expect(declaredCardBack()).toContain('url("/cards/DonBack.png")');
+    // The shipped back is still underneath. It is not conditional — an
+    // official file that goes missing must degrade to a drawn card, not to a
+    // hole where a card was.
+    const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
+    expect(field.querySelector('svg')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The mat, and who gets to choose it.
+
+function pickerFor(player: 'Jugador 1' | 'Jugador 2'): HTMLSelectElement {
+  return screen.getByRole('combobox', {
+    name: m.playmat.forPlayer(player),
+  }) as HTMLSelectElement;
+}
+
+function matOf(player: 'Jugador 1' | 'Jugador 2'): string {
+  return screen.getByRole('group', { name: `Campo de ${player}` }).getAttribute('style') ?? '';
+}
+
+describe('choosing a mat', () => {
+  beforeEach(() => {
+    resetAssetManifest(TWO_MATS);
+  });
+
+  it('offers the neutral one plus whatever the local archive has, per seat', () => {
+    loadState(board);
+    render(<GameScreen />);
+    for (const player of ['Jugador 1', 'Jugador 2'] as const) {
+      const options = [...pickerFor(player).options].map((option) => option.textContent);
+      expect(options, player).toEqual([m.playmat.neutral, 'East Blue', 'Op01 Launch']);
+    }
+  });
+
+  it('paints the chosen mat on that seat only', () => {
+    loadState(board);
+    render(<GameScreen />);
+    fireEvent.change(pickerFor('Jugador 1'), { target: { value: 'east_blue' } });
+
+    expect(matOf('Jugador 1')).toContain('url("/cards/playmats/east_blue.png")');
+    // The other half keeps the neutral one. Two seats, two mats, one table.
+    expect(matOf('Jugador 2')).toContain('--playmat: none');
+  });
+
+  it('is never a move: nothing is dispatched and the game does not change', () => {
+    // The same claim `languagePicker.test.tsx` makes about the language, for
+    // the same reason. If a mat could reach the engine it would be state, and
+    // state is the one thing presentation may never become.
+    loadState(board);
+    render(<GameScreen />);
+    const before = useStore.getState().gameState;
+
+    fireEvent.change(pickerFor('Jugador 1'), { target: { value: 'op01-launch' } });
+    fireEvent.change(pickerFor('Jugador 2'), { target: { value: 'east_blue' } });
+
+    expect(useStore.getState().gameState).toBe(before);
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+    expect(useStore.getState().net).toBeNull();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('remembers the choice per seat, and reads it back on a fresh start', () => {
+    loadState(board);
+    render(<GameScreen />);
+    fireEvent.change(pickerFor('Jugador 2'), { target: { value: 'east_blue' } });
+
+    expect(globalThis.localStorage?.getItem('optcg.playmat.p2')).toBe('east_blue');
+    expect(loadPlaymat('p2')).toBe('east_blue');
+    // And the seat that was not touched is untouched, in storage too.
+    expect(globalThis.localStorage?.getItem('optcg.playmat.p1')).toBeNull();
+    expect(loadPlaymat('p1')).toBe(NEUTRAL_PLAYMAT);
+  });
+
+  it('falls back to neutral when the chosen mat is no longer in the archive', () => {
+    // A mat deleted from the local directory since the choice was stored. Not
+    // an error: an optional local file that is gone is the normal state of
+    // every optional local file.
+    useStore.setState({ playmats: { p1: 'a-mat-that-left', p2: NEUTRAL_PLAYMAT } });
+    loadState(board);
+    render(<GameScreen />);
+    expect(matOf('Jugador 1')).toContain('--playmat: none');
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('offers no control at all where there are no mats, because one option is not a choice', () => {
+    resetAssetManifest();
+    loadState(board);
+    render(<GameScreen />);
+    expect(screen.queryByRole('combobox', { name: /^Tapete/ })).toBeNull();
+    // The board still draws: the neutral mat is ours and needs no file.
+    expect(matOf('Jugador 1')).toContain('--playmat: none');
+    expect(screen.getByRole('group', { name: 'Campo de Jugador 1' })).toBeDefined();
+  });
+});
+
+describe('the url helper', () => {
+  it('turns nothing into the declaration that does not paint', () => {
+    expect(backgroundImage(null)).toBe('none');
+    expect(backgroundImage(undefined)).toBe('none');
+    expect(backgroundImage('')).toBe('none');
+    expect(backgroundImage('playmats/x.png')).toBe('url("/cards/playmats/x.png")');
+    expect(NO_ASSETS.playmats).toEqual([]);
   });
 });

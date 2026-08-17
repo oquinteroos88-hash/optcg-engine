@@ -10,6 +10,8 @@ interface DonAreaProps {
   clickable: boolean;
   /** True while the UI is picking a card to attach DON!! to. */
   attaching: boolean;
+  /** Counter mode: a chip, for the condensed opponent half on a phone. */
+  counter?: boolean;
   onClick: () => void;
 }
 
@@ -21,7 +23,14 @@ interface DonAreaProps {
  * name still opens with "DON!!" — that is how every test addresses this
  * control, and it is the name a player would use.
  */
-export function DonArea({ active, rested, clickable, attaching, onClick }: DonAreaProps): ReactElement {
+export function DonArea({
+  active,
+  rested,
+  clickable,
+  attaching,
+  counter = false,
+  onClick,
+}: DonAreaProps): ReactElement {
   const m = useMessages();
   const handleClick = (e: MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
@@ -37,15 +46,17 @@ export function DonArea({ active, rested, clickable, attaching, onClick }: DonAr
     <button
       type="button"
       style={art}
-      className={`${styles.donArea} ${stateClass}`}
+      className={`${styles.donArea} ${stateClass} ${counter ? styles.counter : ''}`}
       onClick={handleClick}
       disabled={!clickable}
       aria-label={m.board.donArea(active, rested)}
     >
       {/* The zone is called the Cost Area and that name translates. The cards
           in it are called DON!!, and that one is a name: it does not. Both are
-          printed on the real mat, and both are printed here. */}
-      <span className={styles.zone}>{m.board.costArea}</span>
+          printed on the real mat, and both are printed here — except in
+          counter mode, where the zone name is the first thing the width buys
+          back and DON!! alone still says which zone this is. */}
+      {counter ? null : <span className={styles.zone}>{m.board.costArea}</span>}
       <span className={styles.label}>DON!!</span>
       <div className={styles.counts}>
         <span className={styles.active}>{m.board.donActive(active)}</span>

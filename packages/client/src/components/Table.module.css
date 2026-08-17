@@ -30,6 +30,21 @@
   padding: var(--space-1) var(--space-2);
 }
 
+/*
+  Portrait. The far half is condensed and asks for very little, so it gets what
+  it asks for and your half takes the rest — the opposite split from landscape,
+  and right for the same reason: the half that must never be the one scrolled
+  off is the one you are sitting at.
+*/
+.condensed {
+  grid-template-rows: min-content 2px minmax(min-content, 1fr);
+  padding: 0;
+}
+
+.condensed .divider {
+  margin: var(--space-1) var(--space-4);
+}
+
 /* The battle line. The two Character rows sit against it, which is where an
    attack is drawn — the phase 1 layout left a hole here instead. */
 .divider {

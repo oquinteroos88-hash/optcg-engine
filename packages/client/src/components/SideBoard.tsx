@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactElement } from 'react';
 import type { PlayerId } from '@optcg/engine';
 import { backgroundImage, useAssetManifest } from '../game/assets';
+import { useCondensedLayout } from '../game/layout';
 import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useCanAttachDon, useSide, useWhoActs } from '../store/selectors';
 import { useStore } from '../store/store';
@@ -54,6 +55,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   const canAttachDon = useCanAttachDon();
   const assets = useAssetManifest();
   const chosen = useStore((s) => s.playmats[player]);
+  const condensed = useCondensedLayout();
 
   if (side === null) {
     return null;
@@ -62,13 +64,22 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   // since the choice was stored — resolves to `none` and the neutral mat
   // underneath shows through. Nothing is wrong when an optional file is gone.
   const playmat = backgroundImage(assets.playmats.find((mat) => mat.id === chosen)?.file ?? null);
+  // Only the far half condenses. Yours keeps the full sheet: the room this
+  // frees is room the half with faces on it needs.
+  const counters = mirrored && condensed;
   // "Mine" is relative to who acts now, which is what affordances describe.
   const mine = whoActs === player;
   const label = playerLabel(player, m);
 
   return (
     <section
-      className={`${styles.sideBoard} ${mirrored ? styles.mirrored : ''}`}
+      className={[
+        styles.sideBoard,
+        mirrored ? styles.mirrored : '',
+        condensed ? styles.condensed : '',
+      ]
+        .filter((name) => name !== '')
+        .join(' ')}
       aria-label={label}
     >
       {/* The chosen mat rides on the field, not on the section: a half must
@@ -81,7 +92,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
         style={{ '--playmat': playmat } as CSSProperties}
       >
         <div className={styles.life}>
-          <LifeStack count={side.lifeCount} />
+          <LifeStack count={side.lifeCount} counter={counters} />
         </div>
 
         <div className={styles.character}>
@@ -102,11 +113,11 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
         </div>
 
         <div className={styles.deck}>
-          <DeckPile label={m.board.deck} count={side.deckCount} />
+          <DeckPile label={m.board.deck} count={side.deckCount} counter={counters} />
         </div>
 
         <div className={styles.don}>
-          <DeckPile label={m.board.donDeck} count={side.donDeck} compact />
+          <DeckPile label={m.board.donDeck} count={side.donDeck} compact counter={counters} />
         </div>
 
         <div className={styles.cost}>
@@ -115,6 +126,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
             rested={side.donRested}
             clickable={mine && canAttachDon}
             attaching={mine && attachingDon}
+            counter={counters}
             onClick={() => uiEvent({ kind: 'clickDonArea' })}
           />
         </div>
@@ -125,6 +137,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
           <TrashPile
             count={side.trashCount}
             top={side.trashTop}
+            counter={counters}
             onOpen={() => viewTrash(player)}
           />
         </div>

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useCondensedLayout } from '../game/layout';
 import { useViewer } from '../store/selectors';
 import { useStore } from '../store/store';
 import { SideBoard } from './SideBoard';
@@ -7,6 +8,7 @@ import styles from './Table.module.css';
 export function Table(): ReactElement | null {
   const viewer = useViewer();
   const uiEvent = useStore((s) => s.uiEvent);
+  const condensed = useCondensedLayout();
 
   if (viewer === null) {
     return null;
@@ -23,7 +25,10 @@ export function Table(): ReactElement | null {
   // Character areas face the centre line and every label stays readable.
   const opponent = viewer === 'p1' ? 'p2' : 'p1';
   return (
-    <div className={styles.table} onClick={() => uiEvent({ kind: 'clickEmpty' })}>
+    <div
+      className={`${styles.table} ${condensed ? styles.condensed : ''}`}
+      onClick={() => uiEvent({ kind: 'clickEmpty' })}
+    >
       <SideBoard player={opponent} mirrored />
       {/* The centre line is a row of the table's own grid, not a margin: the
           two Character Areas are placed against it rather than left next to a

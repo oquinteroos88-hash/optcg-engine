@@ -12,19 +12,30 @@ import styles from './LifeStack.module.css';
  * position for the same reason: there is no instance here to key by, and
  * putting one in the DOM would be exactly the leak the view refuses to make.
  */
-export function LifeStack({ count }: { count: number }): ReactElement {
+interface LifeStackProps {
+  count: number;
+  /**
+   * Counter mode: the label and the number, no column of backs. The condensed
+   * opponent half on a phone — their Life was never anything but a number.
+   */
+  counter?: boolean;
+}
+
+export function LifeStack({ count, counter = false }: LifeStackProps): ReactElement {
   const m = useMessages();
   return (
     <div className={styles.lifeStack}>
       <span className={styles.label}>{m.board.life}</span>
-      <div className={styles.stack}>
-        {count === 0 ? <div className={styles.emptySlot} /> : null}
-        {Array.from({ length: count }, (_, i) => (
-          <div key={i} className={styles.back}>
-            <CardBackArt />
-          </div>
-        ))}
-      </div>
+      {counter ? null : (
+        <div className={styles.stack}>
+          {count === 0 ? <div className={styles.emptySlot} /> : null}
+          {Array.from({ length: count }, (_, i) => (
+            <div key={i} className={styles.back}>
+              <CardBackArt />
+            </div>
+          ))}
+        </div>
+      )}
       <span className={styles.count}>{count}</span>
     </div>
   );

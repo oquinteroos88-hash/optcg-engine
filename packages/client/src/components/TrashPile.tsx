@@ -7,6 +7,8 @@ interface TrashPileProps {
   count: number;
   /** The card on top, face-up. Null on an empty pile. */
   top: { cardId: string; name: string } | null;
+  /** Counter mode: the count alone, for the condensed opponent half. */
+  counter?: boolean;
   onOpen: () => void;
 }
 
@@ -23,7 +25,7 @@ interface TrashPileProps {
  * accessible name every suite addresses this pile by. Reading the whole pile is
  * what the viewer this opens is for.
  */
-export function TrashPile({ count, top, onOpen }: TrashPileProps): ReactElement {
+export function TrashPile({ count, top, counter = false, onOpen }: TrashPileProps): ReactElement {
   const m = useMessages();
   const label = m.board.trash;
 
@@ -36,17 +38,17 @@ export function TrashPile({ count, top, onOpen }: TrashPileProps): ReactElement 
   return (
     <button
       type="button"
-      className={styles.pile}
+      className={`${styles.pile} ${counter ? styles.counterMode : ''}`}
       onClick={handleClick}
       disabled={count === 0}
       aria-label={m.board.pile(label, count)}
     >
       <span className={styles.label}>{label}</span>
       <div className={`${styles.stack} ${top === null ? styles.empty : ''}`}>
-        {top === null || !hasCardImage(top.cardId) ? null : (
+        {top === null || counter || !hasCardImage(top.cardId) ? null : (
           <img className={styles.face} src={cardImageSrc(top.cardId)} alt="" aria-hidden="true" />
         )}
-        {top === null ? null : <span className={styles.name}>{top.name}</span>}
+        {top === null || counter ? null : <span className={styles.name}>{top.name}</span>}
         <span className={styles.count}>{count}</span>
       </div>
     </button>

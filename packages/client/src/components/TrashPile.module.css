@@ -41,6 +41,15 @@
   color: var(--color-muted);
 }
 
+/* Counter mode: a chip with a number. See the `counter` prop. */
+.counterMode .stack {
+  width: auto;
+  min-width: var(--counter-w);
+  aspect-ratio: auto;
+  padding: 1px var(--space-1);
+  background: var(--color-surface-2);
+}
+
 /* The card lying face-up on the pile. Decoration: the name beside it is what
    carries the information, and the viewer is what carries the rest. */
 .face {

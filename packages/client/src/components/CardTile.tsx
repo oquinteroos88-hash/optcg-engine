@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import type { MouseEvent, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
 import { cardImageSrc, hasCardImage } from '../game/cardImage';
@@ -88,9 +89,33 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
     .filter((line) => line !== '')
     .join('\n');
 
+  const clickable = clickState !== 'inert';
+
   return (
-    <button
+    /**
+     * `layoutId` is the whole journey system: one card, one id, and Motion
+     * animates it between wherever it was and wherever the new view puts it —
+     * hand to field, field to trash, deck to hand. Nothing schedules those
+     * moves. The store has already applied the update and this element is
+     * already in its new parent; the animation is catching up to a DOM that is
+     * telling the truth, which is why an update landing mid-flight re-targets
+     * rather than corrupting anything.
+     *
+     * The id is the viewer's own `InstanceId` from its own view. Motion
+     * consumes `layoutId` and never writes it to the DOM, and a card the viewer
+     * may not identify has no id in the view to begin with — it is drawn as an
+     * anonymous back, which is exactly what it is.
+     */
+    <motion.button
       type="button"
+      layoutId={id}
+      layout="position"
+      /* Rested is a real rotation, and now an animated one. It used to be a CSS
+         class; Motion owns `transform` on this element, so a CSS rule setting
+         one would be overridden and silently stop working. Same for the hover
+         lift and the highlight bounce — all three live here now. */
+      animate={{ rotate: view.rested ? 90 : 0, y: highlighted ? -3 : 0 }}
+      {...(clickable ? { whileHover: { y: highlighted ? -3 : -4 } } : {})}
       className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass} ${artClass}`}
       onClick={handleClick}
       onMouseEnter={() => hover(id)}
@@ -148,6 +173,6 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
           ★
         </span>
       )}
-    </button>
+    </motion.button>
   );
 }

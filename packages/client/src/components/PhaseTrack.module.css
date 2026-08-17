@@ -1,0 +1,46 @@
+/*
+  The printed track, in the free space the mat gives it. Boxes in a row, joined
+  by their borders the way the sheet draws them — one strip, not five chips.
+*/
+.track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-width: 0;
+}
+
+.box {
+  display: grid;
+  place-items: center;
+  gap: 0;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* The phase the turn is in. On this engine that is Main whenever anything is
+   running — see PhaseTrack.tsx for why that is a fact and not a bug. */
+.lit {
+  color: var(--color-text);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  font-weight: 700;
+}
+
+/* Block Step, Counter Step, Mulligan: the part that actually moves. */
+.moment {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-accent);
+}

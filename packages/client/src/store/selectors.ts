@@ -166,6 +166,73 @@ export function useBanner(): BannerView | null {
 }
 
 // ---------------------------------------------------------------------------
+// The phase track the mat prints
+
+/** The five phases of a turn, as the rules and the printed sheet name them. */
+export type TurnPhase = 'refresh' | 'draw' | 'don' | 'main' | 'end';
+
+export const TURN_PHASES: readonly TurnPhase[] = Object.freeze([
+  'refresh',
+  'draw',
+  'don',
+  'main',
+  'end',
+]);
+
+export interface PhaseTrackView {
+  /**
+   * The phase on the wire — and in practice always `main` while anyone is
+   * looking.
+   *
+   * Refresh, Draw and DON!! happen inside one reducer step at the top of a
+   * turn (`reducer/startTurn.ts`), and the engine asserts that every resting
+   * playing state is in `main` (`invariants.ts`). So the printed five-box track
+   * is signage, faithfully reproduced, and the box that lights up is this one.
+   */
+  phase: TurnPhase;
+  /**
+   * What is actually happening, which is the part that moves.
+   *
+   * The engine's phase cannot distinguish a Block Step from a quiet Main phase;
+   * the client's `PhaseKey` can, and does, and always has — it is what the
+   * Banner reads. The track shows it as a marker on the lit box, so the mat
+   * stays the mat and the player still learns where in the turn they are.
+   */
+  moment: PhaseKey;
+  activePlayer: PlayerId;
+  /**
+   * False during the mulligan and after the game ends. `view.phase` still holds
+   * a value then, and lighting a box would claim a turn structure that is not
+   * running. Nothing lit is better than something wrong.
+   */
+  live: boolean;
+}
+
+const phaseTrackCache = new WeakMap<PlayerView, PhaseTrackView>();
+
+function phaseTrackOf(view: PlayerView): PhaseTrackView {
+  const cached = phaseTrackCache.get(view);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const track: PhaseTrackView = {
+    phase: view.phase,
+    moment: bannerOf(view).phase,
+    activePlayer: view.activePlayer,
+    live: view.status === 'playing',
+  };
+  phaseTrackCache.set(view, track);
+  return track;
+}
+
+export function usePhaseTrack(): PhaseTrackView | null {
+  return useStore((s) => {
+    const view = selectView(s);
+    return view === null ? null : phaseTrackOf(view);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Opponent's turn to decide
 
 export interface OpponentChoiceView {

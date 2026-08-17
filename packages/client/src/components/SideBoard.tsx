@@ -10,6 +10,7 @@ import { DonArea } from './DonArea';
 import { HandRow } from './HandRow';
 import { LeaderSlot } from './LeaderSlot';
 import { LifeStack } from './LifeStack';
+import { PhaseTrack } from './PhaseTrack';
 import { StageSlot } from './StageSlot';
 import styles from './SideBoard.module.css';
 
@@ -122,9 +123,11 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
           />
         </div>
 
-        {/* The `phases` area is in the template and is deliberately empty here:
-            the mat prints the phase track in this space, and the track itself
-            arrives with the selector that knows which phase is live. */}
+        {/* The free space the printed sheet fills with the phase track. Both
+            mats have it; only the viewer's is in the accessibility tree. */}
+        <div className={styles.phases}>
+          <PhaseTrack silent={mirrored} />
+        </div>
       </div>
 
       {/* A hand the view publishes in full is drawn face-up; one it publishes

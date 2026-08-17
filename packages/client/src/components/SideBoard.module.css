@@ -153,6 +153,13 @@
   place-items: center;
 }
 
+.phases {
+  grid-area: phases;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
 /* The Cost Area is the wide one on the real mat, and the only zone that grows
    into the space it is given. */
 .cost > * {

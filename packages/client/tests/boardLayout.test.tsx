@@ -16,8 +16,10 @@ import type { GameState } from '@optcg/engine';
 import { fanGeometry } from '../src/components/HandRow';
 import { messagesFor } from '../src/i18n';
 import { GameScreen } from '../src/screens/GameScreen';
+import { TURN_PHASES } from '../src/store/selectors';
 import { hotSeatSnapshot, useStore } from '../src/store/store';
 import { firstStarterStateWhere } from './corpus';
+import { openingBoard } from './openingBoard';
 
 /** The suites run in Spanish — see `tests/setup.ts`. */
 const m = messagesFor('es');
@@ -216,6 +218,108 @@ describe('the official zones are all on the board', () => {
       // The cost area is the only clickable zone of the three DON!! ones.
       expect(within(field).getByRole('button', { name: /^DON!!/ })).toBeDefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The phase track the mat prints in its free space.
+//
+// It lives in this file rather than in one of its own for the reason recorded
+// in `boardAssets.test.tsx`: every `.tsx` suite pays a jsdom environment, they
+// run in parallel, and they share their CPUs with `fullGame.test.ts`, whose
+// five-second budget has about half a second of headroom. This suite is
+// already about what the mat says; the track is the newest thing it says.
+
+function phaseTrack(): HTMLElement {
+  return screen.getByRole('group', { name: m.board.phaseTrack });
+}
+
+/** The board straight out of the mulligan: cheap, and always in `main`. */
+const playing = openingBoard();
+
+describe('the printed phase track', () => {
+  it('prints all five phases, in turn order', () => {
+    loadState(playing);
+    render(<GameScreen />);
+    const boxes = [...phaseTrack().children].map((box) => box.textContent ?? '');
+    expect(boxes).toHaveLength(5);
+    for (const [i, phase] of TURN_PHASES.entries()) {
+      expect(boxes[i], phase).toContain(m.board.turnPhase[phase]);
+    }
+  });
+
+  it('keeps DON!! spelled DON!!, because it is a name', () => {
+    expect(m.board.turnPhase.don).toBe('DON!!');
+    expect(messagesFor('en').board.turnPhase.don).toBe('DON!!');
+  });
+
+  it('says Principal on the mat and Fase principal in the banner, on purpose', () => {
+    // Two registers for one phase: a box on a sheet, and a sentence at the top
+    // of the screen. If these ever converge it should be a decision rather
+    // than a copy-paste, so the difference is pinned here and in the glossary.
+    expect(m.board.turnPhase.main).toBe('Principal');
+    expect(m.board.phase.main).toBe('Fase principal');
+  });
+
+  it('lights exactly one box, and it is the phase the wire carries', () => {
+    // Which is always Main while anyone is looking: Refresh, Draw and DON!! run
+    // inside one reducer step, and the engine asserts that a resting playing
+    // state is in `main`. The five boxes are signage; this is the honest light.
+    loadState(playing);
+    render(<GameScreen />);
+    expect(playing.phase).toBe('main');
+    expect(within(phaseTrack()).getAllByText(m.board.turnPhase.main)).toHaveLength(1);
+    expect(phaseTrack().querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+  });
+
+  it('is drawn on both mats and named on only one', () => {
+    // Both sheets really do have it printed. The phase is one global fact, so
+    // a screen reader is told it once.
+    loadState(playing);
+    render(<GameScreen />);
+    expect(screen.getAllByRole('group', { name: m.board.phaseTrack })).toHaveLength(1);
+    expect(document.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+  });
+});
+
+describe('the moment, which is the part that moves', () => {
+  it('lights nothing during the mulligan', () => {
+    // Before the turn structure starts there is no phase to be in. `view.phase`
+    // still holds a value; lighting it would claim a turn that is not running.
+    loadState({ ...playing, status: 'mulligan' });
+    render(<GameScreen />);
+    expect(phaseTrack().querySelectorAll('[aria-current="step"]')).toHaveLength(0);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('lights nothing once the game is over', () => {
+    loadState({ ...playing, status: 'finished', winner: 'p1' });
+    render(<GameScreen />);
+    expect(phaseTrack().querySelectorAll('[aria-current="step"]')).toHaveLength(0);
+  });
+
+  it('marks the Block Step on the lit box, which the wire phase cannot', () => {
+    // `view.phase` is `main` throughout a battle. Without this the track would
+    // say nothing about the one moment a defender has to act in.
+    loadState({
+      ...playing,
+      battle: {
+        step: 'block',
+        attacker: playing.players.p1.leader,
+        target: playing.players.p2.leader,
+        originalTarget: playing.players.p2.leader,
+        wasBlocked: false,
+      },
+    });
+    render(<GameScreen />);
+    expect(within(phaseTrack()).getByText(m.board.moment.blockStep)).toBeDefined();
+    // The short form, deliberately. The Banner and the battle panel own the
+    // long one, and two suites address that panel by exactly those words — a
+    // mat that repeated them would make the panel ambiguous.
+    expect(m.board.moment.blockStep).toBe('Bloqueo');
+    expect(m.board.phase.blockStep).toBe('Paso de Bloqueo');
+    // And it is a mark ON the lit box, not a sixth box.
+    expect([...phaseTrack().children]).toHaveLength(5);
   });
 });
 

@@ -116,6 +116,20 @@ export const es: Messages = {
       counterStep: 'Paso de Contraataque',
       finished: 'Partida terminada',
     },
+    turnPhase: {
+      refresh: 'Refresco',
+      draw: 'Robo',
+      don: 'DON!!',
+      main: 'Principal',
+      end: 'Fin',
+    },
+    moment: {
+      mulligan: 'Mulligan',
+      blockStep: 'Bloqueo',
+      counterStep: 'Contraataque',
+    },
+    phaseTrack: 'Fases',
+    currentPhase: (name) => `Fase actual: ${name}`,
   },
 
   card: {

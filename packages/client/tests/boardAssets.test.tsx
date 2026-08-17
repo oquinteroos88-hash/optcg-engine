@@ -1,16 +1,26 @@
 // @vitest-environment jsdom
 //
-// The card back, and what happens on the machine that has no card art.
+// What this machine has, and what the player may pick from it: the card back,
+// the playmats, and the machine that has neither.
 //
 // That machine is not an edge case: it is every clone of this repository. No
 // official artwork is committed — `.gitignore` refuses every raster format and
 // `packages/cards/tests/noTrackedArt.test.ts` fails if one reaches the index —
 // so the state this suite spends most of its time in is the normal one, and
 // the manifest is the only thing that ever says otherwise.
+//
+// The playmat control lives here rather than in a file of its own for a
+// reason that is not tidiness: every `.tsx` suite pays a jsdom environment,
+// they run in parallel, and they share their CPUs with `fullGame.test.ts`,
+// whose five-second budget has about half a second of headroom. Three new
+// jsdom files put it over. Two concerns that mock the same manifest belong in
+// one file anyway; the budget is what made it urgent.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { GameState } from '@optcg/engine';
 import { NO_ASSETS, backgroundImage, resetAssetManifest } from '../src/game/assets';
+import type { AssetManifest } from '../src/game/assets';
+import { NEUTRAL_PLAYMAT, loadPlaymat } from '../src/game/playmat';
 import { messagesFor } from '../src/i18n';
 import { GameScreen } from '../src/screens/GameScreen';
 import { hotSeatSnapshot, useStore } from '../src/store/store';
@@ -24,15 +34,32 @@ const board: GameState = openingBoard();
 let errorSpy: ReturnType<typeof vi.spyOn>;
 const realFetch = globalThis.fetch;
 
+const TWO_MATS: AssetManifest = {
+  cardBack: null,
+  donBack: null,
+  playmats: [
+    { id: 'east_blue', file: 'playmats/east_blue.png', name: 'East Blue' },
+    { id: 'op01-launch', file: 'playmats/op01-launch.png', name: 'Op01 Launch' },
+  ],
+};
+
+function forgetPlaymats(): void {
+  globalThis.localStorage?.removeItem('optcg.playmat.p1');
+  globalThis.localStorage?.removeItem('optcg.playmat.p2');
+  useStore.setState({ playmats: { p1: NEUTRAL_PLAYMAT, p2: NEUTRAL_PLAYMAT } });
+}
+
 beforeEach(() => {
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
   resetAssetManifest();
+  forgetPlaymats();
 });
 
 afterEach(() => {
   cleanup();
   errorSpy.mockRestore();
   resetAssetManifest();
+  forgetPlaymats();
   globalThis.fetch = realFetch;
   useStore.getState().toSetup();
 });
@@ -170,6 +197,94 @@ describe('a machine that does have the local archive', () => {
     // hole where a card was.
     const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
     expect(field.querySelector('svg')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The mat, and who gets to choose it.
+
+function pickerFor(player: 'Jugador 1' | 'Jugador 2'): HTMLSelectElement {
+  return screen.getByRole('combobox', {
+    name: m.playmat.forPlayer(player),
+  }) as HTMLSelectElement;
+}
+
+function matOf(player: 'Jugador 1' | 'Jugador 2'): string {
+  return screen.getByRole('group', { name: `Campo de ${player}` }).getAttribute('style') ?? '';
+}
+
+describe('choosing a mat', () => {
+  beforeEach(() => {
+    resetAssetManifest(TWO_MATS);
+  });
+
+  it('offers the neutral one plus whatever the local archive has, per seat', () => {
+    loadState(board);
+    render(<GameScreen />);
+    for (const player of ['Jugador 1', 'Jugador 2'] as const) {
+      const options = [...pickerFor(player).options].map((option) => option.textContent);
+      expect(options, player).toEqual([m.playmat.neutral, 'East Blue', 'Op01 Launch']);
+    }
+  });
+
+  it('paints the chosen mat on that seat only', () => {
+    loadState(board);
+    render(<GameScreen />);
+    fireEvent.change(pickerFor('Jugador 1'), { target: { value: 'east_blue' } });
+
+    expect(matOf('Jugador 1')).toContain('url("/cards/playmats/east_blue.png")');
+    // The other half keeps the neutral one. Two seats, two mats, one table.
+    expect(matOf('Jugador 2')).toContain('--playmat: none');
+  });
+
+  it('is never a move: nothing is dispatched and the game does not change', () => {
+    // The same claim `languagePicker.test.tsx` makes about the language, for
+    // the same reason. If a mat could reach the engine it would be state, and
+    // state is the one thing presentation may never become.
+    loadState(board);
+    render(<GameScreen />);
+    const before = useStore.getState().gameState;
+
+    fireEvent.change(pickerFor('Jugador 1'), { target: { value: 'op01-launch' } });
+    fireEvent.change(pickerFor('Jugador 2'), { target: { value: 'east_blue' } });
+
+    expect(useStore.getState().gameState).toBe(before);
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+    expect(useStore.getState().net).toBeNull();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('remembers the choice per seat, and reads it back on a fresh start', () => {
+    loadState(board);
+    render(<GameScreen />);
+    fireEvent.change(pickerFor('Jugador 2'), { target: { value: 'east_blue' } });
+
+    expect(globalThis.localStorage?.getItem('optcg.playmat.p2')).toBe('east_blue');
+    expect(loadPlaymat('p2')).toBe('east_blue');
+    // And the seat that was not touched is untouched, in storage too.
+    expect(globalThis.localStorage?.getItem('optcg.playmat.p1')).toBeNull();
+    expect(loadPlaymat('p1')).toBe(NEUTRAL_PLAYMAT);
+  });
+
+  it('falls back to neutral when the chosen mat is no longer in the archive', () => {
+    // A mat deleted from the local directory since the choice was stored. Not
+    // an error: an optional local file that is gone is the normal state of
+    // every optional local file.
+    useStore.setState({ playmats: { p1: 'a-mat-that-left', p2: NEUTRAL_PLAYMAT } });
+    loadState(board);
+    render(<GameScreen />);
+    expect(matOf('Jugador 1')).toContain('--playmat: none');
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('offers no control at all where there are no mats, because one option is not a choice', () => {
+    resetAssetManifest();
+    loadState(board);
+    render(<GameScreen />);
+    expect(screen.queryByRole('combobox', { name: /^Tapete/ })).toBeNull();
+    // The board still draws: the neutral mat is ours and needs no file.
+    expect(matOf('Jugador 1')).toContain('--playmat: none');
+    expect(screen.getByRole('group', { name: 'Campo de Jugador 1' })).toBeDefined();
   });
 });
 

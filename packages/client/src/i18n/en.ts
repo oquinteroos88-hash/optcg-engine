@@ -123,6 +123,35 @@ export const en = {
       counterStep: 'Counter Step',
       finished: 'Game over',
     },
+    /**
+     * The five boxes the mat prints, in turn order.
+     *
+     * Short forms on purpose, and deliberately not the same strings as
+     * `phase` above: that one names the phase in a sentence at the top of the
+     * screen ("Main phase"), this one labels a box on a mat ("Main"). The
+     * glossary records both so the difference reads as a decision.
+     */
+    turnPhase: {
+      refresh: 'Refresh',
+      draw: 'Draw',
+      don: 'DON!!',
+      main: 'Main',
+      end: 'End',
+    },
+    /**
+     * The live moment, marked on the lit box of the track.
+     *
+     * Short forms of `phase` above, for the same reason `turnPhase` is: this
+     * is a mark inside a box on a mat, and the Banner is already saying the
+     * long form at the top of the screen. Two registers, one fact.
+     */
+    moment: {
+      mulligan: 'Mulligan',
+      blockStep: 'Block',
+      counterStep: 'Counter',
+    },
+    phaseTrack: 'Phases',
+    currentPhase: (name: string): string => `Current phase: ${name}`,
   },
 
   card: {

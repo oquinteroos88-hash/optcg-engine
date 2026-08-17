@@ -1240,3 +1240,65 @@ describe('dragging a card out of hand', () => {
     expect(zoneAt(10, 10, doc)).toBeNull();
   });
 });
+
+// ===========================================================================
+// The phone, after the report from a real one.
+
+describe('what a phone shows', () => {
+  afterEach(() => {
+    resetViewport();
+  });
+
+  it('drops the settings from the bar, which is what was overflowing the page', () => {
+    // Measured on a 375px screen: the bar was 512px wide because the language,
+    // playmat and veil controls do not wrap. The document grew with it, and
+    // every `position: fixed` overlay then centred itself against a box wider
+    // than the screen — which is why the mulligan and the card menu were half
+    // off-screen and the mulligan could not be answered at all.
+    setViewport('portrait');
+    loadState(heldBoard);
+    render(<GameScreen />);
+
+    expect(screen.queryByRole('combobox', { name: 'Idioma' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /^Tapete/ })).toBeNull();
+    expect(screen.queryByLabelText(m.board.veilOpponentHand)).toBeNull();
+    // What a player came for is still there.
+    expect(screen.getByRole('button', { name: m.board.concede })).toBeDefined();
+  });
+
+  it('keeps them on a screen with room, because nothing was removed', () => {
+    setViewport('landscape');
+    loadState(heldBoard);
+    render(<GameScreen />);
+    expect(screen.getByRole('combobox', { name: 'Idioma' })).toBeDefined();
+    expect(screen.getAllByRole('combobox', { name: /^Tapete/ }).length).toBeGreaterThan(0);
+  });
+
+  it('puts the card itself in the menu, big, where there is no preview rail', () => {
+    // On a phone the tile is forty pixels wide and the rail that would show it
+    // at size is not on screen. The thing being decided about has to be in the
+    // dialog it is decided in.
+    setViewport('portrait');
+    loadState(heldBoard);
+    render(<GameScreen />);
+
+    const seat = heldBoard.priority;
+    const hand = heldBoard.players[seat].hand;
+    const affordances = useStore.getState().affordances;
+    const playable = hand.find((id) => affordances?.byCard[id]?.canPlay === true);
+    expect(playable).toBeDefined();
+
+    act(() => {
+      useStore.getState().uiEvent({ kind: 'clickHandCard', instanceId: playable ?? '' });
+    });
+
+    // The menu is open and carries an image of the card, not just its name.
+    const cancel = screen.queryByRole('button', { name: m.common.cancel });
+    if (cancel === null) {
+      // Single-option cards still act on the first click; nothing to assert.
+      return;
+    }
+    const dialog = cancel.parentElement;
+    expect(dialog?.querySelector('img')).not.toBeNull();
+  });
+});

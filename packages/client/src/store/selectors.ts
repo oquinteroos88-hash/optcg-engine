@@ -1296,6 +1296,8 @@ export function usePreview(): PreviewView | null {
 
 export interface CardMenuView {
   card: InstanceId;
+  /** The printed card, for the art the phone sheet shows. */
+  cardId: string;
   name: string;
   options: readonly { label: string; hint: string | null }[];
 }
@@ -1345,6 +1347,7 @@ const cardMenuOf = memoize1(
     let seen = 0;
     return {
       card: mode.card,
+      cardId: card.cardId,
       name: getCardDef(card.cardId).name,
       options: options.map((option) => {
         const entry = labelFor(option, card.cardId, locale, m);

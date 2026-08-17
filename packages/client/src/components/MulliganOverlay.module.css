@@ -33,11 +33,50 @@
   color: var(--color-muted);
 }
 
+/*
+  A fan, not a row.
+
+  Five cards at full width is wider than a phone; the dialog grew past the
+  screen and the two buttons went with it, which made the mulligan unanswerable
+  on the device where it matters most. Overlapping bounds the footprint at any
+  width, and the card you point at comes forward.
+*/
 .hand {
   display: flex;
-  gap: var(--space-3);
-  flex-wrap: wrap;
   justify-content: center;
+  padding-top: calc(var(--card-h) * 0.25);
+}
+
+.slot {
+  position: relative;
+  flex: 0 0 auto;
+  transition:
+    transform 0.14s ease,
+    filter 0.14s ease;
+  transform-origin: bottom center;
+}
+
+.slot + .slot {
+  margin-left: calc(var(--card-w) * -0.42);
+}
+
+/*
+  Forward, and readable. `:focus-within` is not decoration: the tiles are
+  buttons, so tabbing through the hand has to show the card too — and on a
+  touch screen there is no hover at all, which is what hold-to-enlarge is for.
+*/
+.slot:hover,
+.slot:focus-within {
+  transform: scale(1.75) translateY(-8%);
+  z-index: 20 !important;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.7));
+}
+
+.peekHint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-muted);
+  text-align: center;
 }
 
 .actions {

@@ -12,6 +12,7 @@ import {
   useTargeting,
 } from '../store/selectors';
 import { useStore } from '../store/store';
+import { CardBackArt } from './CardBackArt';
 import styles from './CardTile.module.css';
 
 interface CardTileProps {
@@ -44,8 +45,12 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
     return null;
   }
   if (veiled) {
+    // The same back the piles and the Life column draw. A hand you may not
+    // read looks like a hand nobody can read, because that is what it is.
     return (
-      <div className={`${styles.card} ${styles.back}`} aria-label={m.common.hiddenCardLabel} />
+      <div className={`${styles.card} ${styles.back}`} aria-label={m.common.hiddenCardLabel}>
+        <CardBackArt />
+      </div>
     );
   }
 

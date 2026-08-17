@@ -1,20 +1,89 @@
+/*
+  Two mats facing each other, with the battle line between them.
+
+  A grid rather than a flex column so the line is a track of its own: the two
+  Character Areas are placed against it by the layout, instead of ending up
+  next to a divider that is drawn wherever the flow leaves room.
+*/
 .table {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  display: grid;
+  /*
+    Three children, three tracks, in source order: opponent, line, viewer.
+    Deliberately not named areas — naming them would need a wrapper around each
+    half, and a half is already the thing `SideBoard` renders.
+
+    The two halves get the same track, not `auto` and `1fr`. An `auto` top half
+    takes whatever it wants and leaves the remainder to the bottom one, which
+    is the half the player is sitting at: on a short window the first thing to
+    get clipped was your own mat. Equal tracks compress both, the way two mats
+    on a table that is too small share the shortage.
+
+    `min-content` is the floor of both, so a window too short for two mats
+    scrolls instead of letting the top one bleed across the centre line. A mat
+    that overlaps the other mat is not a smaller table, it is a wrong one.
+  */
+  grid-template-rows: minmax(min-content, 1fr) 2px minmax(min-content, 1fr);
   flex: 1 1 auto;
   min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--space-1) var(--space-2);
+
+  /*
+    The table itself: planks, seams and a bit of grain, all in gradients.
+
+    Drawn rather than photographed. A wood texture would be an image file, and
+    this repository commits none — so the table is three repeating gradients,
+    which cost nothing to ship, nothing to load and scale to any window.
+
+    Read bottom-up in the stack below: a warm base, long grain streaks over it,
+    then the seams between boards. Kept dark and low-contrast on purpose — it is
+    the surface UNDER the mats, and a table that competes with the cards on it
+    is a worse table.
+  */
+  background-color: var(--wood-mid);
+  background-image:
+    /* Seams: the gap between one board and the next. */
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 clamp(90px, 14vw, 190px),
+      var(--wood-seam) clamp(90px, 14vw, 190px) calc(clamp(90px, 14vw, 190px) + 2px)
+    ),
+    /* Grain: fine streaks along the length of each board. */
+      repeating-linear-gradient(
+        88deg,
+        color-mix(in srgb, var(--wood-light) 45%, transparent) 0 2px,
+        transparent 2px 7px,
+        color-mix(in srgb, var(--wood-dark) 40%, transparent) 7px 9px,
+        transparent 9px 16px
+      ),
+    /* The boards themselves, alternating slightly so no two look identical. */
+      repeating-linear-gradient(
+        90deg,
+        var(--wood-mid) 0 clamp(90px, 14vw, 190px),
+        var(--wood-dark) clamp(90px, 14vw, 190px) clamp(180px, 28vw, 380px)
+      );
+}
+
+/*
+  Portrait. The far half is condensed and asks for very little, so it gets what
+  it asks for and your half takes the rest — the opposite split from landscape,
+  and right for the same reason: the half that must never be the one scrolled
+  off is the one you are sitting at.
+*/
+.condensed {
+  grid-template-rows: min-content 2px minmax(min-content, 1fr);
+  padding: 0;
+}
+
+.condensed .divider {
+  margin: var(--space-1) var(--space-4);
 }
 
 /* The battle line. The two Character rows sit against it, which is where an
    attack is drawn — the phase 1 layout left a hole here instead. */
 .divider {
-  height: 2px;
   background: var(--color-border);
-  margin: var(--space-1) var(--space-5);
+  margin: 0 var(--space-5);
   border-radius: 1px;
-  flex: 0 0 auto;
 }

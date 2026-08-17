@@ -11,9 +11,18 @@
   text-transform: uppercase;
 }
 
+/* See `--slot` in tokens.css. */
+.slot {
+  width: var(--slot);
+  height: var(--slot);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
 .empty {
   width: var(--card-w);
-  height: var(--card-h);
+  aspect-ratio: 63 / 88;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius);
 }

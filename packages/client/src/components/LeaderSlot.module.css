@@ -10,3 +10,12 @@
   color: var(--color-accent);
   text-transform: uppercase;
 }
+
+/* See `--slot` in tokens.css: square, so resting the Leader shifts nothing. */
+.slot {
+  width: var(--slot);
+  height: var(--slot);
+  display: grid;
+  place-items: center;
+  position: relative;
+}

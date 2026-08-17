@@ -21,6 +21,8 @@ import { getAffordances, indexAffordances } from '../game/affordances';
 import type { Affordances } from '../game/affordances';
 import { initialLocale, saveLocale } from '../i18n/locale';
 import type { Locale } from '../i18n/locale';
+import { initialPlaymats, savePlaymat } from '../game/playmat';
+import type { PlaymatId } from '../game/playmat';
 import { groupEvents } from '../game/animQueue';
 import type { AnimGroup } from '../game/animQueue';
 import { toAction } from '../game/intent';
@@ -90,6 +92,11 @@ export interface StoreState {
    * mid-match is a re-render, which is why the control is offered during play.
    */
   locale: Locale;
+  /**
+   * The mat each seat plays on. Same rule as the locale, seat by seat: local,
+   * cosmetic, and never on the wire. See `game/playmat.ts`.
+   */
+  playmats: Record<PlayerId, PlaymatId>;
   setup: SetupConfig | null;
   /**
    * Hot-seat only: the authoritative state this client owns and drives. Null
@@ -129,6 +136,7 @@ export interface StoreState {
   notice: string | null;
   /** Switches language, in place and mid-match. Persisted; never dispatched. */
   setLocale: (locale: Locale) => void;
+  setPlaymat: (player: PlayerId, id: PlaymatId) => void;
   newGame: (cfg: SetupConfig) => void;
   /** Replays the stored setup — same seed, same game. */
   rematch: () => void;
@@ -309,6 +317,7 @@ export const useStore = create<StoreState>()((set, get) => {
     screen: 'setup',
     mode: 'hotseat',
     locale: initialLocale(),
+    playmats: initialPlaymats(),
     setup: null,
     gameState: null,
     netView: null,
@@ -329,6 +338,16 @@ export const useStore = create<StoreState>()((set, get) => {
       // board is derived from a `PlayerView` that knows nothing about language,
       // so the whole of a language change is this line plus a render.
       set({ locale });
+    },
+
+    setPlaymat: (player, id) => {
+      const current = get().playmats;
+      if (current[player] === id) {
+        return;
+      }
+      savePlaymat(player, id);
+      // And nothing else, for exactly the reasons above. A mat is paint.
+      set({ playmats: { ...current, [player]: id } });
     },
 
     newGame: (cfg) => {

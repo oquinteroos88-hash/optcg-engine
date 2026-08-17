@@ -2,13 +2,26 @@
   display: flex;
   gap: clamp(var(--space-1), 0.6vw, var(--space-3));
   justify-content: center;
-  min-height: calc(var(--card-h) + var(--space-1));
   align-items: center;
+}
+
+/*
+  One cell per Character position, square and sized by the card's long edge, so
+  the space a rested card needs is reserved whether or not it is rested. The
+  card is centred, so it turns about the centre of its own cell.
+*/
+.slot {
+  width: var(--slot);
+  height: var(--slot);
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex: 0 0 auto;
 }
 
 .empty {
   width: var(--card-w);
-  height: var(--card-h);
+  aspect-ratio: 63 / 88;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius);
   opacity: 0.5;

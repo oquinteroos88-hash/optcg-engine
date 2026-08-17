@@ -114,6 +114,21 @@ The archive is laid out by set, with two files per card:
 <archive>/Don/Don.png                480x670            -> the DON!! zones
 ```
 
+Three optional extras, in their own folders. None of them is required; the
+client ships its own card back and its own playmat and draws those when these
+are absent:
+
+```
+<archive>/Back/CardBackRegular.png   the official card back
+<archive>/Back/DonBack.png           the official DON!! back
+<archive>/playmats/*.png             every themed mat you have
+```
+
+**Playmats are discovered, not listed.** A `.png` in `playmats/` is a mat, its
+filename stem is its id, and the stem made readable is the name shown in the
+picker. Drop one in and it is there; there is no allowlist anywhere to add it
+to. That is the same discipline as deriving a card's path from its card id.
+
 It is hundreds of megabytes of artwork that belongs to its owners, so its
 location is a per-machine setting rather than a constant. Three ways to say
 where it is, first one wins:
@@ -129,8 +144,13 @@ field.
 
 ### What the script does
 
-Copies both sizes for the 34 cards, plus the DON!! art, into
-`packages/client/public/cards/`, which Vite serves verbatim at `/cards/`. It is
+Copies both sizes for the 34 cards, plus the DON!! art, the two backs and every
+playmat it finds, into `packages/client/public/cards/`, which Vite serves
+verbatim at `/cards/`. Then it writes `manifest.json` there, naming what it
+placed — that file is how the client learns any of it exists, because a browser
+cannot list a directory Vite serves verbatim and probing for filenames would put
+back the hardcoded list the folder scan avoids. No archive means no manifest,
+the client's fetch 404s, and it draws its own. It is
 idempotent — a file already there with the right size is skipped — and it
 reports how many it placed, how many it skipped, and **which cards the archive
 does not have**. That last list is the point: a missing card is a hole a player

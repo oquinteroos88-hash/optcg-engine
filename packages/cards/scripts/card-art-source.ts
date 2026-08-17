@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { isAbsolute, resolve } from 'node:path';
 
@@ -66,4 +66,54 @@ export function archivePaths(dir: string, cardId: string): { small: string; larg
 /** The DON!! card art, which the archive keeps in its own folder under one name. */
 export function donArtPath(dir: string): string {
   return resolve(dir, 'Don', 'Don.png');
+}
+
+/**
+ * The two card backs, under the names Bandai's own files carry.
+ *
+ * Optional, like everything else here: a machine without them draws the back
+ * this repository ships instead, which is a component and not a file.
+ */
+export function cardBackPath(dir: string): string {
+  return resolve(dir, 'Back', 'CardBackRegular.png');
+}
+
+export function donBackPath(dir: string): string {
+  return resolve(dir, 'Back', 'DonBack.png');
+}
+
+/** Where themed playmats live in the archive. Every `.png` in it is one. */
+export function playmatDir(dir: string): string {
+  return resolve(dir, 'playmats');
+}
+
+/**
+ * The mats the archive has, discovered rather than listed.
+ *
+ * There is no allowlist and no table: a file in the folder is a mat, its stem
+ * is its id, and the stem made readable is its name. Dropping a new one in is
+ * all it takes, which is the same discipline as deriving a card's image path
+ * from its id.
+ */
+export function playmatEntries(dir: string): { id: string; file: string; name: string }[] {
+  const folder = playmatDir(dir);
+  if (!existsSync(folder)) {
+    return [];
+  }
+  return readdirSync(folder)
+    .filter((file) => file.toLowerCase().endsWith('.png'))
+    .sort()
+    .map((file) => {
+      const id = file.slice(0, -'.png'.length);
+      return { id, file: `playmats/${file}`, name: readableName(id) };
+    });
+}
+
+/** `op01-launch` -> `Op01 Launch`. Presentation only; never matched against. */
+function readableName(stem: string): string {
+  return stem
+    .split(/[-_\s]+/)
+    .filter((word) => word !== '')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }

@@ -26,6 +26,25 @@ export const en = {
     es: 'Español',
   },
 
+  playmat: {
+    label: 'Playmat',
+    forPlayer: (player: string): string => `Playmat — ${player}`,
+    /**
+     * The mats this repository draws, named by colour.
+     *
+     * Colours, not card colours: this is the felt, and nothing about a mat
+     * constrains what may be played on it. A player asking for "the red mat"
+     * is asking for a red mat.
+     */
+    builtin: {
+      neutral: 'Neutral',
+      red: 'Red',
+      green: 'Green',
+      blue: 'Blue',
+      purple: 'Purple',
+    },
+  },
+
   common: {
     playerOne: 'Player 1',
     playerTwo: 'Player 2',
@@ -90,6 +109,13 @@ export const en = {
     leader: 'Leader',
     stage: 'Stage',
     life: 'Life',
+    /** The wide row against the centre line, where the battles happen. */
+    characterArea: 'Character Area',
+    /**
+     * The wide zone on the near edge. The DON!! that sit in it keep their own
+     * name — `DON!!` is a name, not a word, and is not translated anywhere.
+     */
+    costArea: 'Cost Area',
     deck: 'Deck',
     donDeck: 'DON!! deck',
     trash: 'Trash',
@@ -116,6 +142,35 @@ export const en = {
       counterStep: 'Counter Step',
       finished: 'Game over',
     },
+    /**
+     * The five boxes the mat prints, in turn order.
+     *
+     * Short forms on purpose, and deliberately not the same strings as
+     * `phase` above: that one names the phase in a sentence at the top of the
+     * screen ("Main phase"), this one labels a box on a mat ("Main"). The
+     * glossary records both so the difference reads as a decision.
+     */
+    turnPhase: {
+      refresh: 'Refresh',
+      draw: 'Draw',
+      don: 'DON!!',
+      main: 'Main',
+      end: 'End',
+    },
+    /**
+     * The live moment, marked on the lit box of the track.
+     *
+     * Short forms of `phase` above, for the same reason `turnPhase` is: this
+     * is a mark inside a box on a mat, and the Banner is already saying the
+     * long form at the top of the screen. Two registers, one fact.
+     */
+    moment: {
+      mulligan: 'Mulligan',
+      blockStep: 'Block',
+      counterStep: 'Counter',
+    },
+    phaseTrack: 'Phases',
+    currentPhase: (name: string): string => `Current phase: ${name}`,
   },
 
   card: {

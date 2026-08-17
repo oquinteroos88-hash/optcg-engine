@@ -9,11 +9,14 @@ export function StageSlot({ id, mine }: { id: InstanceId | null; mine: boolean }
   return (
     <div className={styles.stageSlot}>
       <span className={styles.label}>{m.board.stage}</span>
-      {id === null ? (
-        <div className={styles.empty} />
-      ) : (
-        <CardTile id={id} zone="field" mine={mine} />
-      )}
+      {/* The mat prints the Stage box whether or not a card is in it. */}
+      <div className={styles.slot}>
+        {id === null ? (
+          <div className={styles.empty} />
+        ) : (
+          <CardTile id={id} zone="field" mine={mine} />
+        )}
+      </div>
     </div>
   );
 }

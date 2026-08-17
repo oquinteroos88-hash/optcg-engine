@@ -25,6 +25,18 @@ export const es: Messages = {
     es: 'Español',
   },
 
+  playmat: {
+    label: 'Tapete',
+    forPlayer: (player) => `Tapete — ${player}`,
+    builtin: {
+      neutral: 'Neutro',
+      red: 'Rojo',
+      green: 'Verde',
+      blue: 'Azul',
+      purple: 'Morado',
+    },
+  },
+
   common: {
     playerOne: 'Jugador 1',
     playerTwo: 'Jugador 2',
@@ -85,6 +97,8 @@ export const es: Messages = {
     leader: 'Líder',
     stage: 'Escenario',
     life: 'Vida',
+    characterArea: 'Área de Personajes',
+    costArea: 'Área de Coste',
     deck: 'Mazo',
     donDeck: 'Mazo de DON!!',
     trash: 'Descarte',
@@ -110,6 +124,20 @@ export const es: Messages = {
       counterStep: 'Paso de Contraataque',
       finished: 'Partida terminada',
     },
+    turnPhase: {
+      refresh: 'Refresco',
+      draw: 'Robo',
+      don: 'DON!!',
+      main: 'Principal',
+      end: 'Fin',
+    },
+    moment: {
+      mulligan: 'Mulligan',
+      blockStep: 'Bloqueo',
+      counterStep: 'Contraataque',
+    },
+    phaseTrack: 'Fases',
+    currentPhase: (name) => `Fase actual: ${name}`,
   },
 
   card: {

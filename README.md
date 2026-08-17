@@ -75,6 +75,27 @@ Changing it mid-match re-renders the board and the log and touches nothing else.
 The choice is remembered; a fresh client with nothing remembered follows the
 browser, which means Spanish when `navigator.language` starts with `es`.
 
+## The board is the playsheet
+
+The table is a calque of the official Bandai playmat, as a CSS grid with the
+zones named the way the mat names them: Life down the outer edge, the Character
+Area against the centre line, then Leader / Stage / Deck, then DON!! deck / Cost
+Area / Trash, with the phase track in the free space the sheet prints it in.
+
+**Two mats facing each other.** The opponent's half is the same grid with a
+mirrored template, so both Character Areas meet at the battle line and their
+Life falls on your right — and **nothing is rotated**, so every label on their
+half reads the right way up. A rested card really does turn 90°, and the slots
+are square so that turning it moves nothing else. Attached DON!! fan out from
+under the card carrying them.
+
+On a phone held upright the far half condenses to its Character Area, its Leader
+and a row of counters, while yours keeps the whole sheet. It is the same
+component and the same nine areas — a different template, not a different board.
+
+[`docs/board-design.md`](docs/board-design.md) has the templates, the asset
+policy, and what was decided where the printed sheet has nothing to say.
+
 ## Both sets are complete
 
 **Every card in ST-01, ST-02 and OP-01 works — 34 of 34 and 121 of 121, 155
@@ -143,10 +164,15 @@ client's Spanish interface are this project's own work, not endorsed by or
 affiliated with the rights holders, and they carry no more licence than the rest
 of this repository grants.
 
-**No card images are redistributed.** This repository contains none, and
-`packages/cards/tests/noTrackedArt.test.ts` fails if one is ever committed. The
-client can show real card art, but only from a **local archive you supply
-yourself**, copied into a gitignored directory:
+**No card images are redistributed.** This repository contains none — no card
+art, no card backs, no playmats — and `packages/cards/tests/noTrackedArt.test.ts`
+fails if one is ever committed. What ships instead is this project's own work: a
+card back drawn as an SVG and a neutral playmat drawn in CSS, so a fresh clone
+plays the whole game with nothing missing.
+
+The client can show real card art, the official backs and themed playmats, but
+only from a **local archive you supply yourself**, copied into a gitignored
+directory:
 
 ```bash
 pnpm --filter @optcg/cards run art
@@ -155,5 +181,9 @@ pnpm --filter @optcg/cards run art
 See [`packages/cards/README.md`](packages/cards/README.md) for where that
 archive is expected and how to point at your own copy.
 
-Without it the client draws its own tiles, which is what a fresh clone does and
-what every screenshot of this project should be assumed to show.
+Without it the client draws its own tiles, its own card back and its own mat,
+which is what a fresh clone does and what every screenshot of this project
+should be assumed to show. When the archive is there, the mats it contains show
+up in the playmat picker in the action bar — they are discovered from the
+directory, so nothing here names them. That choice is per seat, local, and never
+sent anywhere, exactly like the language.

@@ -31,6 +31,28 @@
   box-shadow: 0 0 0 2px var(--color-text);
 }
 
+/* Counter mode: the name and the two numbers, small enough to sit in a row of
+   chips. The art backdrop goes with the padding — at this size it is texture,
+   not information. */
+.counter {
+  padding: 1px var(--space-1);
+  gap: 0;
+  background-image: none;
+  min-width: 0;
+}
+
+.counter .counts {
+  font-size: 10px;
+}
+
+.zone {
+  font-size: 10px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 .label {
   font-size: 11px;
   color: var(--color-accent);

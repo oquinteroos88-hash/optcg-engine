@@ -115,6 +115,51 @@ That is not a coincidence, it is the rule.
 **"Trash" is `descarte` and nothing else** — never *basurero*, *cementerio* or
 *pila de descarte*. The verb is `descartar`.
 
+### The zone names the mat prints
+
+Card text names a zone inside a sentence, in lower case. The playsheet prints
+it as a **label on a box**, and a label is a title: capitalised, and the same
+words either way.
+
+| Printed on the mat | Spanish |
+| --- | --- |
+| Character Area | Área de Personajes |
+| Cost Area | Área de Coste |
+| Life | Vida |
+| Leader | Líder |
+| Stage | Escenario |
+| Deck | Mazo |
+| DON!! deck | Mazo de DON!! |
+| Trash | Descarte |
+| playmat | tapete |
+
+The Cost Area's box also carries the literal `DON!!`, untranslated, because
+that is the name of the **cards** in it and not of the zone — both words are
+printed on the real mat and both are printed on ours.
+
+## Phases
+
+The five boxes the mat prints across its free space, in turn order.
+
+| English | Spanish |
+| --- | --- |
+| Refresh | Refresco |
+| Draw | Robo |
+| DON!! | DON!! |
+| Main | Principal |
+| End | Fin |
+
+`DON!!` is the phase's own name and stays, by the rule in
+[What is never translated](#what-is-never-translated).
+
+**Two registers, on purpose.** The Banner says `Fase principal` — a phase named
+inside a sentence at the top of the screen. The mat's box says `Principal` — a
+label on a box. Same for the live moment marked on the lit box: the Banner and
+the battle panel say `Paso de Bloqueo`, the mat says `Bloqueo`. These are
+`board.phase` and `board.turnPhase` / `board.moment` in the dictionary, and they
+are separate keys so that a future convergence has to be a decision rather than
+a copy-paste. `packages/client/tests/boardLayout.test.tsx` pins the difference.
+
 ## Card categories
 
 | English | Spanish |
@@ -244,6 +289,16 @@ table too, so the board and the cards agree. The board terms that come from it:
 | DON!! cost area | área de coste |
 | rested / active counts | Agotados / Activos |
 | concede | Rendirse |
+| Character Area label | Área de Personajes |
+| Cost Area label | Área de Coste |
+| phase track | Fases |
+| playmat picker | Tapete |
+| the mats we draw | Neutro, Rojo, Verde, Azul, Morado |
+
+The playmat names are **colours of felt, not card colours**. Nothing about a mat
+constrains what may be played on it, and a player asking for "the red mat" is
+asking for a red mat. `Rojo` and `Verde` are already the words the TEST deck
+names use, so the client says the same thing in both places.
 
 ## The pin
 

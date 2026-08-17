@@ -14,26 +14,43 @@
 }
 
 .stack {
+  position: relative;
   display: grid;
   place-items: center;
-  width: calc(var(--card-w) * 0.62);
+  width: calc(var(--pile-w) * 0.62);
   height: calc(var(--card-h) * 0.62);
   border-radius: var(--radius-sm);
-  background: var(--color-card-back);
   border: 1px solid var(--color-border);
+  background-image: var(--card-back, none);
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
 }
 
 .compact .stack {
   height: calc(var(--card-h) * 0.4);
 }
 
+/* Counter mode: a chip with a number, for the condensed opponent half. */
+.counter .stack {
+  width: auto;
+  min-width: var(--counter-w);
+  height: auto;
+  padding: 1px var(--space-1);
+  background-image: none;
+  background: var(--color-surface-2);
+}
+
 .empty {
-  background: none;
+  background-image: none;
   border-style: dashed;
   color: var(--color-muted);
 }
 
 .count {
+  position: relative;
+  z-index: 1;
   font-size: 12px;
   font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }

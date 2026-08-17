@@ -31,3 +31,52 @@
   border-right: 1px solid var(--color-border);
   background: var(--color-surface);
 }
+
+/* ---------------------------------------------------------------------------
+   Portrait.
+
+   Two constant-width rails around the board cost 320 of a 375px phone, which
+   left the table sixty pixels of it. So on a phone they stop being rails: the
+   board takes the width, and the log goes underneath it with a ceiling.
+
+   The preview rail goes away entirely, and not reluctantly — it exists to
+   answer a hover, and a touch screen has no hover to answer. The battle panel
+   it shares a rail with moves into the same strip as the log, which is the one
+   place left that is not the board.
+*/
+.condensed {
+  flex-direction: column;
+}
+
+.condensed .rail {
+  width: auto;
+  flex: 0 0 auto;
+  flex-direction: row;
+  border-right: none;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Nothing to preview without a pointer. The battle panel is the rail's other
+   occupant and stays, because a Block Step is not a hover. */
+.condensed .rail > :first-child {
+  display: none;
+}
+
+.condensed .rail:empty {
+  display: none;
+}
+
+/*
+  The log, last child of the row, becomes the strip under the board. Addressed
+  by position rather than by class because its own class lives in its own CSS
+  module and cannot be reached from here — and its width is set there, so it
+  has to be overridden from the side that knows the screen is a phone.
+*/
+.condensed > :last-child {
+  width: auto;
+  /* A peek. The board is what the player is looking at and the log scrolls, so
+     a taller strip buys a few more lines of history at the cost of the row the
+     player is about to play into — which on a phone is their own hand. */
+  max-height: 9vh;
+  flex: 0 0 auto;
+}

@@ -1,4 +1,5 @@
 import type { MouseEvent, ReactElement } from 'react';
+import { CardBackArt } from './CardBackArt';
 import styles from './CardBack.module.css';
 
 interface CardBackProps {
@@ -25,7 +26,11 @@ interface CardBackProps {
  */
 export function CardBack({ label, onClick, selected = false }: CardBackProps): ReactElement {
   if (onClick === undefined) {
-    return <div className={`${styles.back} ${styles.inert}`} aria-label={label} />;
+    return (
+      <div className={`${styles.back} ${styles.inert}`} aria-label={label}>
+        <CardBackArt />
+      </div>
+    );
   }
   const handleClick = (e: MouseEvent<HTMLButtonElement>): void => {
     // Same reason a CardTile stops it: the table background clears the mode.
@@ -40,6 +45,7 @@ export function CardBack({ label, onClick, selected = false }: CardBackProps): R
       aria-pressed={selected}
       aria-label={label}
     >
+      <CardBackArt />
       <span className={styles.mark} aria-hidden="true">
         ?
       </span>

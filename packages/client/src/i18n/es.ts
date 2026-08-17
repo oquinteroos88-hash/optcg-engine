@@ -25,6 +25,12 @@ export const es: Messages = {
     es: 'Español',
   },
 
+  playmat: {
+    label: 'Tapete',
+    forPlayer: (player) => `Tapete — ${player}`,
+    neutral: 'Neutro',
+  },
+
   common: {
     playerOne: 'Jugador 1',
     playerTwo: 'Jugador 2',

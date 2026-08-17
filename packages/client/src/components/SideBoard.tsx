@@ -1,5 +1,6 @@
-import type { ReactElement } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import type { PlayerId } from '@optcg/engine';
+import { backgroundImage, useAssetManifest } from '../game/assets';
 import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useCanAttachDon, useSide, useWhoActs } from '../store/selectors';
 import { useStore } from '../store/store';
@@ -49,10 +50,16 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   const attachingDon = useStore((s) => s.ui.mode.kind === 'attachingDon');
   const whoActs = useWhoActs();
   const canAttachDon = useCanAttachDon();
+  const assets = useAssetManifest();
+  const chosen = useStore((s) => s.playmats[player]);
 
   if (side === null) {
     return null;
   }
+  // A mat that is not in the manifest — one removed from the local archive
+  // since the choice was stored — resolves to `none` and the neutral mat
+  // underneath shows through. Nothing is wrong when an optional file is gone.
+  const playmat = backgroundImage(assets.playmats.find((mat) => mat.id === chosen)?.file ?? null);
   // "Mine" is relative to who acts now, which is what affordances describe.
   const mine = whoActs === player;
   const label = playerLabel(player, m);
@@ -62,7 +69,15 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
       className={`${styles.sideBoard} ${mirrored ? styles.mirrored : ''}`}
       aria-label={label}
     >
-      <div className={styles.field} role="group" aria-label={m.board.fieldOf(label)}>
+      {/* The chosen mat rides on the field, not on the section: a half must
+          carry no inline style of its own, which is what keeps "nothing on
+          this half is transformed" checkable from the outside. */}
+      <div
+        className={styles.field}
+        role="group"
+        aria-label={m.board.fieldOf(label)}
+        style={{ '--playmat': playmat } as CSSProperties}
+      >
         <div className={styles.life}>
           <LifeStack count={side.lifeCount} />
         </div>

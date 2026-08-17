@@ -3,6 +3,7 @@ import { useMessages } from '../i18n/useMessages';
 import { useGlobalAffordances, useInputBlocked } from '../store/selectors';
 import { useStore } from '../store/store';
 import { LanguagePicker } from './LanguagePicker';
+import { PlaymatPicker } from './PlaymatPicker';
 import styles from './ActionBar.module.css';
 
 export function ActionBar(): ReactElement {
@@ -30,6 +31,8 @@ export function ActionBar(): ReactElement {
           presentation, so changing it is not a move and cannot be blocked by
           one. Two seats can read the same match in two languages. */}
       <LanguagePicker />
+      {/* Same reasoning, one shelf down: a mat is paint. */}
+      <PlaymatPicker />
       <label className={styles.toggle}>
         <input type="checkbox" checked={veilOpponentHand} onChange={toggleVeil} />
         {m.board.veilOpponentHand}

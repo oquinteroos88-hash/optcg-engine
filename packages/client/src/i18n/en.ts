@@ -26,6 +26,13 @@ export const en = {
     es: 'Español',
   },
 
+  playmat: {
+    label: 'Playmat',
+    forPlayer: (player: string): string => `Playmat — ${player}`,
+    /** The one this repository draws itself; the only one always available. */
+    neutral: 'Neutral',
+  },
+
   common: {
     playerOne: 'Player 1',
     playerTwo: 'Player 2',

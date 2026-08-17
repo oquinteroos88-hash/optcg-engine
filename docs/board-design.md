@@ -135,10 +135,25 @@ them. `.gitignore` refuses every raster format repository-wide and
   design. A component rather than a file, because every raster extension is
   ignored and an imported `.svg` would need Vite's asset pipeline, which the
   client's vitest config does not load.
-- **The neutral playmat**: a gradient wash and a faint grid in
-  `SideBoard.module.css`. Drawn, not shipped. Zero bytes.
+- **The table**: planks, seams and grain, as three repeating gradients in
+  `Table.module.css`. A wood texture would be an image file and this repository
+  commits none, so it is drawn — which also costs nothing to load and scales to
+  any window. Kept dark and low-contrast on purpose: it is the surface *under*
+  the mats, and a table that competes with the cards on it is a worse table.
+- **The playmats**: five of them, in `BUILTIN_PLAYMATS` — neutral, red, green,
+  blue and purple. Each is one hue, applied to the same drawn wash through
+  `--mat-base` / `--mat-wash`, so the whole set costs one number each and loads
+  nothing. `neutral` has no hue and needs no rule: the stylesheet's own fallback
+  is the untinted slate.
 
-A clone with no local archive plays the whole game on these.
+A clone with no local archive plays the whole game on these, and the picker is
+worth offering there — which it was not when the only mat we drew was one grey
+sheet. **The two seats start on different mats**, because a table is two mats
+and two mats that look identical are one mat with a line through it.
+
+Playmat ids are a union type (`BuiltinPlaymatId`), so a mat added without a name
+in both dictionaries does not compile — the same guarantee every other message
+has.
 
 ### What the local archive may add
 
@@ -201,9 +216,10 @@ not in the protocol, not in an `Action`, not in the state, not to the server.
 The same rule the locale follows, for the same reason. Two seats can play on two
 different mats and the game does not know.
 
-The picker renders nothing when the manifest names no mats: one option is not a
-choice. A stored id whose file has since left the archive falls back to the
-neutral mat in silence, on the same grounds as a missing card image.
+The picker lists the five drawn mats always, plus whatever the manifest found. A
+stored id that nothing recognises — a mat removed from the archive since the
+choice was made — declares no tint and no image, and the untinted drawn mat
+shows through in silence, on the same grounds as a missing card image.
 
 ## Where the sheet does not answer
 
@@ -234,10 +250,21 @@ neutral mat in silence, on the same grounds as a missing card image.
 The board's suites all live in `packages/client/tests/boardLayout.test.tsx`, and
 that is deliberate. Every `.tsx` suite spins up its own jsdom worker, and those
 workers share CPUs with `fullGame.test.ts`, whose budget is Vitest's default
-five seconds and whose heaviest test spends about that on its own. Measured on a
-sixteen-core machine: this package at 26 test files passes every run, at 27 it
-fails about half of them — and the variable is the **file count**, not the test
-count, since 26 files carrying thirty-one more tests than before stayed green
-across every run.
+five seconds and whose heaviest test spends about that on its own — so it goes
+red from **contention**, not from anything on its own path. It is a
+node-environment clicker with no DOM at all; a change to a component cannot
+slow it down.
 
-The budget is not the thing to move. The file count is.
+Splitting the board's claims across three files made it fail about half the
+runs. Putting them back into one fixed it immediately, back to back, while the
+number of *tests* went up either way. Test count is cheap here; file count is
+not.
+
+**Do not read an exact threshold into that.** The same commit that measured
+clean later failed repeatedly on the same machine with nothing changed — a
+laptop an hour into a test marathon is not a stable instrument, and CI is a
+different one again. The direction is what to act on: put new board tests in
+this file rather than in a new `.tsx` one, and build boards with
+`tests/openingBoard.ts` rather than the playout corpus.
+
+The budget is never the thing to move.

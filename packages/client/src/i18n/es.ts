@@ -28,7 +28,13 @@ export const es: Messages = {
   playmat: {
     label: 'Tapete',
     forPlayer: (player) => `Tapete — ${player}`,
-    neutral: 'Neutro',
+    builtin: {
+      neutral: 'Neutro',
+      red: 'Rojo',
+      green: 'Verde',
+      blue: 'Azul',
+      purple: 'Morado',
+    },
   },
 
   common: {

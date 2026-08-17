@@ -11,11 +11,18 @@
 // ONE FILE, AND DELIBERATELY SO. Every `.tsx` suite spins up its own jsdom
 // worker, and those workers share CPUs with `fullGame.test.ts`, whose budget is
 // Vitest's default five seconds and whose heaviest test spends about that on
-// its own. Measured on a sixteen-core machine: this package at 26 test files
-// passes every time, at 27 it fails about half of them — and the variable is
-// the file count, not the test count, since 26 files carrying fourteen MORE
-// tests than master stayed green across every run. So the board's suites live
-// together. The budget is not the thing to move; the file count is.
+// its own — so it goes red from contention rather than from anything on its
+// own path.
+//
+// Splitting the board's claims across three files made it fail about half the
+// runs; putting them back into one fixed it, back to back, while the count of
+// TESTS went up either way. Test count is cheap here and file count is not.
+//
+// Do not read an exact threshold into that. The same commit that measured
+// clean later failed on the same machine with nothing changed — a laptop an
+// hour into a test marathon is not a stable instrument, and CI is a different
+// one again. The direction is what to act on: add board tests HERE rather than
+// in a new `.tsx` file. The budget is never the thing to move.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -32,7 +39,13 @@ import {
   resetAssetManifest,
 } from '../src/game/assets';
 import type { AssetManifest } from '../src/game/assets';
-import { NEUTRAL_PLAYMAT, loadPlaymat } from '../src/game/playmat';
+import {
+  BUILTIN_PLAYMATS,
+  NEUTRAL_PLAYMAT,
+  builtinPlaymat,
+  loadPlaymat,
+  matTint,
+} from '../src/game/playmat';
 import { messagesFor } from '../src/i18n';
 import { GameScreen } from '../src/screens/GameScreen';
 import { TURN_PHASES } from '../src/store/selectors';
@@ -771,13 +784,45 @@ describe('choosing a mat', () => {
     resetAssetManifest(TWO_MATS);
   });
 
-  it('offers the neutral one plus whatever the local archive has, per seat', () => {
+  it('offers the ones we draw plus whatever the local archive has, per seat', () => {
     loadState(board);
     render(<GameScreen />);
     for (const player of ['Jugador 1', 'Jugador 2'] as const) {
       const options = [...pickerFor(player).options].map((option) => option.textContent);
-      expect(options, player).toEqual([m.playmat.neutral, 'East Blue', 'Op01 Launch']);
+      expect(options, player).toEqual([
+        m.playmat.builtin.neutral,
+        m.playmat.builtin.red,
+        m.playmat.builtin.green,
+        m.playmat.builtin.blue,
+        m.playmat.builtin.purple,
+        'East Blue',
+        'Op01 Launch',
+      ]);
     }
+  });
+
+  it('names every mat it draws, and starts the two seats on different ones', () => {
+    // The ids are a union, so a mat added without a name does not compile.
+    // This is the other half: that the compiler was told about all of them.
+    const en = messagesFor('en');
+    for (const mat of BUILTIN_PLAYMATS) {
+      expect(m.playmat.builtin[mat.id], mat.id).toBeTruthy();
+      expect(en.playmat.builtin[mat.id], mat.id).toBeTruthy();
+    }
+    expect(BUILTIN_PLAYMATS).toHaveLength(5);
+
+    // Nobody has chosen anything — storage is cleared in `beforeEach` — and
+    // the two seats still differ. Two identical mats are one mat with a line
+    // through it, which is the whole reason there is a set of colours.
+    expect(loadPlaymat('p1')).not.toBe(loadPlaymat('p2'));
+    const tints = [loadPlaymat('p1'), loadPlaymat('p2')].map(
+      (id) => matTint(builtinPlaymat(id)?.hue ?? null)['--mat-base'],
+    );
+    expect(tints[0]).toBeDefined();
+    expect(tints[0]).not.toBe(tints[1]);
+    // And no tint at all for the untinted one: the stylesheet's own fallback
+    // is the slate, so "no colour" needs no rule.
+    expect(matTint(builtinPlaymat(NEUTRAL_PLAYMAT)?.hue ?? null)).toEqual({});
   });
 
   it('paints the chosen mat on that seat only', () => {
@@ -786,8 +831,13 @@ describe('choosing a mat', () => {
     fireEvent.change(pickerFor('Jugador 1'), { target: { value: 'east_blue' } });
 
     expect(matOf('Jugador 1')).toContain('url("/cards/playmats/east_blue.png")');
-    // The other half keeps the neutral one. Two seats, two mats, one table.
+    // The other half keeps what it had. Two seats, two mats, one table.
     expect(matOf('Jugador 2')).toContain('--playmat: none');
+
+    // And one of ours is a hue on the drawn mat, declared the same way.
+    fireEvent.change(pickerFor('Jugador 2'), { target: { value: 'green' } });
+    expect(matOf('Jugador 2')).toContain('--mat-base: hsl(145');
+    expect(matOf('Jugador 1')).not.toContain('--mat-base');
   });
 
   it('is never a move: nothing is dispatched and the game does not change', () => {
@@ -814,9 +864,10 @@ describe('choosing a mat', () => {
 
     expect(globalThis.localStorage?.getItem('optcg.playmat.p2')).toBe('east_blue');
     expect(loadPlaymat('p2')).toBe('east_blue');
-    // And the seat that was not touched is untouched, in storage too.
+    // And the seat that was not touched is untouched, in storage too: nothing
+    // written, and the read falls back to that seat's own default.
     expect(globalThis.localStorage?.getItem('optcg.playmat.p1')).toBeNull();
-    expect(loadPlaymat('p1')).toBe(NEUTRAL_PLAYMAT);
+    expect(loadPlaymat('p1')).toBe('red');
   });
 
   it('falls back to neutral when the chosen mat is no longer in the archive', () => {
@@ -830,12 +881,18 @@ describe('choosing a mat', () => {
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it('offers no control at all where there are no mats, because one option is not a choice', () => {
+  it('is still a real choice on a machine with no local archive', () => {
+    // It used to hide itself here, because the only mat we drew was one grey
+    // sheet and a select with a single option is not a choice. Drawing a set
+    // of colours is what turned that into a choice — and no clone has the
+    // official mats, so this is the case that has to be worth offering.
     resetAssetManifest();
     loadState(board);
     render(<GameScreen />);
-    expect(screen.queryByRole('combobox', { name: /^Tapete/ })).toBeNull();
-    // The board still draws: the neutral mat is ours and needs no file.
+    for (const player of ['Jugador 1', 'Jugador 2'] as const) {
+      expect([...pickerFor(player).options], player).toHaveLength(BUILTIN_PLAYMATS.length);
+    }
+    // No official file is declared, and the drawn mat is what shows.
     expect(matOf('Jugador 1')).toContain('--playmat: none');
     expect(screen.getByRole('group', { name: 'Campo de Jugador 1' })).toBeDefined();
   });

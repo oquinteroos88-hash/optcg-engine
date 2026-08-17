@@ -12,7 +12,9 @@
     'mat'
     'hand';
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  /* Generous at the sides so the table shows around the mat rather than only
+     above it. A mat lies ON something; that has to be visible. */
+  padding: var(--space-1) clamp(var(--space-2), 3vw, var(--space-5));
   min-width: 0;
 }
 
@@ -41,19 +43,35 @@
   display: grid;
   gap: var(--mat-gap);
   min-width: 0;
+  /* A playmat has a size. It does not grow to fill a window — past this the
+     zones drift apart and the table stops looking like a table with mats on
+     it and starts looking like felt wallpaper. */
+  max-width: min(100%, 1000px);
+  justify-self: center;
   padding: var(--space-2);
   border-radius: var(--radius);
   /*
-    The mat itself. `--playmat` is the player's chosen one when this machine
-    has any; underneath is the neutral one this repository ships — a wash and a
-    faint grid, drawn rather than shipped, because no official mat is ever
-    committed. A chosen mat that is not there does not paint, and this shows.
+    The mat itself, in three layers.
+
+    On top, `--playmat`: an official mat from the local archive, when this
+    machine has one. A chosen mat that is no longer there does not paint, and
+    the drawn one below simply shows through.
+
+    Below it, the mats this repository draws — a wash and a faint grid, tinted
+    by `--mat-hue`. That hue is the whole difference between one drawn mat and
+    the next, which is why the set costs one number each and loads nothing.
+    `--mat-hue` unset means the untinted slate, so `neutral` needs no rule.
+
+    And a border, so the mat has an edge. On a wooden table it does.
   */
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  background-color: var(--mat-base, var(--color-surface));
   background-image: var(--playmat, none),
     radial-gradient(
       120% 90% at 50% 0%,
-      color-mix(in srgb, var(--color-surface) 70%, transparent),
-      transparent 70%
+      color-mix(in srgb, var(--mat-wash, var(--color-surface)) 78%, transparent),
+      transparent 72%
     ),
     repeating-linear-gradient(
       0deg,
@@ -188,7 +206,10 @@
   scrolls has stopped being a mat.
 */
 .condensed .character {
-  overflow-x: auto;
+  /* Both axes stated. Setting only `overflow-x` makes the other one compute to
+     `auto` as well, which put a vertical scrollbar on a row that has nothing to
+     scroll vertically — the slots are sized exactly and nothing overflows. */
+  overflow: auto hidden;
   justify-items: start;
 }
 

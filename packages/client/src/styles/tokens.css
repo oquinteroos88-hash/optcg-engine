@@ -11,6 +11,14 @@
   --color-card-green: #2e7d4f;
   --color-card-back: #3a2f63;
 
+  /* The table the mats lie on. Drawn, never an image: no photograph of wood is
+     committed here for the same reason no card art is, and gradients cost
+     nothing to ship and nothing to load. */
+  --wood-dark: #2a1c12;
+  --wood-mid: #3d2a1b;
+  --wood-light: #4a3322;
+  --wood-seam: #1b1109;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

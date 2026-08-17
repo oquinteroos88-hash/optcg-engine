@@ -2,6 +2,7 @@ import type { CSSProperties, ReactElement } from 'react';
 import type { PlayerId } from '@optcg/engine';
 import { backgroundImage, useAssetManifest } from '../game/assets';
 import { useCondensedLayout } from '../game/layout';
+import { builtinPlaymat, matTint } from '../game/playmat';
 import { useMessages } from '../i18n/useMessages';
 import { playerLabel, useCanAttachDon, useSide, useWhoActs } from '../store/selectors';
 import { useStore } from '../store/store';
@@ -64,6 +65,10 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   // since the choice was stored — resolves to `none` and the neutral mat
   // underneath shows through. Nothing is wrong when an optional file is gone.
   const playmat = backgroundImage(assets.playmats.find((mat) => mat.id === chosen)?.file ?? null);
+  // And the tint of the drawn mat underneath, which is the difference between
+  // one of ours and the next. An unknown id — or `neutral` — leaves both unset
+  // and the untinted slate is what shows.
+  const tint = matTint(builtinPlaymat(chosen)?.hue ?? null);
   // Only the far half condenses. Yours keeps the full sheet: the room this
   // frees is room the half with faces on it needs.
   const counters = mirrored && condensed;
@@ -89,7 +94,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
         className={styles.field}
         role="group"
         aria-label={m.board.fieldOf(label)}
-        style={{ '--playmat': playmat } as CSSProperties}
+        style={{ '--playmat': playmat, ...tint } as CSSProperties}
       >
         <div className={styles.life}>
           <LifeStack count={side.lifeCount} counter={counters} />

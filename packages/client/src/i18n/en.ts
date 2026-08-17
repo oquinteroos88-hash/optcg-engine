@@ -29,8 +29,20 @@ export const en = {
   playmat: {
     label: 'Playmat',
     forPlayer: (player: string): string => `Playmat — ${player}`,
-    /** The one this repository draws itself; the only one always available. */
-    neutral: 'Neutral',
+    /**
+     * The mats this repository draws, named by colour.
+     *
+     * Colours, not card colours: this is the felt, and nothing about a mat
+     * constrains what may be played on it. A player asking for "the red mat"
+     * is asking for a red mat.
+     */
+    builtin: {
+      neutral: 'Neutral',
+      red: 'Red',
+      green: 'Green',
+      blue: 'Blue',
+      purple: 'Purple',
+    },
   },
 
   common: {

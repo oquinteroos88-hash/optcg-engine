@@ -293,7 +293,12 @@ table too, so the board and the cards agree. The board terms that come from it:
 | Cost Area label | Área de Coste |
 | phase track | Fases |
 | playmat picker | Tapete |
-| the neutral playmat | Neutro |
+| the mats we draw | Neutro, Rojo, Verde, Azul, Morado |
+
+The playmat names are **colours of felt, not card colours**. Nothing about a mat
+constrains what may be played on it, and a player asking for "the red mat" is
+asking for a red mat. `Rojo` and `Verde` are already the words the TEST deck
+names use, so the client says the same thing in both places.
 
 ## The pin
 

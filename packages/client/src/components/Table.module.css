@@ -28,6 +28,41 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--space-1) var(--space-2);
+
+  /*
+    The table itself: planks, seams and a bit of grain, all in gradients.
+
+    Drawn rather than photographed. A wood texture would be an image file, and
+    this repository commits none — so the table is three repeating gradients,
+    which cost nothing to ship, nothing to load and scale to any window.
+
+    Read bottom-up in the stack below: a warm base, long grain streaks over it,
+    then the seams between boards. Kept dark and low-contrast on purpose — it is
+    the surface UNDER the mats, and a table that competes with the cards on it
+    is a worse table.
+  */
+  background-color: var(--wood-mid);
+  background-image:
+    /* Seams: the gap between one board and the next. */
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 clamp(90px, 14vw, 190px),
+      var(--wood-seam) clamp(90px, 14vw, 190px) calc(clamp(90px, 14vw, 190px) + 2px)
+    ),
+    /* Grain: fine streaks along the length of each board. */
+      repeating-linear-gradient(
+        88deg,
+        color-mix(in srgb, var(--wood-light) 45%, transparent) 0 2px,
+        transparent 2px 7px,
+        color-mix(in srgb, var(--wood-dark) 40%, transparent) 7px 9px,
+        transparent 9px 16px
+      ),
+    /* The boards themselves, alternating slightly so no two look identical. */
+      repeating-linear-gradient(
+        90deg,
+        var(--wood-mid) 0 clamp(90px, 14vw, 190px),
+        var(--wood-dark) clamp(90px, 14vw, 190px) clamp(180px, 28vw, 380px)
+      );
 }
 
 /*

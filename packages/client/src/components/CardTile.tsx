@@ -9,6 +9,8 @@ import {
   useCardView,
   useClickState,
   useIsHighlighted,
+  useIsFlipping,
+  useLungingAttacker,
   usePowerBreakdown,
   useTargeting,
 } from '../store/selectors';
@@ -31,6 +33,8 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const clickState = useClickState(id);
   const targeting = useTargeting();
   const highlighted = useIsHighlighted(id);
+  const flipping = useIsFlipping(id);
+  const lungingAttacker = useLungingAttacker();
   const power = usePowerBreakdown(id);
   const m = useMessages();
   const uiEvent = useStore((s) => s.uiEvent);
@@ -90,6 +94,9 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
     .join('\n');
 
   const clickable = clickState !== 'inert';
+  // Keyframe arrays only when the moment is on. A card that is not flipping
+  // gets the scalar 0, so an unrelated re-render cannot replay the turn.
+  const lunging = lungingAttacker === id;
 
   return (
     /**
@@ -114,7 +121,21 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
          class; Motion owns `transform` on this element, so a CSS rule setting
          one would be overridden and silently stop working. Same for the hover
          lift and the highlight bounce — all three live here now. */
-      animate={{ rotate: view.rested ? 90 : 0, y: highlighted ? -3 : 0 }}
+      /* A flip needs depth or it reads as a horizontal squash. */
+      style={{ transformPerspective: 700 }}
+      animate={{
+        rotate: view.rested ? 90 : 0,
+        y: highlighted ? -3 : 0,
+        /* The flip. Half a turn about the vertical axis, from back to face, for
+           a card the view has just decided this seat may see: your own draw,
+           your own life card, and a `[Trigger]` whose activation revealed it.
+           `useIsFlipping` reads that off the redacted events, so the card turns
+           over exactly when the rules turned it over. */
+        rotateY: flipping ? [180, 0] : 0,
+        /* The lunge: a shove towards the defender and back. Sign follows the
+           seat, so both attackers move towards the centre line. */
+        x: lunging ? [0, mine ? -14 : 14, 0] : 0,
+      }}
       {...(clickable ? { whileHover: { y: highlighted ? -3 : -4 } } : {})}
       className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass} ${artClass}`}
       onClick={handleClick}

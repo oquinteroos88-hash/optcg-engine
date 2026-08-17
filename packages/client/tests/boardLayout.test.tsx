@@ -32,6 +32,8 @@ import { applyAction, getCardDef } from '@optcg/engine';
 import type { GameState } from '@optcg/engine';
 import { fanGeometry } from '../src/components/HandRow';
 import { LONG_PRESS_MS } from '../src/game/longPress';
+import { DROP_ZONE_ATTR, zoneAt } from '../src/game/dropZones';
+import { motionOff } from '../src/game/motion';
 import {
   NO_ASSETS,
   assetManifest,
@@ -1082,5 +1084,152 @@ describe('tap is untouched', () => {
     render(<GameScreen />);
     fireEvent.click(playableHandCard());
     expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+  });
+});
+
+// ===========================================================================
+// The rule the motion work is built on, and the leak discipline under it.
+
+describe('an animation is never the carrier of truth', () => {
+  it('reflects the new view synchronously, before any frame could have run', () => {
+    // The assertion is the absence of `await`. Dispatch returns, and the store
+    // already holds the new state — no animation gates it, nothing is waiting
+    // on an `onAnimationComplete`, and a caller that read the store on the very
+    // next line would read the truth.
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const before = useStore.getState().gameState;
+    expect(before).not.toBeNull();
+
+    const seat = heldBoard.priority;
+    fireEvent.click(playableHandCard());
+
+    // Selecting is a UI mode change and it, too, is immediate.
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+
+    // And a real action: end the turn, and read the store on the next line.
+    act(() => {
+      useStore.getState().endTurn();
+    });
+    const after = useStore.getState().gameState;
+    expect(after).not.toBe(before);
+    expect(after?.activePlayer).not.toBe(seat);
+  });
+
+  it('is off in here, which is why the rest of this file can assert on the DOM', () => {
+    // Not an incidental property of jsdom: a zero transition is chosen, so
+    // `AnimatePresence` cannot hold a removed card in the tree past its exit
+    // and every structural claim in this suite is about the real component.
+    expect(motionOff()).toBe(true);
+  });
+});
+
+describe('the animated DOM keeps the leak discipline', () => {
+  it('never writes a card id into the document, layoutId included', () => {
+    // Every tile is a Motion element carrying `layoutId={instanceId}`. Motion
+    // consumes that prop and does not forward it, but "does not forward it" is
+    // a promise made by a dependency — so it is checked here, against the real
+    // rendered document, for every card on the board.
+    loadState(populated);
+    render(<GameScreen />);
+    const html = document.body.innerHTML;
+    expect(html).not.toContain('layoutid');
+    expect(html).not.toContain('layoutId');
+
+    const everyId = Object.keys(populated.cards);
+    expect(everyId.length).toBeGreaterThan(10);
+    for (const id of everyId) {
+      expect(html, `instance ${id} reached the DOM`).not.toContain(id);
+    }
+  });
+});
+
+// ===========================================================================
+// Drag to play: the shortcut, never the path.
+
+describe('dragging a card out of hand', () => {
+  /** The reducer, driven directly — the drop is the event, not the gesture. */
+  function drop(id: string): void {
+    act(() => {
+      useStore.getState().uiEvent({ kind: 'dropCard', instanceId: id });
+    });
+  }
+
+  function handIds(): readonly string[] {
+    return heldBoard.players[heldBoard.priority].hand;
+  }
+
+  it('plays the card when the affordance allows it', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const affordances = useStore.getState().affordances;
+    const playable = handIds().find((id) => affordances?.byCard[id]?.canPlay === true);
+    expect(playable).toBeDefined();
+    const before = useStore.getState().gameState;
+
+    drop(playable ?? '');
+
+    // Either the card is on the board or the engine asked something first —
+    // both are the tap path's outcomes, because a drop calls the same
+    // `playOutcome` the menu's Play entry calls.
+    const moved =
+      useStore.getState().gameState !== before ||
+      useStore.getState().ui.mode.kind !== 'idle';
+    expect(moved).toBe(true);
+  });
+
+  it('does nothing at all when the affordance does not', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    // The Leader: on the board, never in hand, never playable. A drop on it is
+    // the shape of every illegal drop, and unlike a hand card it cannot become
+    // affordable as the turn goes on.
+    const leader = heldBoard.players[heldBoard.priority].leader;
+    expect(useStore.getState().affordances?.byCard[leader]?.canPlay).not.toBe(true);
+
+    const before = useStore.getState();
+    drop(leader);
+
+    expect(useStore.getState().gameState).toBe(before.gameState);
+    // Identity, not equality: a no-op must not re-render the board.
+    expect(useStore.getState().ui.mode).toBe(before.ui.mode);
+  });
+
+  it('lights exactly the zones the affordances name, and only the acting seat', () => {
+    // Equality, not a sample: the set on screen is the set in `drag.zones`,
+    // which is read from the affordances and never recomputed by a component.
+    loadState(heldBoard);
+    render(<GameScreen />);
+    expect(document.querySelectorAll(`[${DROP_ZONE_ATTR}]`)).toHaveLength(0);
+
+    const playable = handIds().find(
+      (id) => useStore.getState().affordances?.byCard[id]?.canPlay === true,
+    );
+    act(() => {
+      useStore.getState().setDrag({ card: playable ?? '', zones: ['field'] });
+    });
+
+    const lit = [...document.querySelectorAll(`[${DROP_ZONE_ATTR}]`)];
+    expect(lit.map((el) => el.getAttribute(DROP_ZONE_ATTR))).toEqual(['field']);
+
+    // And it is on the acting seat's half, not the opponent's.
+    const seat = heldBoard.priority === 'p1' ? 'Jugador 1' : 'Jugador 2';
+    const field = screen.getByRole('group', { name: `Campo de ${seat}` });
+    expect(field.contains(lit[0] ?? null)).toBe(true);
+
+    act(() => {
+      useStore.getState().setDrag(null);
+    });
+    expect(document.querySelectorAll(`[${DROP_ZONE_ATTR}]`)).toHaveLength(0);
+  });
+
+  it('resolves a point to a zone through the document, not through geometry', () => {
+    // `zoneAt` asks the document what is under the finger. The board is a grid
+    // with two templates and a window that rotates; measured rectangles drift
+    // from what is on screen and this cannot.
+    const doc = {
+      elementFromPoint: (): Element | null => null,
+    } as unknown as Document;
+    expect(zoneAt(10, 10, doc)).toBeNull();
   });
 });

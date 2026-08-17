@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactElement } from 'react';
 import type { PlayerId } from '@optcg/engine';
 import { backgroundImage, useAssetManifest } from '../game/assets';
+import { DROP_ZONE_ATTR } from '../game/dropZones';
 import { useCondensedLayout } from '../game/layout';
 import { builtinPlaymat, matTint } from '../game/playmat';
 import { useMessages } from '../i18n/useMessages';
@@ -57,6 +58,7 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   const assets = useAssetManifest();
   const chosen = useStore((s) => s.playmats[player]);
   const condensed = useCondensedLayout();
+  const drag = useStore((s) => s.drag);
 
   if (side === null) {
     return null;
@@ -72,6 +74,8 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
   // Only the far half condenses. Yours keeps the full sheet: the room this
   // frees is room the half with faces on it needs.
   const counters = mirrored && condensed;
+  // A card is dragged out of the acting seat's hand, and this is that seat.
+  const dropHere = drag !== null && drag.zones.includes('field') && whoActs === player;
   // "Mine" is relative to who acts now, which is what affordances describe.
   const mine = whoActs === player;
   const label = playerLabel(player, m);
@@ -100,7 +104,14 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
           <LifeStack count={side.lifeCount} counter={counters} />
         </div>
 
-        <div className={styles.character}>
+        {/* The one destination `PLAY_CARD` has, and a drop target only on the
+            half whose player is acting. It lights up because the affordances
+            put `'field'` in `drag.zones` — the UI reads that, it does not
+            work out what looks playable. */}
+        <div
+          className={`${styles.character} ${dropHere ? styles.dropZone : ''}`}
+          {...(dropHere ? { [DROP_ZONE_ATTR]: 'field' } : {})}
+        >
           <span className={styles.zoneLabel}>{m.board.characterArea}</span>
           <CharacterRow ids={side.characters} mine={mine} attachedDon={side.attachedDon} />
         </div>

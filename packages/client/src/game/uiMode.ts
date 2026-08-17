@@ -68,6 +68,8 @@ export type UiMode =
 export type UiEvent =
   | { kind: 'clickHandCard'; instanceId: InstanceId }
   | { kind: 'clickFieldCard'; instanceId: InstanceId; mine: boolean }
+  /** A hand card released over a legal drop zone — see `dropCard` below. */
+  | { kind: 'dropCard'; instanceId: InstanceId }
   | { kind: 'clickDonArea' }
   | { kind: 'clickEmpty' }
   | { kind: 'escape' }
@@ -464,6 +466,24 @@ function reduceIdle(mode: UiMode, ev: BoardEvent, aff: Affordances): UiModeResul
     // so from hand the click selects and asks, and never commits.
     case 'clickHandCard':
       return clickCard(ev.instanceId, aff, mode, true);
+
+    /**
+     * A card dropped on a legal zone.
+     *
+     * The shortcut, not the path: tap-to-select-and-confirm is untouched above
+     * and stays what a player is taught. Dragging a card onto the field is the
+     * gesture the table already has, and it carries its own confirmation — you
+     * had to take it somewhere.
+     *
+     * It goes through `playOutcome`, the very function the menu's Play entry
+     * calls, so a drop and a tap cannot diverge in what they do or in what they
+     * ask next. And it checks the affordance first: the UI decides nothing, and
+     * a drop on a card that may not be played is a no-op, identity included.
+     */
+    case 'dropCard':
+      return aff.byCard[ev.instanceId]?.canPlay === true
+        ? playOutcome(ev.instanceId, aff)
+        : { mode };
     case 'clickFieldCard':
       return ev.mine ? clickCard(ev.instanceId, aff, mode, false) : { mode };
     case 'clickDonArea': {

@@ -956,6 +956,17 @@ export function useNeedsHandoff(): PlayerId | null {
   });
 }
 
+/**
+ * Whether the engine will accept playing this card right now.
+ *
+ * The one question drag asks. It is the affordance verbatim — no cost maths, no
+ * zone check, no reasoning about the board — so a card is draggable exactly
+ * when it is playable, and the UI has decided nothing.
+ */
+export function useCanPlay(id: InstanceId): boolean {
+  return useStore((s) => s.affordances?.byCard[id]?.canPlay ?? false);
+}
+
 /** True while the card belongs to the animation group currently playing. */
 export function useIsHighlighted(id: InstanceId): boolean {
   return useStore((s) => s.animQueue[0]?.cardIds.includes(id) ?? false);

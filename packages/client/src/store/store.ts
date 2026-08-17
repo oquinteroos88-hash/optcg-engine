@@ -23,6 +23,7 @@ import { initialLocale, saveLocale } from '../i18n/locale';
 import type { Locale } from '../i18n/locale';
 import { initialPlaymats, savePlaymat } from '../game/playmat';
 import type { PlaymatId } from '../game/playmat';
+import type { DragState } from '../game/dropZones';
 import { groupEvents } from '../game/animQueue';
 import type { AnimGroup } from '../game/animQueue';
 import { toAction } from '../game/intent';
@@ -135,6 +136,15 @@ export interface StoreState {
    * of them mention it. It is presentation either way: looking, never a move.
    */
   pressing: InstanceId | null;
+  /**
+   * The card being dragged out of hand, and the zones the affordances say it
+   * may be dropped on. Null when nothing is in flight.
+   *
+   * The zones ride along rather than being recomputed by whoever draws them:
+   * one answer, read from the affordances once, so a highlighted zone and an
+   * accepted drop can never disagree.
+   */
+  drag: DragState | null;
   net: NetState | null;
   /**
    * The last rejection, for the player who caused it. With the affordances
@@ -165,6 +175,8 @@ export interface StoreState {
   ackDevice: () => void;
   /** Points the preview panel at a card, or clears it. Never blocked. */
   hover: (instanceId: InstanceId | null) => void;
+  /** Starts or ends a drag. Presentation: the drop is what acts. */
+  setDrag: (drag: DragState | null) => void;
   /** Opens or closes the held-card view. Looking, never a move. */
   pressCard: (instanceId: InstanceId | null) => void;
   /** Opens or closes the trash viewer. Reading a public zone, never an action. */
@@ -337,6 +349,7 @@ export const useStore = create<StoreState>()((set, get) => {
     animQueue: [],
     deviceAckFor: null,
     pressing: null,
+    drag: null,
     net: null,
     notice: null,
 
@@ -479,6 +492,10 @@ export const useStore = create<StoreState>()((set, get) => {
         return;
       }
       set({ ui: { ...ui, hovered: instanceId } });
+    },
+
+    setDrag: (drag) => {
+      set({ drag });
     },
 
     pressCard: (instanceId) => {

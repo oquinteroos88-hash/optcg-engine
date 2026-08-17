@@ -3,10 +3,12 @@ import { motion } from 'motion/react';
 import type { MouseEvent, ReactElement } from 'react';
 import type { InstanceId } from '@optcg/engine';
 import { cardImageSrc, hasCardImage } from '../game/cardImage';
+import { zoneAt } from '../game/dropZones';
 import { useLongPress } from '../game/longPress';
 import { useMessages } from '../i18n/useMessages';
 import {
   powerLinesOf,
+  useCanPlay,
   useCardView,
   useClickState,
   useIsHighlighted,
@@ -40,6 +42,8 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
   const m = useMessages();
   const uiEvent = useStore((s) => s.uiEvent);
   const hover = useStore((s) => s.hover);
+  const canPlay = useCanPlay(id);
+  const setDrag = useStore((s) => s.setDrag);
   const pressCard = useStore((s) => s.pressCard);
   const press = useLongPress(
     useCallback(() => pressCard(id), [pressCard, id]),
@@ -105,6 +109,9 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
     .join('\n');
 
   const clickable = clickState !== 'inert';
+  // Only a card in hand the engine says may be played. Everything else keeps
+  // the tap path and nothing else.
+  const draggable = zone === 'hand' && canPlay;
   // Keyframe arrays only when the moment is on. A card that is not flipping
   // gets the scalar 0, so an unrelated re-render cannot replay the turn.
   const lunging = lungingAttacker === id;
@@ -148,6 +155,30 @@ export function CardTile({ id, zone, mine, veiled = false }: CardTileProps): Rea
         x: lunging ? [0, mine ? -14 : 14, 0] : 0,
       }}
       {...(clickable ? { whileHover: { y: highlighted ? -3 : -4 } } : {})}
+      {...(draggable
+        ? {
+            /* Drag to play: a shortcut, never the path. Tap-to-select is
+               untouched above and stays what a player is taught; this is the
+               gesture the physical table already has, and it carries its own
+               confirmation because you had to take the card somewhere.
+               Offered only where the affordances allow the play, so an
+               undraggable card is one the engine refused, not one the UI
+               decided about. */
+            drag: true,
+            dragSnapToOrigin: true,
+            dragElastic: 0.12,
+            dragMomentum: false,
+            onDragStart: () => setDrag({ card: id, zones: ['field'] }),
+            onDragEnd: (_e: unknown, info: { point: { x: number; y: number } }) => {
+              setDrag(null);
+              // A drop outside a legal zone is nothing at all, and Motion
+              // springs the card back into the fan on its own.
+              if (zoneAt(info.point.x, info.point.y) !== null) {
+                uiEvent({ kind: 'dropCard', instanceId: id });
+              }
+            },
+          }
+        : {})}
       className={`${styles.card} ${colorClass} ${restedClass} ${stateClass} ${dimClass} ${animClass} ${artClass}`}
       onClick={handleClick}
       /* Hold to look. Only on a pointer that has no hover — a mouse keeps the

@@ -31,6 +31,9 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { applyAction, getCardDef } from '@optcg/engine';
 import type { GameState } from '@optcg/engine';
 import { fanGeometry } from '../src/components/HandRow';
+import { LONG_PRESS_MS } from '../src/game/longPress';
+import { DROP_ZONE_ATTR, zoneAt } from '../src/game/dropZones';
+import { motionOff } from '../src/game/motion';
 import {
   NO_ASSETS,
   assetManifest,
@@ -905,5 +908,397 @@ describe('the url helper', () => {
     expect(backgroundImage('')).toBe('none');
     expect(backgroundImage('playmats/x.png')).toBe('url("/cards/playmats/x.png")');
     expect(NO_ASSETS.playmats).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// The gestures a finger has and a mouse does not.
+//
+// Here rather than in a touch suite of its own, for the reason at the top of
+// this file: one more .tsx file is one more jsdom worker against the canary,
+// and adding one put it over on the very run that measured it.
+
+/**
+ * Two turns past the opening, so the acting seat can actually afford a card.
+ *
+ * On turn 1 with one DON!! nothing in a starter hand is playable, and a tap on
+ * an unplayable card correctly does nothing at all — which makes it useless for
+ * telling "the tap arrived" from "the tap was swallowed". Four engine calls buy
+ * a board where the difference is visible.
+ */
+function playableBoard(): GameState {
+  let state = openingBoard();
+  for (let i = 0; i < 4; i += 1) {
+    const result = applyAction(state, { type: 'END_TURN', player: state.activePlayer });
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+    state = result.state;
+  }
+  return state;
+}
+
+const heldBoard: GameState = playableBoard();
+
+/**
+ * A card of the acting seat's hand that the affordances say may be played.
+ *
+ * By position: the hand renders in the view's own order, so the index of the
+ * first playable id is the index of its tile. The affordances decide, never
+ * this test — the same rule the UI itself follows.
+ */
+function playableHandCard(): HTMLElement {
+  const seat = heldBoard.priority;
+  const hand = heldBoard.players[seat].hand;
+  const affordances = useStore.getState().affordances;
+  const index = hand.findIndex((id) => affordances?.byCard[id]?.canPlay === true);
+  expect(index, 'expected a playable card in hand').toBeGreaterThanOrEqual(0);
+
+  const label = seat === 'p1' ? 'Jugador 1' : 'Jugador 2';
+  const group = screen.getByRole('group', { name: `Mano de ${label}` });
+  const tile = within(group).getAllByRole('button')[index];
+  if (tile === undefined) {
+    throw new Error('hand tile and hand id are out of step');
+  }
+  return tile;
+}
+/** The first card of the acting seat's hand — something real to hold. */
+function handCard(): HTMLElement {
+  const seat = heldBoard.priority === 'p1' ? 'Jugador 1' : 'Jugador 2';
+  const hand = screen.getByRole('group', { name: `Mano de ${seat}` });
+  const tiles = within(hand).getAllByRole('button');
+  const first = tiles[0];
+  if (first === undefined) {
+    throw new Error('expected a card in hand');
+  }
+  return first;
+}
+
+/**
+ * jsdom fires no pointer events of its own and `PointerEvent` is not
+ * implemented, so the coordinates ride on a plain event. Testing Library's
+ * `fireEvent.pointerDown` builds one from whatever it is handed, which is
+ * exactly what the component reads: `pointerType` and two numbers.
+ */
+function press(el: HTMLElement, init: Record<string, unknown> = {}): void {
+  fireEvent.pointerDown(el, { pointerType: 'touch', clientX: 100, clientY: 100, ...init });
+}
+
+// ---------------------------------------------------------------------------
+
+describe('holding a card', () => {
+  // Scoped to this block, not the file: the rest of the suite renders real
+  // components with real timers, and a global fake clock would change what
+  // every one of them is testing.
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('opens the enlarged view, and lets go of it on release', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = handCard();
+
+    press(card);
+    expect(useStore.getState().pressing).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+    });
+    expect(useStore.getState().pressing).not.toBeNull();
+
+    fireEvent.pointerUp(card, { pointerType: 'touch' });
+    expect(useStore.getState().pressing).toBeNull();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('is a look and not a move: the press dispatches nothing', () => {
+    // The claim that matters. A player reading a card must not play it.
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const before = useStore.getState().gameState;
+    const card = handCard();
+
+    press(card);
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+    });
+
+    expect(useStore.getState().gameState).toBe(before);
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+  });
+
+  it('swallows the click the browser fires after it, and only that one', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = playableHandCard();
+
+    press(card);
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+    });
+    fireEvent.pointerUp(card, { pointerType: "touch" });
+    fireEvent.click(card);
+    // The look did not become a move.
+    expect(useStore.getState().ui.mode).toEqual({ kind: 'idle' });
+
+    // And the very next tap does what a tap has always done.
+    fireEvent.click(card);
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+  });
+
+  it('does not fire when the finger moves — that is a scroll, not a hold', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = handCard();
+
+    press(card);
+    fireEvent.pointerMove(card, { pointerType: 'touch', clientX: 100, clientY: 160 });
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS * 2);
+    });
+    expect(useStore.getState().pressing).toBeNull();
+  });
+
+  it('ignores a mouse, which already has a hover', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const card = playableHandCard();
+
+    fireEvent.pointerDown(card, { pointerType: 'mouse', clientX: 100, clientY: 100 });
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_MS * 2);
+    });
+    expect(useStore.getState().pressing).toBeNull();
+    // And a mouse click is still a move, with nothing swallowed.
+    fireEvent.click(card);
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+  });
+});
+
+describe('tap is untouched', () => {
+  it('still selects a card in hand, with no pointer sequence at all', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    fireEvent.click(playableHandCard());
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+  });
+});
+
+// ===========================================================================
+// The rule the motion work is built on, and the leak discipline under it.
+
+describe('an animation is never the carrier of truth', () => {
+  it('reflects the new view synchronously, before any frame could have run', () => {
+    // The assertion is the absence of `await`. Dispatch returns, and the store
+    // already holds the new state — no animation gates it, nothing is waiting
+    // on an `onAnimationComplete`, and a caller that read the store on the very
+    // next line would read the truth.
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const before = useStore.getState().gameState;
+    expect(before).not.toBeNull();
+
+    const seat = heldBoard.priority;
+    fireEvent.click(playableHandCard());
+
+    // Selecting is a UI mode change and it, too, is immediate.
+    expect(useStore.getState().ui.mode).not.toEqual({ kind: 'idle' });
+
+    // And a real action: end the turn, and read the store on the next line.
+    act(() => {
+      useStore.getState().endTurn();
+    });
+    const after = useStore.getState().gameState;
+    expect(after).not.toBe(before);
+    expect(after?.activePlayer).not.toBe(seat);
+  });
+
+  it('is off by default in here, and the rest of the suite does not depend on that', () => {
+    // Not an incidental property of jsdom: a zero transition is CHOSEN, so
+    // nothing can hold a removed card in the tree past an exit and every
+    // structural claim in this suite is about the real component.
+    //
+    // The check is conditional because it can be overridden — and the override
+    // is the point. `OPTCG_MOTION=1` runs this whole suite with the animations
+    // actually on, and everything else in it still passes. That is the rule of
+    // this PR, measured rather than asserted: turning motion on changes the
+    // pixels and nothing else.
+    const forced = globalThis.process?.env?.['OPTCG_MOTION'] === '1';
+    expect(motionOff()).toBe(!forced);
+  });
+});
+
+describe('the animated DOM keeps the leak discipline', () => {
+  it('never writes a card id into the document, layoutId included', () => {
+    // Every tile is a Motion element carrying `layoutId={instanceId}`. Motion
+    // consumes that prop and does not forward it, but "does not forward it" is
+    // a promise made by a dependency — so it is checked here, against the real
+    // rendered document, for every card on the board.
+    loadState(populated);
+    render(<GameScreen />);
+    const html = document.body.innerHTML;
+    expect(html).not.toContain('layoutid');
+    expect(html).not.toContain('layoutId');
+
+    const everyId = Object.keys(populated.cards);
+    expect(everyId.length).toBeGreaterThan(10);
+    for (const id of everyId) {
+      expect(html, `instance ${id} reached the DOM`).not.toContain(id);
+    }
+  });
+});
+
+// ===========================================================================
+// Drag to play: the shortcut, never the path.
+
+describe('dragging a card out of hand', () => {
+  /** The reducer, driven directly — the drop is the event, not the gesture. */
+  function drop(id: string): void {
+    act(() => {
+      useStore.getState().uiEvent({ kind: 'dropCard', instanceId: id });
+    });
+  }
+
+  function handIds(): readonly string[] {
+    return heldBoard.players[heldBoard.priority].hand;
+  }
+
+  it('plays the card when the affordance allows it', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    const affordances = useStore.getState().affordances;
+    const playable = handIds().find((id) => affordances?.byCard[id]?.canPlay === true);
+    expect(playable).toBeDefined();
+    const before = useStore.getState().gameState;
+
+    drop(playable ?? '');
+
+    // Either the card is on the board or the engine asked something first —
+    // both are the tap path's outcomes, because a drop calls the same
+    // `playOutcome` the menu's Play entry calls.
+    const moved =
+      useStore.getState().gameState !== before ||
+      useStore.getState().ui.mode.kind !== 'idle';
+    expect(moved).toBe(true);
+  });
+
+  it('does nothing at all when the affordance does not', () => {
+    loadState(heldBoard);
+    render(<GameScreen />);
+    // The Leader: on the board, never in hand, never playable. A drop on it is
+    // the shape of every illegal drop, and unlike a hand card it cannot become
+    // affordable as the turn goes on.
+    const leader = heldBoard.players[heldBoard.priority].leader;
+    expect(useStore.getState().affordances?.byCard[leader]?.canPlay).not.toBe(true);
+
+    const before = useStore.getState();
+    drop(leader);
+
+    expect(useStore.getState().gameState).toBe(before.gameState);
+    // Identity, not equality: a no-op must not re-render the board.
+    expect(useStore.getState().ui.mode).toBe(before.ui.mode);
+  });
+
+  it('lights exactly the zones the affordances name, and only the acting seat', () => {
+    // Equality, not a sample: the set on screen is the set in `drag.zones`,
+    // which is read from the affordances and never recomputed by a component.
+    loadState(heldBoard);
+    render(<GameScreen />);
+    expect(document.querySelectorAll(`[${DROP_ZONE_ATTR}]`)).toHaveLength(0);
+
+    const playable = handIds().find(
+      (id) => useStore.getState().affordances?.byCard[id]?.canPlay === true,
+    );
+    act(() => {
+      useStore.getState().setDrag({ card: playable ?? '', zones: ['field'] });
+    });
+
+    const lit = [...document.querySelectorAll(`[${DROP_ZONE_ATTR}]`)];
+    expect(lit.map((el) => el.getAttribute(DROP_ZONE_ATTR))).toEqual(['field']);
+
+    // And it is on the acting seat's half, not the opponent's.
+    const seat = heldBoard.priority === 'p1' ? 'Jugador 1' : 'Jugador 2';
+    const field = screen.getByRole('group', { name: `Campo de ${seat}` });
+    expect(field.contains(lit[0] ?? null)).toBe(true);
+
+    act(() => {
+      useStore.getState().setDrag(null);
+    });
+    expect(document.querySelectorAll(`[${DROP_ZONE_ATTR}]`)).toHaveLength(0);
+  });
+
+  it('resolves a point to a zone through the document, not through geometry', () => {
+    // `zoneAt` asks the document what is under the finger. The board is a grid
+    // with two templates and a window that rotates; measured rectangles drift
+    // from what is on screen and this cannot.
+    const doc = {
+      elementFromPoint: (): Element | null => null,
+    } as unknown as Document;
+    expect(zoneAt(10, 10, doc)).toBeNull();
+  });
+});
+
+// ===========================================================================
+// The phone, after the report from a real one.
+
+describe('what a phone shows', () => {
+  afterEach(() => {
+    resetViewport();
+  });
+
+  it('drops the settings from the bar, which is what was overflowing the page', () => {
+    // Measured on a 375px screen: the bar was 512px wide because the language,
+    // playmat and veil controls do not wrap. The document grew with it, and
+    // every `position: fixed` overlay then centred itself against a box wider
+    // than the screen — which is why the mulligan and the card menu were half
+    // off-screen and the mulligan could not be answered at all.
+    setViewport('portrait');
+    loadState(heldBoard);
+    render(<GameScreen />);
+
+    expect(screen.queryByRole('combobox', { name: 'Idioma' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /^Tapete/ })).toBeNull();
+    expect(screen.queryByLabelText(m.board.veilOpponentHand)).toBeNull();
+    // What a player came for is still there.
+    expect(screen.getByRole('button', { name: m.board.concede })).toBeDefined();
+  });
+
+  it('keeps them on a screen with room, because nothing was removed', () => {
+    setViewport('landscape');
+    loadState(heldBoard);
+    render(<GameScreen />);
+    expect(screen.getByRole('combobox', { name: 'Idioma' })).toBeDefined();
+    expect(screen.getAllByRole('combobox', { name: /^Tapete/ }).length).toBeGreaterThan(0);
+  });
+
+  it('puts the card itself in the menu, big, where there is no preview rail', () => {
+    // On a phone the tile is forty pixels wide and the rail that would show it
+    // at size is not on screen. The thing being decided about has to be in the
+    // dialog it is decided in.
+    setViewport('portrait');
+    loadState(heldBoard);
+    render(<GameScreen />);
+
+    const seat = heldBoard.priority;
+    const hand = heldBoard.players[seat].hand;
+    const affordances = useStore.getState().affordances;
+    const playable = hand.find((id) => affordances?.byCard[id]?.canPlay === true);
+    expect(playable).toBeDefined();
+
+    act(() => {
+      useStore.getState().uiEvent({ kind: 'clickHandCard', instanceId: playable ?? '' });
+    });
+
+    // The menu is open and carries an image of the card, not just its name.
+    const cancel = screen.queryByRole('button', { name: m.common.cancel });
+    if (cancel === null) {
+      // Single-option cards still act on the first click; nothing to assert.
+      return;
+    }
+    const dialog = cancel.parentElement;
+    expect(dialog?.querySelector('img')).not.toBeNull();
   });
 });

@@ -291,3 +291,15 @@
 .cost > * {
   width: 100%;
 }
+
+/*
+  A legal destination while a card is in the air. Lit from the affordances, via
+  `drag.zones` — see game/dropZones.ts. It is a ring rather than a fill: the
+  cards already on the mat have to stay readable while you decide.
+*/
+.dropZone {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}

@@ -11,8 +11,12 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  /* No `transform` here, and none anywhere below. Motion owns the transform of
+     this element — the rested rotation, the hover lift and the highlight bounce
+     are all `animate`/`whileHover` in CardTile.tsx. A CSS rule setting one would
+     be overridden by the inline style and would quietly stop working, which is
+     worse than not existing. */
   transition:
-    transform 0.15s ease,
     box-shadow 0.15s ease,
     opacity 0.15s ease;
   flex: 0 0 auto;
@@ -28,15 +32,10 @@
   box-shadow: 0 0 0 1px var(--color-accent);
 }
 
-.selectable:hover {
-  transform: translateY(-4px);
-}
-
-/* Rested cards must keep their rotation while lifting, same collision as
-   .rested.animating below. */
-.rested.selectable:hover {
-  transform: rotate(90deg) translateY(-4px);
-}
+/* The hover lift is `whileHover` in the component. It used to be two rules —
+   one for upright, one to re-state the rotation for a rested card — because CSS
+   `transform` is a single property and a lift overwrites a rotation. Motion
+   composes them, so the special case is gone rather than moved. */
 
 .selected {
   cursor: pointer;
@@ -61,14 +60,10 @@
   opacity: 0.4;
 }
 
-/* Head animation group: subtle, transition-based, no layout shift. */
+/* Head animation group: the ring only. The lift that went with it is `animate`
+   in the component, for the same reason the hover lift is. */
 .animating {
   box-shadow: 0 0 0 3px var(--color-accent);
-  transform: translateY(-3px);
-}
-
-.rested.animating {
-  transform: rotate(90deg) translateY(-3px);
 }
 
 @keyframes pulse {
@@ -93,8 +88,13 @@
   background: linear-gradient(160deg, var(--color-card-green), var(--color-surface));
 }
 
+/* `.rested` still exists as a hook — the stylesheet-reading tests address it,
+   and a reader looking for "where does the rotation live" should find a pointer
+   here rather than nothing. The rotation itself is `animate={{ rotate: 90 }}`
+   in CardTile.tsx, because turning a card is now something the player watches
+   happen and CSS cannot own a transform Motion is writing. */
 .rested {
-  transform: rotate(90deg);
+  transform-origin: center;
 }
 
 .header {

@@ -15,6 +15,7 @@ import { clickStateOf } from '../game/clickState';
 import type { ClickState } from '../game/clickState';
 import { messagesFor } from '../i18n';
 import type { Locale, Messages } from '../i18n';
+import type { AnimGroup } from '../game/animQueue';
 import { printedTextOf } from '../game/printed';
 import { menuOptions } from '../game/uiMode';
 import type { MenuOption, UiMode } from '../game/uiMode';
@@ -955,9 +956,85 @@ export function useNeedsHandoff(): PlayerId | null {
   });
 }
 
+/**
+ * Whether the engine will accept playing this card right now.
+ *
+ * The one question drag asks. It is the affordance verbatim — no cost maths, no
+ * zone check, no reasoning about the board — so a card is draggable exactly
+ * when it is playable, and the UI has decided nothing.
+ */
+export function useCanPlay(id: InstanceId): boolean {
+  return useStore((s) => s.affordances?.byCard[id]?.canPlay ?? false);
+}
+
 /** True while the card belongs to the animation group currently playing. */
 export function useIsHighlighted(id: InstanceId): boolean {
   return useStore((s) => s.animQueue[0]?.cardIds.includes(id) ?? false);
+}
+
+/**
+ * Cards the group now playing is turning face-up.
+ *
+ * **Read off the redacted events, and therefore correct by construction.** A
+ * card is flipped here only when an event names it with a real id, and the view
+ * gives a real id exactly when the viewer is entitled to the face:
+ *
+ *  - `cardDrawn` carries an id for the drawer and `null` for the other seat, so
+ *    your draw turns over and theirs stays a back that travels.
+ *  - `lifeTaken` carries an id for its owner alone — the card went to their hand
+ *    unrevealed (CR 10-1-5-2).
+ *  - `abilityTriggered` is kept only for a viewer who knows the source, because
+ *    activating from a secret zone is what revealed it (CR 10-1-5-1). That is
+ *    what makes the `[Trigger]` flip legal for the opponent to watch: the rules
+ *    turned the card over, so the animation may too.
+ *
+ * The case this deliberately cannot animate is a **declined** `[Trigger]`, for
+ * the opponent. The rules keep a decline unrevealed, so the view drops the whole
+ * offer — and a flip there would reveal a card the game is hiding. The missing
+ * data is the point, not a gap: see docs/board-design.md.
+ */
+function flippingIdsOf(group: AnimGroup | null): readonly InstanceId[] {
+  if (group === null) {
+    return [];
+  }
+  const ids: InstanceId[] = [];
+  for (const event of group.events) {
+    if (event.type === 'cardDrawn' || event.type === 'lifeTaken') {
+      if (event.instanceId !== null) {
+        ids.push(event.instanceId);
+      }
+    } else if (event.type === 'abilityTriggered') {
+      ids.push(event.source);
+    }
+  }
+  return ids;
+}
+
+export function useIsFlipping(id: InstanceId): boolean {
+  return useStore((s) => flippingIdsOf(s.animQueue[0] ?? null).includes(id));
+}
+
+/**
+ * The attacker of the battle now playing, for the lunge.
+ *
+ * A short shove towards the target and back — the gesture a player makes at the
+ * table. It is drawn from the event rather than from `view.battle` because it
+ * belongs to the moment the attack is declared, not to the whole battle: the
+ * card should shove once, not lean for the length of the Block Step.
+ */
+export function useLungingAttacker(): InstanceId | null {
+  return useStore((s) => {
+    const group = s.animQueue[0];
+    if (group === undefined) {
+      return null;
+    }
+    for (const event of group.events) {
+      if (event.type === 'attackDeclared') {
+        return event.attacker;
+      }
+    }
+    return null;
+  });
 }
 
 /** The card waiting on a sacrifice choice, or null when no choice is pending. */
@@ -1219,6 +1296,8 @@ export function usePreview(): PreviewView | null {
 
 export interface CardMenuView {
   card: InstanceId;
+  /** The printed card, for the art the phone sheet shows. */
+  cardId: string;
   name: string;
   options: readonly { label: string; hint: string | null }[];
 }
@@ -1268,6 +1347,7 @@ const cardMenuOf = memoize1(
     let seen = 0;
     return {
       card: mode.card,
+      cardId: card.cardId,
       name: getCardDef(card.cardId).name,
       options: options.map((option) => {
         const entry = labelFor(option, card.cardId, locale, m);

@@ -1,10 +1,27 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useLocale } from './i18n/useMessages';
-import { GameScreen } from './screens/GameScreen';
 import { LobbyScreen } from './screens/LobbyScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { useStore } from './store/store';
+
+/**
+ * The board, and everything only the board needs — including Motion, which is
+ * the one runtime library this client depends on and about forty gzipped
+ * kilobytes of it.
+ *
+ * Split here rather than fought with inside Motion. `layoutId` requires
+ * Motion's full feature set, so there is no lighter build to pick; what there
+ * is, is the fact that nobody choosing a deck needs any of it. Setup and the
+ * lobby now load without it and the chunk arrives while somebody reads their
+ * opening hand.
+ *
+ * Suspense falls back to nothing on purpose. It is one chunk on the same
+ * origin, already warm by the second game, and a spinner for it would flash.
+ */
+const GameScreen = lazy(async () => ({
+  default: (await import('./screens/GameScreen')).GameScreen,
+}));
 
 export function App(): ReactElement {
   const screen = useStore((s) => s.screen);
@@ -20,7 +37,11 @@ export function App(): ReactElement {
   }, [locale]);
 
   if (screen === 'playing') {
-    return <GameScreen />;
+    return (
+      <Suspense fallback={null}>
+        <GameScreen />
+      </Suspense>
+    );
   }
   return lobby ? (
     <LobbyScreen onBack={() => setLobby(false)} />

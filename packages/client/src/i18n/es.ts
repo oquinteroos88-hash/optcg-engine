@@ -187,6 +187,7 @@ export const es: Messages = {
   mulligan: {
     title: (player) => `${player} — ¿mulligan?`,
     hint: 'Mira tu mano inicial. Si tomas mulligan, devuelves estas 5 cartas y robas 5 nuevas.',
+    peek: 'Apunta a una carta para verla, o mantenla presionada en pantalla táctil.',
     keep: 'Conservar',
     mulligan: 'Mulligan',
   },

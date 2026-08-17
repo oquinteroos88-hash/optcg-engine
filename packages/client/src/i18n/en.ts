@@ -233,6 +233,8 @@ export const en = {
   mulligan: {
     title: (player: string): string => `${player} — mulligan?`,
     hint: 'Look at your opening hand. Taking a mulligan returns these 5 cards and draws 5 new ones.',
+    /** Said under the fanned opening hand: the cards overlap on purpose. */
+    peek: 'Point at a card to see it, or hold it on a touch screen.',
     keep: 'Keep',
     mulligan: 'Mulligan',
   },

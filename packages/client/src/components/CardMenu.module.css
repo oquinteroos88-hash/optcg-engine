@@ -63,3 +63,38 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------------------------
+   The phone sheet.
+
+   On a desktop the card is legible on the board and the preview rail is showing
+   it at size while this is open, so the menu is a list of verbs. A phone has
+   neither — the tile is forty pixels wide and there is no rail — so the card
+   goes in the dialog, big, above the verbs.
+*/
+.compact {
+  width: min(86vw, 340px);
+  max-height: 88vh;
+  overflow-y: auto;
+  align-items: stretch;
+}
+
+.art {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+
+/* Thumb-sized, and the primary verb first: the list is what the player came
+   here to press. */
+.compact .option {
+  padding: var(--space-3);
+  font-size: 15px;
+}
+
+.compact .cancel {
+  padding: var(--space-3);
+  font-size: 14px;
+}

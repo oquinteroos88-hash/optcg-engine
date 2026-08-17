@@ -19,12 +19,15 @@ export function Table(): ReactElement | null {
   // board turns around with the device, which is what pass-and-play meant all
   // along.
   //
-  // The top half mirrors the ORDER of its rows and rotates nothing, so both
+  // The top half mirrors WHERE ITS ZONES SIT and rotates nothing, so both
   // Character areas face the centre line and every label stays readable.
   const opponent = viewer === 'p1' ? 'p2' : 'p1';
   return (
     <div className={styles.table} onClick={() => uiEvent({ kind: 'clickEmpty' })}>
       <SideBoard player={opponent} mirrored />
+      {/* The centre line is a row of the table's own grid, not a margin: the
+          two Character Areas are placed against it rather than left next to a
+          gap that happens to be drawn. */}
       <div className={styles.divider} />
       <SideBoard player={viewer} mirrored={false} />
     </div>

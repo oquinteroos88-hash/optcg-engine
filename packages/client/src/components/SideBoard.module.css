@@ -1,39 +1,139 @@
+/*
+  One player's half of the table.
+
+  Two things stacked: the mat, and the hand that is not part of it. Explicit
+  areas rather than a flex direction, because the mirrored half needs the hand
+  on the far side and "which row is which" should be readable in the sheet
+  instead of inferred from a direction.
+*/
 .sideBoard {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-areas:
+    'mat'
+    'hand';
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   min-width: 0;
 }
 
-/*
-  The mirror. `column-reverse` flips the ORDER of the rows and nothing else, so
-  the opponent's Character row ends up against the centre line while every
-  label stays upright. Phase 1 used `rotate(180deg)` here, which bought the same
-  ordering and made half the interface unreadable.
-*/
 .mirrored {
-  flex-direction: column-reverse;
+  grid-template-areas:
+    'hand'
+    'mat';
 }
 
+.hand {
+  grid-area: hand;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   The mat.
+
+   A calque of the official playsheet, as named areas. Read from the player's
+   own seat: Life is the column against the outer edge, the Character Area is
+   the wide row along the edge nearest the opponent, then Leader / Stage / Deck,
+   then DON!! deck / Cost Area / Trash. `phases` is the free space the mat
+   prints the phase track in.
+*/
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  grid-area: mat;
+  display: grid;
+  gap: var(--mat-gap);
   min-width: 0;
+  grid-template-columns:
+    var(--pile-w) /* life   */
+    minmax(0, 1.1fr) /* phases */
+    var(--slot) /* leader */
+    var(--slot) /* stage  */
+    var(--pile-w) /* deck   */
+    var(--pile-w); /* trash  */
+  grid-template-areas:
+    'life character character character character character'
+    'life phases leader stage deck deck'
+    'life don cost cost cost trash';
 }
 
+/*
+  The mirror.
+
+  The same nine areas, placed for the seat across the table: rows reversed so
+  this half's Character Area lands against the centre line, columns reversed so
+  its Life hugs the far edge — your right. Nothing is rotated, which is the
+  whole point: Phase 1 bought this ordering with `rotate(180deg)` and made half
+  the interface unreadable.
+*/
 .mirrored .field {
-  flex-direction: column-reverse;
+  grid-template-columns:
+    var(--pile-w) /* trash  */
+    var(--pile-w) /* deck   */
+    var(--slot) /* stage  */
+    var(--slot) /* leader */
+    minmax(0, 1.1fr) /* phases */
+    var(--pile-w); /* life   */
+  grid-template-areas:
+    'trash cost cost cost don life'
+    'deck deck stage leader phases life'
+    'character character character character character life';
 }
 
-/* Leader, Stage and Deck, with the Life stack at the outer edge. */
-.mainRow,
-.donRow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(var(--space-1), 1vw, var(--space-4));
+/* --------------------------------------------------------------------------
+   The cells. Each one is the mat's box for that zone; what goes inside it is
+   the zone's own component, unchanged.
+*/
+.life {
+  grid-area: life;
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+.character {
+  grid-area: character;
+  display: grid;
+  place-items: center;
   min-width: 0;
-  flex-wrap: nowrap;
+}
+
+.leader {
+  grid-area: leader;
+  display: grid;
+  place-items: center;
+}
+
+.stage {
+  grid-area: stage;
+  display: grid;
+  place-items: center;
+}
+
+.deck {
+  grid-area: deck;
+  display: grid;
+  place-items: center;
+}
+
+.don {
+  grid-area: don;
+  display: grid;
+  place-items: center;
+}
+
+.cost {
+  grid-area: cost;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
+.trash {
+  grid-area: trash;
+  display: grid;
+  place-items: center;
+}
+
+/* The Cost Area is the wide one on the real mat, and the only zone that grows
+   into the space it is given. */
+.cost > * {
+  width: 100%;
 }

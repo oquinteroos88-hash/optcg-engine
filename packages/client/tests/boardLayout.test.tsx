@@ -81,6 +81,42 @@ function styleSheet(name: string): string {
   return readFileSync(join(COMPONENTS, name), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
+/** Every `selector { … }` rule of a stylesheet, body keyed by selector. */
+function rules(sheet: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [, selector = '', body = ''] of sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    out.set(selector.trim(), body);
+  }
+  return out;
+}
+
+/**
+ * A `grid-template-areas` as data: one array of area names per row, in the
+ * order they are painted, top to bottom.
+ */
+function templateAreas(sheet: string, selector: string): readonly (readonly string[])[] {
+  const body = rules(sheet).get(selector);
+  expect(body, `no rule for ${selector}`).toBeDefined();
+  const declaration = /grid-template-areas:([^;]*);/.exec(body ?? '');
+  expect(declaration, `no grid-template-areas in ${selector}`).not.toBeNull();
+  return [...(declaration?.[1] ?? '').matchAll(/'([^']*)'/g)].map(([, row = '']) =>
+    row.trim().split(/\s+/),
+  );
+}
+
+/** The nine zones the official playsheet prints, as the grid names them. */
+const MAT_AREAS = [
+  'life',
+  'character',
+  'leader',
+  'stage',
+  'deck',
+  'don',
+  'cost',
+  'trash',
+  'phases',
+] as const;
+
 // ---------------------------------------------------------------------------
 
 describe('nothing that carries text is turned upside down', () => {
@@ -90,9 +126,50 @@ describe('nothing that carries text is turned upside down', () => {
   // — an order, not a rotation.
   const sideBoard = styleSheet('SideBoard.module.css');
 
-  it('mirrors the opponent half by row order, not by rotating it', () => {
-    expect(sideBoard).toContain('column-reverse');
+  it('mirrors the opponent half by placing its zones, not by rotating it', () => {
+    // This used to assert `column-reverse`, which was a proxy: what the mirror
+    // is FOR is putting both Character Areas against the centre line, and a
+    // flex direction only implied that. The grid says it outright, so the test
+    // now asserts the thing itself.
+    const mine = templateAreas(sideBoard, '.field');
+    const theirs = templateAreas(sideBoard, '.mirrored .field');
+
+    // Your half is the bottom one, so the line is above it; theirs is the top
+    // one, so the line is below. Both Character Areas end up against it.
+    expect(mine[0]).toContain('character');
+    expect(theirs.at(-1)).toContain('character');
+    // And the Cost Area — the near edge of each mat — ends up at the outside.
+    expect(mine.at(-1)).toContain('cost');
+    expect(theirs[0]).toContain('cost');
+
     expect(sideBoard).not.toMatch(/rotate\(\s*180deg\s*\)/);
+  });
+
+  it('gives both halves the same nine zones of the printed sheet', () => {
+    for (const [selector, template] of [
+      ['.field', templateAreas(sideBoard, '.field')],
+      ['.mirrored .field', templateAreas(sideBoard, '.mirrored .field')],
+    ] as const) {
+      const named = [...new Set(template.flat())].sort();
+      expect(named, selector).toEqual([...MAT_AREAS].sort());
+      // Every row of a template must be the same width or the whole
+      // declaration is invalid and the browser silently drops it.
+      const widths = [...new Set(template.map((row) => row.length))];
+      expect(widths, selector).toHaveLength(1);
+    }
+  });
+
+  it('keeps Life against the outer edge of each mat, so the two do not collide', () => {
+    // On the real table your Life is at your left hand and theirs is at their
+    // left — which, seen from your chair, is your right.
+    const mine = templateAreas(sideBoard, '.field');
+    const theirs = templateAreas(sideBoard, '.mirrored .field');
+    for (const row of mine) {
+      expect(row[0]).toBe('life');
+    }
+    for (const row of theirs) {
+      expect(row.at(-1)).toBe('life');
+    }
   });
 
   it('has no 180deg rotation in any component stylesheet', () => {

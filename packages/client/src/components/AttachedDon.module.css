@@ -1,0 +1,26 @@
+/*
+  Inside the slot, behind the card. The slot is square and the card is not, so
+  the fan slides out into slack that is already reserved and is clipped by the
+  cell — it can never collide with the zone next door.
+*/
+.fan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.don {
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: calc(50% - var(--card-w) / 2 - 6px - var(--i) * 5px);
+  width: var(--card-w);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-accent);
+  background-image: var(--don-back, none);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.85;
+}

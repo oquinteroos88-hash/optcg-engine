@@ -42,7 +42,10 @@ export function DonArea({ active, rested, clickable, attaching, onClick }: DonAr
       disabled={!clickable}
       aria-label={m.board.donArea(active, rested)}
     >
-      {/* DON!! is a name, not a word: it is not translated in any language. */}
+      {/* The zone is called the Cost Area and that name translates. The cards
+          in it are called DON!!, and that one is a name: it does not. Both are
+          printed on the real mat, and both are printed here. */}
+      <span className={styles.zone}>{m.board.costArea}</span>
       <span className={styles.label}>DON!!</span>
       <div className={styles.counts}>
         <span className={styles.active}>{m.board.donActive(active)}</span>

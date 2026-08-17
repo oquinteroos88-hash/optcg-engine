@@ -1,0 +1,75 @@
+.pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pile:disabled {
+  cursor: default;
+}
+
+.label {
+  font-size: 10px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.stack {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--pile-w);
+  aspect-ratio: 63 / 88;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.empty {
+  background: none;
+  border-style: dashed;
+  color: var(--color-muted);
+}
+
+/* The card lying face-up on the pile. Decoration: the name beside it is what
+   carries the information, and the viewer is what carries the rest. */
+.face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.name {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 1;
+  font-size: 8px;
+  line-height: 1.1;
+  padding: 1px;
+  text-align: center;
+  background: rgba(8, 12, 20, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  position: relative;
+  z-index: 2;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}

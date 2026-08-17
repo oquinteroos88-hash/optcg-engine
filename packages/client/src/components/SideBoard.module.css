@@ -113,7 +113,18 @@
   grid-area: character;
   display: grid;
   place-items: center;
+  gap: 1px;
   min-width: 0;
+}
+
+/* The zone names the sheet prints. Small and quiet: on the real mat they are
+   printed into the felt, not shouted. */
+.zoneLabel {
+  font-size: 10px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .leader {

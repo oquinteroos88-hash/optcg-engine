@@ -31,6 +31,14 @@
   box-shadow: 0 0 0 2px var(--color-text);
 }
 
+.zone {
+  font-size: 10px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 .label {
   font-size: 11px;
   color: var(--color-accent);

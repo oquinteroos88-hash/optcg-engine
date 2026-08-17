@@ -91,6 +91,8 @@ export const es: Messages = {
     leader: 'Líder',
     stage: 'Escenario',
     life: 'Vida',
+    characterArea: 'Área de Personajes',
+    costArea: 'Área de Coste',
     deck: 'Mazo',
     donDeck: 'Mazo de DON!!',
     trash: 'Descarte',

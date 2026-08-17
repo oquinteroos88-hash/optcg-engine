@@ -97,6 +97,13 @@ export const en = {
     leader: 'Leader',
     stage: 'Stage',
     life: 'Life',
+    /** The wide row against the centre line, where the battles happen. */
+    characterArea: 'Character Area',
+    /**
+     * The wide zone on the near edge. The DON!! that sit in it keep their own
+     * name — `DON!!` is a name, not a word, and is not translated anywhere.
+     */
+    costArea: 'Cost Area',
     deck: 'Deck',
     donDeck: 'DON!! deck',
     trash: 'Trash',

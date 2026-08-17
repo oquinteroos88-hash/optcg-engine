@@ -12,6 +12,7 @@ import { LeaderSlot } from './LeaderSlot';
 import { LifeStack } from './LifeStack';
 import { PhaseTrack } from './PhaseTrack';
 import { StageSlot } from './StageSlot';
+import { TrashPile } from './TrashPile';
 import styles from './SideBoard.module.css';
 
 interface SideBoardProps {
@@ -84,11 +85,16 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
         </div>
 
         <div className={styles.character}>
-          <CharacterRow ids={side.characters} mine={mine} />
+          <span className={styles.zoneLabel}>{m.board.characterArea}</span>
+          <CharacterRow ids={side.characters} mine={mine} attachedDon={side.attachedDon} />
         </div>
 
         <div className={styles.leader}>
-          <LeaderSlot id={side.leader} mine={mine} />
+          <LeaderSlot
+            id={side.leader}
+            mine={mine}
+            donCount={side.attachedDon[side.leader] ?? 0}
+          />
         </div>
 
         <div className={styles.stage}>
@@ -114,11 +120,11 @@ export function SideBoard({ player, mirrored }: SideBoardProps): ReactElement | 
         </div>
 
         <div className={styles.trash}>
-          {/* The one pile you may read: public information in the real game. */}
-          <DeckPile
-            label={m.board.trash}
+          {/* The one pile you may read, and the only one that shows a face:
+              public information in the real game (CR 3-5-2). */}
+          <TrashPile
             count={side.trashCount}
-            compact
+            top={side.trashTop}
             onOpen={() => viewTrash(player)}
           />
         </div>

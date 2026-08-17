@@ -1457,9 +1457,26 @@ export interface SideView {
   deckCount: number;
   lifeCount: number;
   trashCount: number;
+  /**
+   * The card face-up on top of the trash. Public information (CR 3-5-2), which
+   * is why this is the one pile that shows a face and the one pile that opens.
+   *
+   * `trash[0]` — the view keeps the pile most-recent-first, the same order
+   * `PileViewer` lists it in.
+   */
+  trashTop: { id: InstanceId; cardId: string; name: string } | null;
   donActive: number;
   donRested: number;
   donDeck: number;
+  /**
+   * DON!! attached to a card of this side, by instance. A card with none is
+   * absent rather than present as zero.
+   *
+   * On the table the attached cards fan out from under the one carrying them,
+   * and the board draws them that way. It is a count and never an id: which
+   * DON!! is attached is not a thing anybody needs to know.
+   */
+  attachedDon: Readonly<Record<InstanceId, number>>;
 }
 
 const sideCache = new WeakMap<PlayerView, Map<PlayerId, SideView>>();
@@ -1487,6 +1504,21 @@ export function useSide(player: PlayerId): SideView | null {
           ? card.location.kind === 'donDeck'
           : card.location.kind === 'cost' && card.location.orientation === kind,
       ).length;
+    const topId = ps.trash[0];
+    const topCard = topId === undefined ? undefined : view.cards[topId];
+    // Counted here rather than read off a card in a component: components may
+    // not import engine values at all (tests/architecture.test.ts), and this is
+    // the layer that is allowed to know what `attachedDon` is.
+    // Leader and Characters only: those are the cards DON!! may be given to.
+    // A Stage cannot receive one, so looking for it there would imply a rule
+    // that does not exist.
+    const attachedDon: Record<InstanceId, number> = {};
+    for (const id of [ps.leader, ...ps.characters]) {
+      const count = view.cards[id]?.attachedDon.length ?? 0;
+      if (count > 0) {
+        attachedDon[id] = count;
+      }
+    }
     const side: SideView = {
       leader: ps.leader,
       characters: ps.characters,
@@ -1496,9 +1528,16 @@ export function useSide(player: PlayerId): SideView | null {
       deckCount: ps.deck.count,
       lifeCount: ps.life.count,
       trashCount: ps.trash.length,
+      trashTop:
+        topId === undefined || topCard === undefined
+          ? null
+          : // A card name is not a message: it is identical in both locales, so
+            // this stays out of the locale-keyed part of the cache.
+            { id: topId, cardId: topCard.cardId, name: getCardDef(topCard.cardId).name },
       donActive: don('active'),
       donRested: don('rested'),
       donDeck: don('deck'),
+      attachedDon,
     };
     perView.set(player, side);
     return side;

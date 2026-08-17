@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { getCardDef } from '@optcg/engine';
 import type { GameState } from '@optcg/engine';
 import { fanGeometry } from '../src/components/HandRow';
 import { messagesFor } from '../src/i18n';
@@ -104,6 +105,15 @@ function templateAreas(sheet: string, selector: string): readonly (readonly stri
   return [...(declaration?.[1] ?? '').matchAll(/'([^']*)'/g)].map(([, row = '']) =>
     row.trim().split(/\s+/),
   );
+}
+
+/** A card's printed name — identical in both locales, so no locale is needed. */
+function cardNameOf(state: GameState, instanceId: string): string {
+  const card = state.cards[instanceId];
+  if (card === undefined) {
+    throw new Error(`no such instance: ${instanceId}`);
+  }
+  return getCardDef(card.cardId).name;
 }
 
 /** The nine zones the official playsheet prints, as the grid names them. */
@@ -218,6 +228,66 @@ describe('the official zones are all on the board', () => {
       // The cost area is the only clickable zone of the three DON!! ones.
       expect(within(field).getByRole('button', { name: /^DON!!/ })).toBeDefined();
     }
+  });
+
+  it('prints the two zone names the sheet has and the dictionary was missing', () => {
+    // The Character Area had no label at all, and the Cost Area's only name was
+    // buried inside a sentence — the visible word was the hard-coded `DON!!`,
+    // which is the name of the CARDS, not of the zone they sit in.
+    loadState(populated);
+    render(<GameScreen />);
+    for (const label of ['Jugador 1', 'Jugador 2']) {
+      const field = screen.getByRole('group', { name: `Campo de ${label}` });
+      expect(within(field).getByText('Área de Personajes')).toBeDefined();
+      expect(within(field).getByText('Área de Coste')).toBeDefined();
+      // And DON!! is still there, still untranslated, still a name — twice,
+      // and both are right: the cards in the Cost Area, and the phase in
+      // which you gain them. The mat prints both words too.
+      expect(within(field).getAllByText('DON!!')).toHaveLength(2);
+    }
+  });
+});
+
+describe('the details the table has and a diagram does not', () => {
+  it('shows the top of the trash face-up, because the trash is public', () => {
+    // CR 3-5-2. The deck stays a count in the same row, which is the contrast
+    // that makes this meaningful rather than decorative.
+    const withTrash = firstStarterStateWhere(
+      (state) => state.pending === null && state.players.p1.trash.length > 0,
+    );
+    loadState(withTrash);
+    render(<GameScreen />);
+    const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
+    const top = withTrash.players.p1.trash[0];
+    expect(top).toBeDefined();
+    const name = cardNameOf(withTrash, top ?? '');
+    expect(within(field).getByText(name)).toBeDefined();
+    // Still one button, still addressed by the same name every suite uses.
+    expect(within(field).getByRole('button', { name: /^Descarte/ })).toBeDefined();
+  });
+
+  it('leaves an empty trash with nothing to look at and nothing to click', () => {
+    const empty = firstStarterStateWhere(
+      (state) => state.pending === null && state.players.p1.trash.length === 0,
+    );
+    loadState(empty);
+    render(<GameScreen />);
+    const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
+    const pile = within(field).getByRole('button', { name: /^Descarte/ }) as HTMLButtonElement;
+    expect(pile.disabled).toBe(true);
+  });
+
+  it('draws attached DON!! under the card carrying them, as many as four', () => {
+    const withDon = firstStarterStateWhere((state) =>
+      state.players.p1.don.some((don) => don.location.kind === 'attached'),
+    );
+    loadState(withDon);
+    render(<GameScreen />);
+    const field = screen.getByRole('group', { name: 'Campo de Jugador 1' });
+    // They are pictures of a fact the tile's badge already states, so they are
+    // decoration and marked as such — never a second announcement of it.
+    const fans = field.querySelectorAll('[aria-hidden="true"] > div');
+    expect(fans.length).toBeGreaterThan(0);
   });
 });
 

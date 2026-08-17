@@ -1116,11 +1116,18 @@ describe('an animation is never the carrier of truth', () => {
     expect(after?.activePlayer).not.toBe(seat);
   });
 
-  it('is off in here, which is why the rest of this file can assert on the DOM', () => {
-    // Not an incidental property of jsdom: a zero transition is chosen, so
-    // `AnimatePresence` cannot hold a removed card in the tree past its exit
-    // and every structural claim in this suite is about the real component.
-    expect(motionOff()).toBe(true);
+  it('is off by default in here, and the rest of the suite does not depend on that', () => {
+    // Not an incidental property of jsdom: a zero transition is CHOSEN, so
+    // nothing can hold a removed card in the tree past an exit and every
+    // structural claim in this suite is about the real component.
+    //
+    // The check is conditional because it can be overridden — and the override
+    // is the point. `OPTCG_MOTION=1` runs this whole suite with the animations
+    // actually on, and everything else in it still passes. That is the rule of
+    // this PR, measured rather than asserted: turning motion on changes the
+    // pixels and nothing else.
+    const forced = globalThis.process?.env?.['OPTCG_MOTION'] === '1';
+    expect(motionOff()).toBe(!forced);
   });
 });
 

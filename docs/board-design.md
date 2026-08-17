@@ -268,3 +268,100 @@ this file rather than in a new `.tsx` one, and build boards with
 `tests/openingBoard.ts` rather than the playout corpus.
 
 The budget is never the thing to move.
+
+## Movement
+
+Added with `motion` (framer-motion), the one runtime library this client
+depends on.
+
+### The rule: an animation is never the carrier of truth
+
+The `PlayerView` is the source and the store reflects it the instant it lands.
+Every animation interpolates *towards* a DOM that already says the truth.
+Nothing waits on an `onAnimationComplete`, nothing is sequenced as "play this,
+then apply that", and no logic anywhere reads an animation's end.
+
+That is a property of the mechanism rather than a discipline to remember: a card
+carries `layoutId={instanceId}` and Motion animates it between wherever it was
+and wherever the new view put it. When an update lands mid-flight the element is
+already in its new parent, so the motion re-targets. There is no state to
+corrupt because the animation holds none.
+
+The corollary is that turning motion off changes the pixels and nothing else —
+and that is measured, not claimed. `OPTCG_MOTION=1` runs the whole suite with
+the animations actually on: **263 of 263 pass either way**.
+
+### What animates
+
+| Moment | How |
+| --- | --- |
+| Play, K.O., discard, life taken, DON!! attached | `layoutId` journey to the new parent |
+| Rest / set active | `animate={{ rotate }}` — the card turns, 90°, for real |
+| Draw, life card, revealed `[Trigger]` | `rotateY: [180, 0]` — a flip with perspective |
+| Attack declared | a shove towards the defender and back, sign by seat |
+| Highlight, hover | `y` lift, composed with the rotation instead of fighting it |
+
+Rest, hover and the highlight bounce moved out of CSS because Motion writes
+`transform` inline on the tile: a CSS rule setting one would be overridden and
+quietly stop working. That also deleted a special case —
+`.rested.selectable:hover` existed only because CSS `transform` is one property
+and a lift overwrote a rotation.
+
+### What a flip is allowed to show
+
+`useIsFlipping` reads ids off the redacted events of the group now playing, so a
+card turns over exactly when the rules turned it over:
+
+- `cardDrawn` carries an id for the drawer and `null` for the other seat.
+- `lifeTaken` carries an id for its owner alone (CR 10-1-5-2).
+- `abilityTriggered` is kept only for a viewer who knows the source, because
+  activating from a secret zone is what revealed it (CR 10-1-5-1).
+
+**The case that deliberately cannot animate** is a declined `[Trigger]`, seen
+from the other seat. CR 10-1-5-2 keeps a decline unrevealed, so the view drops
+the whole offer — and a dramatic flip there would show a card the game is
+hiding. The choreography asked for a datum the view does not give, and the right
+answer was to stop asking, not to add a field.
+
+### Touch
+
+- **Tap** selects and acts, unchanged, and stays the primary path.
+- **Long-press** (350 ms) raises the card large over the board, and letting go
+  puts it away. It replaces hover, which a finger has never had; a mouse never
+  enters that path at all. Exactly one click is swallowed — the one the browser
+  fires after a press that really opened a view.
+- **Drag** a hand card onto the field to play it. A shortcut, never the path.
+
+### Drag, and who decides
+
+A card is draggable exactly when `byCard[id].canPlay` is true. The drop goes
+through `playOutcome`, the same function the menu's Play entry calls, so a drop
+and a tap cannot diverge. The lit zones are `drag.zones`, read from the
+affordances once and carried on the store, so a highlighted zone and an accepted
+drop cannot disagree. `zoneAt` asks `elementFromPoint` rather than measuring
+rectangles — the board is a grid with two templates on a window that rotates,
+and cached geometry drifts from what is on screen.
+
+Dropping outside a zone dispatches nothing and the card springs back.
+
+### Turning it off
+
+Three ways, all resolving to a zero transition — off means zero, never "fast":
+
+1. `prefers-reduced-motion: reduce`, which also turns on Motion's own
+   `reducedMotion="user"`.
+2. Any test run: `import.meta.env.MODE === 'test'`.
+3. Nothing else. There is no setting, because the system flag is the setting.
+
+### What it costs
+
+`layoutId` requires Motion's full feature set, so there is no lighter build to
+pick. What there is, is that nobody choosing a deck needs any of it — so the
+board is a lazy chunk:
+
+    entry, before motion   368.30 kB   104.97 kB gzip
+    entry, motion inline   494.55 kB   146.70 kB gzip
+    entry, board split     322.30 kB    91.70 kB gzip   <- first paint
+    + GameScreen chunk     173.25 kB    55.56 kB gzip   <- on sitting down
+
+First paint is lighter than it was before the dependency existed.

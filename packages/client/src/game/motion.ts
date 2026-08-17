@@ -51,7 +51,7 @@ export const NO_MOTION: Transition = { duration: 0 };
  *    see exactly the DOM they saw before this existed.
  */
 export function motionOff(): boolean {
-  return isTest();
+  return isTest() && !forcedOnForMeasurement();
 }
 
 function isTest(): boolean {
@@ -60,6 +60,25 @@ function isTest(): boolean {
   // plain node in the non-jsdom suites.
   try {
     return import.meta.env?.MODE === 'test';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `OPTCG_MOTION=1 pnpm --filter @optcg/client test` runs the suite with the
+ * animations actually on.
+ *
+ * Not a way to write a test — nothing asserts through this, and every suite
+ * runs with motion off. It exists so the cost of motion can be **measured**
+ * rather than assumed: the same suite, twice, and the difference is what the
+ * animations cost. The alternative was to claim the transforms are cheap
+ * because they go to the GPU, which is a thing one says rather than a thing
+ * one knows.
+ */
+function forcedOnForMeasurement(): boolean {
+  try {
+    return import.meta.env?.['VITE_OPTCG_MOTION'] === '1' || globalThis.process?.env?.['OPTCG_MOTION'] === '1';
   } catch {
     return false;
   }

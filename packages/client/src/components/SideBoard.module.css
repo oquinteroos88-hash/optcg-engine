@@ -41,6 +41,27 @@
   display: grid;
   gap: var(--mat-gap);
   min-width: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  /*
+    The mat itself. `--playmat` is the player's chosen one when this machine
+    has any; underneath is the neutral one this repository ships — a wash and a
+    faint grid, drawn rather than shipped, because no official mat is ever
+    committed. A chosen mat that is not there does not paint, and this shows.
+  */
+  background-image: var(--playmat, none),
+    radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in srgb, var(--color-surface) 70%, transparent),
+      transparent 70%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-border) 22%, transparent) 0 1px,
+      transparent 1px calc(var(--card-h) / 4)
+    );
+  background-size: cover, auto, auto;
+  background-position: center;
   grid-template-columns:
     var(--pile-w) /* life   */
     minmax(0, 1.1fr) /* phases */

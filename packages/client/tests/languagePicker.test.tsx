@@ -4,53 +4,19 @@
 // reload, and it never touches the game.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { applyAction, createGame } from '@optcg/engine';
-import type { Action, GameState } from '@optcg/engine';
-import { registerStarterCards, starterDecklists, toEngineDecklist } from '@optcg/cards/starters';
+import type { GameState } from '@optcg/engine';
 import { App } from '../src/App';
 import { messagesFor } from '../src/i18n';
 import { initialLocale } from '../src/i18n/locale';
 import { GameScreen } from '../src/screens/GameScreen';
 import { SetupScreen } from '../src/screens/SetupScreen';
 import { hotSeatSnapshot, useStore } from '../src/store/store';
+import { openingBoard } from './openingBoard';
 
 const en = messagesFor('en');
 const es = messagesFor('es');
 
 const STORAGE_KEY = 'optcg.locale';
-
-/**
- * A real ST-01/ST-02 board, three actions deep.
- *
- * Built rather than searched for out of the playout corpus: what this suite
- * needs is real starter cards on a real board with a few lines of log, and
- * `firstStarterStateWhere` would run a four-hundred-step playout to hand back
- * the same thing. That cost is not this suite's to add — it shares a CPU with
- * `fullGame.test.ts`, whose five-second budget has no headroom to lend.
- */
-function openingBoard(): GameState {
-  registerStarterCards();
-  const [st01, st02] = starterDecklists;
-  if (st01 === undefined || st02 === undefined) {
-    throw new Error('expected both starter decklists');
-  }
-  let state = createGame({
-    seed: 82,
-    decks: { p1: toEngineDecklist(st01), p2: toEngineDecklist(st02) },
-    firstPlayer: 'p1',
-  });
-  for (const action of [
-    { type: 'MULLIGAN', player: 'p1', accept: false },
-    { type: 'MULLIGAN', player: 'p2', accept: false },
-  ] as Action[]) {
-    const result = applyAction(state, action);
-    if (!result.ok) {
-      throw new Error(result.reason);
-    }
-    state = result.state;
-  }
-  return state;
-}
 
 const midGame: GameState = openingBoard();
 

@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactElement } from 'react';
 import { useMessages } from '../i18n/useMessages';
+import { CardBackArt } from './CardBackArt';
 import styles from './DeckPile.module.css';
 
 interface DeckPileProps {
@@ -26,6 +27,9 @@ export function DeckPile({ label, count, compact = false, onOpen }: DeckPileProp
   const m = useMessages();
   const body = (
     <div className={`${styles.stack} ${count === 0 ? styles.empty : ''}`}>
+      {/* A pile of cards looks like the back of a card. An empty one shows the
+          dashed box instead: there is nothing there to draw. */}
+      {count === 0 ? null : <CardBackArt />}
       <span className={styles.count}>{count}</span>
     </div>
   );

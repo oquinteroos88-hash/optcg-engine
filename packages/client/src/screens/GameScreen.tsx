@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { ReactElement } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import { ActionBar } from '../components/ActionBar';
 import { AnimationDriver } from '../components/AnimationDriver';
 import { Banner } from '../components/Banner';
@@ -15,6 +15,7 @@ import { PassDeviceScreen } from '../components/PassDeviceScreen';
 import { PileViewer } from '../components/PileViewer';
 import { Table } from '../components/Table';
 import { TrashChoiceModal } from '../components/TrashChoiceModal';
+import { backgroundImage, useAssetManifest } from '../game/assets';
 import { useChoosingTrash, useInputBlocked } from '../store/selectors';
 import { useStore } from '../store/store';
 import styles from './GameScreen.module.css';
@@ -23,6 +24,7 @@ export function GameScreen(): ReactElement {
   const uiEvent = useStore((s) => s.uiEvent);
   const blocked = useInputBlocked();
   const cardToPlay = useChoosingTrash();
+  const assets = useAssetManifest();
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -35,7 +37,18 @@ export function GameScreen(): ReactElement {
   }, [uiEvent]);
 
   return (
-    <div className={styles.screen}>
+    // The optional official backs, declared once for everything below.
+    // `none` when this machine has no local archive, which is a declaration
+    // that simply does not paint over the SVG back that is always there.
+    <div
+      className={styles.screen}
+      style={
+        {
+          '--card-back': backgroundImage(assets.cardBack),
+          '--don-back': backgroundImage(assets.donBack),
+        } as CSSProperties
+      }
+    >
       <AnimationDriver />
       <Banner />
       <NetStatus />

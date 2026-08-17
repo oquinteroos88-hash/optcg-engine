@@ -78,8 +78,11 @@
 }
 
 .back {
-  background: var(--color-card-back);
   border-color: var(--color-border);
+  background-image: var(--card-back, none);
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
 }
 
 .red {

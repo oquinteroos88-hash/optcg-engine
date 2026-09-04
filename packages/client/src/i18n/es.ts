@@ -419,5 +419,9 @@ export const es: Messages = {
     seatMismatch: 'Ese movimiento era del otro asiento.',
     notJoined: 'Todavía no entraste a la partida.',
     malformedMessage: 'El servidor no entendió el mensaje.',
+    oversizedMessage: 'El mensaje era demasiado grande para el servidor.',
+    rateLimited: 'Demasiados mensajes a la vez. El servidor cerró la conexión.',
+    serverFull: 'El servidor no tiene sitio para otra partida ahora mismo.',
+    internalError: 'Algo falló en el servidor.',
   },
 };

@@ -6,7 +6,7 @@ import { DEFAULT_LIMITS } from '../src/limits.js';
 import { PROTOCOL_VERSION, SERVER_ERRORS, UPGRADE_REFUSALS } from '../src/protocol.js';
 import type { GameServer, ServerLogEntry } from '../src/transport.js';
 import { startServer } from '../src/transport.js';
-import { TestClient } from './wsHelpers.js';
+import { TestClient, until } from './wsHelpers.js';
 
 /**
  * The transport smoke: two real sockets against a server on an ephemeral
@@ -236,6 +236,9 @@ describe('the transport', () => {
     // A seat freed is a seat available: the cap counts live sockets.
     a.close();
     await a.closed;
+    // The client sees its close frame before `wss.clients` lets go of the
+    // socket; the cap counts the latter, so wait for the count, not the frame.
+    await until(() => own.stats().connections === 1);
     const c = await TestClient.connect(own.port);
     expect(own.stats().connections).toBe(2);
     b.close();

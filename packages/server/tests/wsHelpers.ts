@@ -126,3 +126,20 @@ export class TestClient {
     this.socket.terminate();
   }
 }
+
+/**
+ * Polls every 5ms until `condition` holds, or fails after `timeoutMs`. The
+ * server's bookkeeping lags the client's view of a close by one event-loop
+ * turn — `wss.clients` releases a socket after the peer already saw its
+ * close frame — so a test that wants to observe a count waits for it
+ * instead of guessing the clock.
+ */
+export async function until(condition: () => boolean, timeoutMs = 2_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error(`condition not met within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}

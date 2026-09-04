@@ -6,7 +6,7 @@ import { SERVER_ERRORS } from '../src/protocol.js';
 import { createMatch } from '../src/session.js';
 import type { GameServer } from '../src/transport.js';
 import { startServer } from '../src/transport.js';
-import { TestClient } from './wsHelpers.js';
+import { TestClient, until } from './wsHelpers.js';
 
 /**
  * The reconnection contract, over real sockets: drop a seat in the middle of
@@ -184,16 +184,6 @@ describe('match expiry', () => {
   });
 });
 
-/** Polls every 5ms until `condition` holds, or fails after `timeoutMs`. */
-async function until(condition: () => boolean, timeoutMs = 2_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!condition()) {
-    if (Date.now() > deadline) {
-      throw new Error(`condition not met within ${timeoutMs}ms`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-}
 
 /**
  * The heartbeat (M7): a client that stops answering pings is terminated and

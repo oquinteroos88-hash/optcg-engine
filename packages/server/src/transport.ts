@@ -80,6 +80,11 @@ interface Peer {
   /** Flipped false by every heartbeat ping and back by the pong; a socket
    * found false at the next tick is terminated (M7). */
   isAlive: boolean;
+  /** The fixed window of the rate limit (M8): when it opened and how many
+   * frames arrived in it. Counted before parsing, so a flood of garbage costs
+   * the same as a flood of actions — a counter increment. */
+  windowStart: number;
+  count: number;
 }
 
 /**
@@ -210,7 +215,8 @@ export function startServer(opts: {
   heartbeat.unref();
 
   wss.on('connection', (socket) => {
-    peers.set(socket, { authFailures: 0, isAlive: true });
+    const peer: Peer = { authFailures: 0, isAlive: true, windowStart: Date.now(), count: 0 };
+    peers.set(socket, peer);
     socket.on('pong', () => {
       const peer = peers.get(socket);
       if (peer !== undefined) {
@@ -218,6 +224,19 @@ export function startServer(opts: {
       }
     });
     socket.on('message', (data) => {
+      // M8: the rate limit, before the frame costs anything. The window is
+      // fixed rather than sliding because a fast human is at three messages a
+      // second against a limit of twenty; nothing finer is being measured.
+      const now = Date.now();
+      if (now - peer.windowStart >= limits.RATE_WINDOW_MS) {
+        peer.windowStart = now;
+        peer.count = 0;
+      }
+      peer.count += 1;
+      if (peer.count > limits.MAX_MESSAGES_PER_WINDOW) {
+        refuse(socket, SERVER_ERRORS.rateLimited);
+        return;
+      }
       // M3: the whole per-message path under one try/catch. A throw is one
       // log line, one `internalError`, one closed socket — and the process,
       // with every other match on it, keeps going.

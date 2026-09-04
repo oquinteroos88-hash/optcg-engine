@@ -203,6 +203,21 @@ describe('the transport', () => {
     await own.close();
   });
 
+  it('closes a socket that sends more than MAX_MESSAGES_PER_WINDOW in a window', async () => {
+    // M8 at the default numbers: twenty well-formed messages in a burst are
+    // each answered, the twenty-first is the flood.
+    const flood = await TestClient.connect(server.port);
+    const limit = DEFAULT_LIMITS.MAX_MESSAGES_PER_WINDOW;
+    for (let n = 0; n <= limit; n += 1) {
+      flood.send({ type: 'action', action: { type: 'CONCEDE', player: 'p1' } });
+    }
+    for (let n = 0; n < limit; n += 1) {
+      expect((await flood.expect('error')).code).toBe(SERVER_ERRORS.notJoined);
+    }
+    expect((await flood.expect('error')).code).toBe(SERVER_ERRORS.rateLimited);
+    expect(await flood.closed).toEqual({ code: 1008, reason: SERVER_ERRORS.rateLimited });
+  });
+
   it('refuses the upgrade over MAX_CONNECTIONS with a 503, before a socket exists', async () => {
     const own = await startServer({ port: 0, limits: { MAX_CONNECTIONS: 2 } });
     const a = await TestClient.connect(own.port);

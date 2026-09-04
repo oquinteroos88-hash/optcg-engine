@@ -156,5 +156,7 @@ function isId(value: unknown, limits: ServerLimits): value is string {
  * could type into a rematch.
  */
 function isSeed(value: unknown): value is number {
+  // `-0` passes on purpose: the engine's generator takes the seed through
+  // `| 0`, where it is `0`, and it serialises as `0` everywhere else.
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }

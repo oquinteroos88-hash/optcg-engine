@@ -141,6 +141,12 @@ breaks it knows what it broke.
   a job a hundred lines do. `pnpm audit` runs on the four packages as part of
   this task and its state is in the report.
 
+  **Audit state (2026-09-03):** 27 advisories, all against `pnpm` itself (the
+  root devDependency at 10.13.1, fixed in >= 10.34.5) and `nanoid` via
+  `client > vite > postcss` (fixed in 3.3.18); zero against the server's
+  runtime graph (`ws@8.21.3`, `immer@10.2.0`). Both bumps belong to the
+  maintenance PR, not to this one.
+
 ## Declared gaps
 
 - **A3 / TLS**: assumed at the proxy. Documented above.

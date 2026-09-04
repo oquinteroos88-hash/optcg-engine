@@ -61,6 +61,20 @@ next to it in the source.
 | `HEARTBEAT_INTERVAL_MS` | 30 s | Ping interval; a socket silent for two is terminated. |
 | `RATE_WINDOW_MS` / `MAX_MESSAGES_PER_WINDOW` | 1 s / 20 | Frames per socket per window, counted before parsing. A fast human is at three. |
 
+## Measuring it
+
+```
+pnpm --filter @optcg/server run bench
+```
+
+`bench/` is the harness behind [`docs/performance.md`](../../docs/performance.md):
+`applyAction` per action and per action type, what the session pays above
+it per seat, `update` and `joined` bytes on the wire, a match at rest and
+256 of them on the heap, growth over the longest game, and the client
+bundle raw and gzipped. `--no-heap` and `--no-bundle` skip the slow parts.
+`tests/budgets.test.ts` asserts on the same functions with the margins the
+document states, so a regression fails a test before it reaches a table.
+
 ## Dependencies
 
 The runtime graph is `ws` and the two workspace packages, and that is policy

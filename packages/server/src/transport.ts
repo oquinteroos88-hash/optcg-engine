@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Decklist, PlayerId } from '@optcg/engine';
@@ -62,6 +62,14 @@ interface MatchEntry {
   match: MatchState;
   tokens: Record<PlayerId, string>;
   sockets: Partial<Record<PlayerId, WebSocket>>;
+}
+
+/** What the transport remembers about one socket, and nothing about the
+ * person behind it: the perimeter's counters, kept off the match. */
+interface Peer {
+  /** `unknownMatch` and `badToken` so far; the `MAX_AUTH_FAILURES`-th closes
+   * the socket (M4). A guesser gets five tries per TCP handshake. */
+  authFailures: number;
 }
 
 /**
@@ -129,12 +137,14 @@ export function startServer(opts: {
   const log: ServerLogger = opts.log ?? (() => undefined);
   const matches = new Map<string, MatchEntry>();
   const seatsBySocket = new Map<WebSocket, { matchId: string; seat: PlayerId }>();
+  const peers = new Map<WebSocket, Peer>();
   const decks: Record<string, Decklist> = opts.decks ?? {};
   // M2: `ws` refuses a frame over the limit before assembling it, closing
   // with 1009 on its own; the parser applies the same number to the string.
   const wss = new WebSocketServer({ port: opts.port, maxPayload: limits.MAX_MESSAGE_BYTES });
 
   wss.on('connection', (socket) => {
+    peers.set(socket, { authFailures: 0 });
     socket.on('message', (data) => {
       // M3: the whole per-message path under one try/catch. A throw is one
       // log line, one `internalError`, one closed socket — and the process,
@@ -156,6 +166,7 @@ export function startServer(opts: {
     // M3: an `error` an emitter has no listener for is a throw.
     socket.on('error', (error) => log({ event: 'socketError', error: errorName(error) }));
     socket.on('close', () => {
+      peers.delete(socket);
       const seat = seatsBySocket.get(socket);
       seatsBySocket.delete(socket);
       if (seat !== undefined) {
@@ -185,6 +196,19 @@ export function startServer(opts: {
     const closeCode = CLOSE_AFTER[code];
     if (closeCode !== undefined) {
       socket.close(closeCode, code);
+      return;
+    }
+    // M4: a wrong match id or a wrong token is a guess, and the socket gets
+    // a bounded number of them. A player who mistyped a seat code has several
+    // tries; a guesser has the same several, against 122 bits per try.
+    if (code === SERVER_ERRORS.unknownMatch || code === SERVER_ERRORS.badToken) {
+      const peer = peers.get(socket);
+      if (peer !== undefined) {
+        peer.authFailures += 1;
+        if (peer.authFailures >= limits.MAX_AUTH_FAILURES) {
+          socket.close(1008, SERVER_ERRORS.badToken);
+        }
+      }
     }
   }
 
@@ -313,14 +337,26 @@ export function startServer(opts: {
   });
 }
 
+/**
+ * M4: the comparison takes the same time whether the guess shares no
+ * character with the token or all but the last. `timingSafeEqual` needs equal
+ * lengths, so the length is compared first — the length of a UUID is not a
+ * secret, and a candidate of another length is wrong before any byte is read.
+ */
 function seatForToken(entry: MatchEntry, token: string): PlayerId | null {
-  if (entry.tokens.p1 === token) {
+  const candidate = Buffer.from(token);
+  if (sameToken(candidate, entry.tokens.p1)) {
     return 'p1';
   }
-  if (entry.tokens.p2 === token) {
+  if (sameToken(candidate, entry.tokens.p2)) {
     return 'p2';
   }
   return null;
+}
+
+function sameToken(candidate: Buffer, token: string): boolean {
+  const expected = Buffer.from(token);
+  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
 /** The name and only the name: a message can quote the payload that caused

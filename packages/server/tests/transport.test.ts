@@ -153,6 +153,36 @@ describe('the transport', () => {
     client.close();
   });
 
+  it('closes a socket on its MAX_AUTH_FAILURES-th guess, and not before', async () => {
+    server.createMatch({
+      matchId: 'smoke-4',
+      seed: 6,
+      decklists: decks,
+      tokens: { p1: 'a', p2: 'b' },
+    });
+    const guesser = await TestClient.connect(server.port);
+    // Both kinds of guess count: a match id nobody minted and a token that is
+    // not the seat's. Every one of them is answered; the last one is also
+    // the door (M4).
+    for (let attempt = 1; attempt < DEFAULT_LIMITS.MAX_AUTH_FAILURES; attempt += 1) {
+      if (attempt % 2 === 1) {
+        guesser.join('smoke-4', `guess-${attempt}`);
+        expect((await guesser.expect('error')).code).toBe(SERVER_ERRORS.badToken);
+      } else {
+        guesser.join(`nowhere-${attempt}`, 'a');
+        expect((await guesser.expect('error')).code).toBe(SERVER_ERRORS.unknownMatch);
+      }
+    }
+    expect(guesser.isOpen()).toBe(true);
+    guesser.join('smoke-4', 'a');
+    // A right token on the last try still seats the player: the counter is
+    // about failures, not attempts.
+    expect((await guesser.expect('joined')).seat).toBe('p1');
+    guesser.join('smoke-4', 'wrong');
+    expect((await guesser.expect('error')).code).toBe(SERVER_ERRORS.badToken);
+    expect(await guesser.closed).toEqual({ code: 1008, reason: SERVER_ERRORS.badToken });
+  });
+
   it('survives a handler that throws: one log line, internalError, 1011, and keeps serving', async () => {
     // M3, provoked honestly: the catalog is the transport's one injected
     // collaborator, and a catalog that throws on lookup is a handler that

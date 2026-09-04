@@ -45,7 +45,7 @@ export const MAX_ID_LENGTH = 64;
  * M5 — live matches per process. A finished ability-sweep match at rest —
  * state, action log, two journals — costs **224–231 KiB of heap** (256 of
  * them held at once: 56–58 MiB over a 16 MiB baseline, measured on two
- * machines and runs, `docs/performance.md`), so this cap is under 60 MiB
+ * separate runs, `docs/performance.md`), so this cap is under 60 MiB
  * of matches on the smallest host the server is meant for, and a `create`
  * loop is still not the cheapest way to fill the heap. The heap figure
  * needs a forced collection and is a range; what `tests/budgets.test.ts`

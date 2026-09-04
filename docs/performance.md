@@ -352,7 +352,7 @@ gzipped for the whole starter set). Left as it is, with the number.
 
 A finished ability-sweep match at rest — state with its log, action log,
 two journals — is **224–231 KiB of heap** (256 held at once: 56–58 MiB
-over a 16 MiB baseline, measured on two machines and runs; 126 KiB
+over a 16 MiB baseline, measured on two separate runs; 126 KiB
 serialized as the mean over those 256, 139 KiB over seeds 1–12). The
 heap figure is a range because it is one: it needs `--expose-gc` and a
 forced collection on either side, and two runs of the same seeds land a

@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    // A stray `.only` fails the run here as well as under CI's default.
+    allowOnly: false,
     // `.tsx` is here for the jsdom click-routing suite, which renders real
     // components. It opts into jsdom with a per-file docblock pragma so every
     // other suite keeps running in `node`.

@@ -230,10 +230,35 @@ An accepted action now costs about 410µs end to end on this machine
 Both changes are in the engine, both are read-side, and both carry the
 same proof: a sha256 over every per-action state, event batch, both
 `playerView`s and both `legalActions` lists, over ability seeds 1–12 and 34
-and vanilla seeds 1–4 — 5,195 actions — is identical before and after each
+and vanilla seeds 1–4 — 4,995 actions — is identical before and after each
 commit. `packages/server/tests/replay.test.ts` is green, and every test
 count in the repo is unchanged (engine 498, cards 628, server 46 before the
 budget tests, client 254).
+
+### The fingerprint oracle
+
+That proof was run by hand once, which makes it a story; a reviewer said
+so, and was right. `packages/server/tests/fingerprint.test.ts` is the
+same fold, kept: it drives the seventeen games through `driveMatch` and
+hashes, per accepted action and in a fixed order, the new state, both
+seats' event batches, both `playerView`s and both `legalActions` lists —
+the payloads `handleAction` emitted, not a re-derivation — then the
+rejections the driver injects, into one sha256 per game, pinned in the
+test as `FINGERPRINTS`. The pinned digests were taken on the baseline
+engine (`feat/server-hardening`'s four files checked out over this
+branch's, rebuilt) and confirmed identical on this branch's engine; the
+commit that added them says the procedure. `replay.test.ts` proves
+`seed + log = game` and never looks at a view; this looks at nothing
+else. 3.2 seconds for the seventeen games.
+
+The rule: a digest moves on a semantic change — a card's text, a rule,
+the redaction of an event, an affordance offered or withheld, the shape
+of a view, the driver's policy — and on nothing that claims to be a
+performance change. `OPTCG_PRINT_FINGERPRINTS=1` prints the table for
+regeneration. A moved value is a finding to explain in the PR — which
+card, which rule, which seat's view — never a value to paste over; a
+perf commit that moves one has changed what a player sees, whatever it
+meant to do.
 
 **`finishTurn` reads the card table without drafting it** (`reducer/turn.ts`,
 `peekCards` in `reducer/helpers.ts`). The loop that clears `usedThisTurn`
@@ -306,7 +331,13 @@ the bytes moves the number in the same commit, with the reason.
 | `update` max, seed 6 | 23.1 KiB | 35 KiB | ×1.5, rounded up |
 | `joined` at game end, seed 6 | 70.5 KiB | 106 KiB | ×1.5, rounded up |
 | board growth, action 50 → end, seed 6 | ×1.01 | ×1.5 | the histories are asserted to grow |
+| `MatchState` at game end, serialized, seed 6 | 195.2 KiB | 293 KiB | ×1.5, rounded up; the deterministic half of the `MAX_MATCHES` figure |
 | client bundle, gzip total | 108.7 KiB | 140 KiB | ×1.25, rounded up |
+
+Not a budget but a pin: the fingerprint oracle above, which holds the
+semantics the budgets are measured over. A perf change that moves a
+budget the right way and a fingerprint the wrong way has not earned the
+number.
 
 ## The bundle verdict
 

@@ -21,6 +21,13 @@ export {
 } from './policy.js';
 
 /**
+ * The leak scanner both arbiters share — the engine's against `playerView`,
+ * the server's against the wire. Each suite still derives its own list of
+ * hidden instances; only the search is common. See `leaks.ts`.
+ */
+export { scanLeaks } from './leaks.js';
+
+/**
  * Test-only helpers, deliberately kept out of the main barrel.
  *
  * These reach for Node builtins, and a bundler targeting the browser has none:

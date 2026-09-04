@@ -3,6 +3,7 @@ import { applyAction } from '../src/applyAction.js';
 import { chooseAction } from '../src/bots/randomBot.js';
 import { createGame } from '../src/createGame.js';
 import { playerView } from '../src/playerView.js';
+import { scanLeaks } from '../src/testing/index.js';
 import { ABIL_DECK } from '../src/testdata/abilityDecks.js';
 import { GREEN_DECK, RED_DECK } from '../src/testdata/decks.js';
 import type { GameState, InstanceId, PlayerId } from '../src/types.js';
@@ -28,17 +29,11 @@ import { PLAYER_IDS } from '../src/types.js';
  * A `CardId` is forbidden only when no instance the viewer knows carries it:
  * decks run four copies, and a copy face-up on the field makes the printed
  * card no secret — the *instance* in the deck stays one.
+ *
+ * The search itself — quoted strings, forbidden ids, the three fields that
+ * never leave — is `scanLeaks` from the testing subpath, shared with the
+ * server's wire arbiter. The derivation above is what stays here.
  */
-
-const QUOTED = /"([^"]*)"/g;
-
-function quotedStrings(json: string): Set<string> {
-  const out = new Set<string>();
-  for (const match of json.matchAll(QUOTED)) {
-    out.add(match[1] as string);
-  }
-  return out;
-}
 
 function leaksIn(state: GameState, viewer: PlayerId): string[] {
   const other: PlayerId = viewer === 'p1' ? 'p2' : 'p1';
@@ -50,31 +45,7 @@ function leaksIn(state: GameState, viewer: PlayerId): string[] {
     ...state.players[other].hand,
   ];
   const unknown = secret.filter((id) => !(state.knownBy[id]?.includes(viewer) ?? false));
-  const unknownSet = new Set(unknown);
-  const knownCardIds = new Set(
-    Object.values(state.cards)
-      .filter((card) => !unknownSet.has(card.instanceId))
-      .map((card) => card.cardId),
-  );
-
-  const json = JSON.stringify(playerView(state, viewer));
-  const present = quotedStrings(json);
-  const found: string[] = [];
-  for (const id of unknown) {
-    if (present.has(id)) {
-      found.push(`${viewer} sees instance ${id}`);
-    }
-    const cardId = state.cards[id]?.cardId;
-    if (cardId !== undefined && !knownCardIds.has(cardId) && present.has(cardId)) {
-      found.push(`${viewer} sees printed card ${cardId} (only hidden copies exist)`);
-    }
-  }
-  // The three things that never leave, checked as fields rather than values:
-  // the rng (seed and cursor), and the match id that embeds the seed.
-  if (json.includes('"rng"') || json.includes('"seed"') || json.includes('"matchId"')) {
-    found.push(`${viewer} sees the rng or the seed-bearing matchId`);
-  }
-  return found;
+  return scanLeaks(playerView(state, viewer), viewer, unknown, state.cards);
 }
 
 function sweep(seed: number, decks: 'vanilla' | 'abilities', leaks: string[]): void {

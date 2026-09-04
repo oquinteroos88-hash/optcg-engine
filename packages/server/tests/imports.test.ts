@@ -36,7 +36,9 @@ const SRC = join(import.meta.dirname, '..', 'src');
 const APPLICATION_ENTRY = 'main.ts';
 
 function sourceFiles(): string[] {
-  return readdirSync(SRC)
+  // Recursive, so a future `src/` subdirectory stays inside the boundary
+  // (`utf8` picks the `string[]` overload).
+  return readdirSync(SRC, { recursive: true, encoding: 'utf8' })
     .filter((name) => name.endsWith('.ts') && name !== APPLICATION_ENTRY)
     .map((name) => join(SRC, name));
 }

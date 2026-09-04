@@ -1,6 +1,6 @@
 import type { Action, Decklist, GameState, InstanceId, PlayerId } from '@optcg/engine';
 import { applyAction, blindHandleOrder, PLAYER_IDS } from '@optcg/engine';
-import { decide } from '@optcg/engine/testing';
+import { decide, scanLeaks } from '@optcg/engine/testing';
 import type { MatchState, HandleActionResult } from '../src/session.js';
 import { createMatch, handleAction } from '../src/session.js';
 import type { UpdatePayload } from '../src/protocol.js';
@@ -143,21 +143,13 @@ export function driveMatch(
   };
 }
 
-const QUOTED = /"([^"]*)"/g;
-
-function quotedStrings(json: string): Set<string> {
-  const out = new Set<string>();
-  for (const match of json.matchAll(QUOTED)) {
-    out.add(match[1] as string);
-  }
-  return out;
-}
-
 /**
  * The #43 arbiter pointed at the wire: the unknown list is computed **from
  * the opposite side** — the secret zones minus the raw `knownBy` record —
- * never through the machinery under test, and the payload's JSON must not
- * carry a forbidden id as a quoted string.
+ * never through the machinery under test. The search of the payload's JSON
+ * for a forbidden id is the engine arbiter's own `scanLeaks`, imported rather
+ * than ported: the two suites differ in what they point at, not in how they
+ * look.
  */
 export function payloadLeaks(state: GameState, seat: PlayerId, payload: unknown): string[] {
   const other: PlayerId = seat === 'p1' ? 'p2' : 'p1';
@@ -169,29 +161,7 @@ export function payloadLeaks(state: GameState, seat: PlayerId, payload: unknown)
     ...state.players[other].hand,
   ];
   const unknown = secret.filter((id) => !(state.knownBy[id]?.includes(seat) ?? false));
-  const unknownSet = new Set(unknown);
-  const knownCardIds = new Set(
-    Object.values(state.cards)
-      .filter((card) => !unknownSet.has(card.instanceId))
-      .map((card) => card.cardId),
-  );
-
-  const json = JSON.stringify(payload);
-  const present = quotedStrings(json);
-  const found: string[] = [];
-  for (const id of unknown) {
-    if (present.has(id)) {
-      found.push(`${seat} sees instance ${id}`);
-    }
-    const cardId = state.cards[id]?.cardId;
-    if (cardId !== undefined && !knownCardIds.has(cardId) && present.has(cardId)) {
-      found.push(`${seat} sees printed card ${cardId} (only hidden copies exist)`);
-    }
-  }
-  if (json.includes('"rng"') || json.includes('"seed"') || json.includes('"matchId"')) {
-    found.push(`${seat} sees the rng or the seed-bearing matchId`);
-  }
-  return found;
+  return scanLeaks(payload, seat, unknown, state.cards);
 }
 
 /** Applies a list of actions through the session, asserting each is accepted. */

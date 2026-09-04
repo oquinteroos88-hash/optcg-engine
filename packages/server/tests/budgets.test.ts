@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ABIL_DECK } from '@optcg/engine/testdata/abilityDecks';
 import {
+  matchFootprint,
   measureApplyAction,
   measureGrowth,
   measureServerCosts,
@@ -37,6 +38,16 @@ const UPDATE_MAX_BUDGET_KIB = 35;
 const REJOIN_BUDGET_KIB = 106;
 /** Board state (game without its log) at the end over at action 50: measured ×1.01 on seed 6, ×1.04 on the longest game found. */
 const BOARD_GROWTH_BOUND = 1.5;
+/**
+ * The whole `MatchState` at game end — state with its log, action log, two
+ * journals — serialized, on seed 6, the sweep's heaviest: measured 195.2 KiB
+ * (the mean over seeds 1–12 is 139.0, over 1–256 it is 125.7). ×1.5, rounded
+ * up. This is the deterministic half of the number `MAX_MATCHES` is sized
+ * from: the heap figure (224–231 KiB per match across two machines and runs)
+ * needs a forced collection, which vitest does not have, so the guard on
+ * the constant's justification is the serialized weight, which cannot flap.
+ */
+const MATCH_AT_REST_BUDGET_KIB = 293;
 
 const KIB = 1024;
 
@@ -60,6 +71,15 @@ describe('performance budgets', () => {
     expect(bytes.max / KIB, `max update ${(bytes.max / KIB).toFixed(1)} KiB`).toBeLessThan(UPDATE_MAX_BUDGET_KIB);
     const rejoin = Math.max(costs.rejoinBytes.p1, costs.rejoinBytes.p2);
     expect(rejoin / KIB, `joined ${(rejoin / KIB).toFixed(1)} KiB`).toBeLessThan(REJOIN_BUDGET_KIB);
+  });
+
+  it('a finished match at rest, serialized, stays under the weight MAX_MATCHES was sized from', { timeout: 60_000 }, () => {
+    const { match } = recordGame(6, decks);
+    expect(match.game.status).toBe('finished');
+    const footprint = matchFootprint(match);
+    expect(footprint.total / KIB, `MatchState ${(footprint.total / KIB).toFixed(1)} KiB serialized`).toBeLessThan(
+      MATCH_AT_REST_BUDGET_KIB,
+    );
   });
 
   it('the board does not grow with the game; only the histories do', { timeout: 60_000 }, () => {

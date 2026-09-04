@@ -320,9 +320,19 @@ gzipped for the whole starter set). Left as it is, with the number.
 ## Memory per match and `MAX_MATCHES`
 
 A finished ability-sweep match at rest — state with its log, action log,
-two journals — is **224 KiB of heap** (256 held at once: 56 MiB over a
-16 MiB baseline; 126 KiB serialized). `MAX_MATCHES` stays at **256**: that
-is 56 MiB of matches on the smallest host the server is meant for, with
-the reconnection window (`MATCH_IDLE_TTL_MS`) bounding how long a finished
-one stays. 1,024 would be 224 MiB, which is a decision about the host, not
-about the game; the number to raise it from is here.
+two journals — is **224–231 KiB of heap** (256 held at once: 56–58 MiB
+over a 16 MiB baseline, measured on two machines and runs; 126 KiB
+serialized as the mean over those 256, 139 KiB over seeds 1–12). The
+heap figure is a range because it is one: it needs `--expose-gc` and a
+forced collection on either side, and two runs of the same seeds land a
+few KiB apart. What holds the number in place is its deterministic half.
+`packages/server/tests/budgets.test.ts` pins the serialized `MatchState`
+at game end on seed 6, the sweep's heaviest game — **195.2 KiB**, under a
+293 KiB budget (×1.5, rounded up) — so a match that started weighing more
+fails a test before it moves the heap.
+
+`MAX_MATCHES` stays at **256**: that is under 60 MiB of matches on the
+smallest host the server is meant for, with the reconnection window
+(`MATCH_IDLE_TTL_MS`) bounding how long a finished one stays. 1,024 would
+be about 230 MiB, which is a decision about the host, not about the game;
+the number to raise it from is here.

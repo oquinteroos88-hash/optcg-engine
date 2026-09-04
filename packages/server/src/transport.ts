@@ -74,8 +74,10 @@ interface MatchEntry {
 /** What the transport remembers about one socket, and nothing about the
  * person behind it: the perimeter's counters, kept off the match. */
 interface Peer {
-  /** `unknownMatch` and `badToken` so far; the `MAX_AUTH_FAILURES`-th closes
-   * the socket (M4). A guesser gets five tries per TCP handshake. */
+  /** `unknownMatch` and `badToken` since the last successful join; the
+   * `MAX_AUTH_FAILURES`-th closes the socket (M4). A successful join resets
+   * it, so a player who typed a seat code wrong four times and then right
+   * is not one slip from the door for the rest of the match. */
   authFailures: number;
   /** Flipped false by every heartbeat ping and back by the pong; a socket
    * found false at the next tick is terminated (M7). */
@@ -383,6 +385,10 @@ export function startServer(opts: {
     entry.sockets[seat] = socket;
     entry.lastSeen = Date.now();
     seatsBySocket.set(socket, { matchId: message.matchId, seat });
+    const peer = peers.get(socket);
+    if (peer !== undefined) {
+      peer.authFailures = 0;
+    }
     send(socket, rejoinPayload(entry.match, seat));
   }
 

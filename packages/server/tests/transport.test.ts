@@ -175,9 +175,14 @@ describe('the transport', () => {
     }
     expect(guesser.isOpen()).toBe(true);
     guesser.join('smoke-4', 'a');
-    // A right token on the last try still seats the player: the counter is
-    // about failures, not attempts.
+    // A right token on the last try still seats the player, and clears the
+    // count: the promise is five tries per attempt, not five per socket.
     expect((await guesser.expect('joined')).seat).toBe('p1');
+    for (let attempt = 1; attempt < DEFAULT_LIMITS.MAX_AUTH_FAILURES; attempt += 1) {
+      guesser.join('smoke-4', 'wrong');
+      expect((await guesser.expect('error')).code).toBe(SERVER_ERRORS.badToken);
+    }
+    expect(guesser.isOpen()).toBe(true);
     guesser.join('smoke-4', 'wrong');
     expect((await guesser.expect('error')).code).toBe(SERVER_ERRORS.badToken);
     expect(await guesser.closed).toEqual({ code: 1008, reason: SERVER_ERRORS.badToken });

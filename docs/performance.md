@@ -180,3 +180,149 @@ by design and each with its reason in `session.ts`; the board does not.
 
 No `motion` group: the client has no animation library (the movement is
 CSS). No sourcemaps in `dist/`.
+
+## After
+
+Same machine, same seeds, after the two engine changes below. The wire,
+the match at rest, the heap, the growth and the bundle are deterministic
+and did not move: the changes are read-side, and the proof that they are is
+in the next section.
+
+### `applyAction` alone (µs per action)
+
+|  | actions | mean | p50 | p95 | max |
+| --- | --- | --- | --- | --- | --- |
+| abilities 1–12 pooled | 3781 | 178.1 (was 210.9) | 138.6 (142.5) | 405.1 (792.1) | 5757.9 |
+| vanilla 1–4 pooled | 704 | 130.9 (174.0) | 104.3 (107.2) | 369.4 (784.3) | 444.0 |
+
+### `applyAction` by action type, ability seeds 1–12 (µs)
+
+| type | actions | mean | p50 | p95 | max | share of time |
+| --- | --- | --- | --- | --- | --- | --- |
+| END_TURN | 285 | 405.9 (was 815.3) | 379.7 | 667.6 | 733.7 | 17.2% (29.1%) |
+| ANSWER_CHOICE | 227 | 333.3 | 366.6 | 499.7 | 601.6 | 11.2% |
+| ACTIVATE_ABILITY | 375 | 273.9 | 254.9 | 402.8 | 540.3 | 15.3% |
+| PLAY_CARD | 211 | 256.2 | 205.6 | 599.6 | 1413.1 | 8.0% |
+| DECLARE_BLOCK | 5 | 231.5 | 197.4 | 436.3 | 436.3 | 0.2% |
+| MULLIGAN | 24 | 167.6 | 168.5 | 302.8 | 302.8 | 0.6% |
+| ATTACH_DON | 542 | 149.1 | 146.9 | 212.7 | 326.7 | 12.0% |
+| PLAY_COUNTER | 371 | 144.4 | 136.6 | 224.3 | 270.4 | 8.0% |
+| DECLARE_ATTACK | 582 | 124.8 | 110.4 | 149.8 | 3175.1 | 10.8% |
+| PASS | 1159 | 97.6 | 75.9 | 283.6 | 5757.9 | 16.8% |
+
+### Per accepted action, ability seeds 1–12 pooled (µs)
+
+|  | samples | mean | p50 | p95 | max |
+| --- | --- | --- | --- | --- | --- |
+| `applyAction` (per action) | 3781 | 185.7 (was 218.2) | 148.5 | 418.3 (802.4) | 2973.1 |
+| `playerView` (per seat) | 7562 | 70.2 (86.3) | 57.2 (81.6) | 133.7 | 2907.7 |
+| `legalActions` (per seat) | 7562 | 2.12 | 0.30 | 9.70 | 108.8 |
+| redaction fold (per seat) | 7562 | 1.11 | 0.90 | 2.30 | 113.8 |
+| `JSON.stringify(update)` (per seat) | 7562 | 43.0 | 37.4 | 60.8 | 5888.1 |
+| `handleAction`, whole (per action) | 3781 | 326.5 (394.2) | 293.8 (328.8) | 590.6 (952.4) | 6331.4 |
+| overhead above `applyAction` (mean) |  | 140.9 (176.0) |  |  |  |
+
+An accepted action now costs about 410µs end to end on this machine
+(`handleAction` plus two stringifies), from about 480.
+
+## What was optimized, and the proof
+
+Both changes are in the engine, both are read-side, and both carry the
+same proof: a sha256 over every per-action state, event batch, both
+`playerView`s and both `legalActions` lists, over ability seeds 1–12 and 34
+and vanilla seeds 1–4 — 5,195 actions — is identical before and after each
+commit. `packages/server/tests/replay.test.ts` is green, and every test
+count in the repo is unchanged (engine 498, cards 628, server 46 before the
+budget tests, client 254).
+
+**`finishTurn` reads the card table without drafting it** (`reducer/turn.ts`,
+`peekCards` in `reducer/helpers.ts`). The loop that clears `usedThisTurn`
+walked `Object.values(draft.cards)`, and reading a child through an immer
+draft manufactures a proxy for it — about a hundred and twenty, for a few
+cards that change — which `finalize` then walked. `current(draft.cards)`
+is the same data as of that moment in the recipe, with no proxies; writes
+still go through the draft. END_TURN mean **815 → 406µs**, pooled
+`applyAction` p95 **792 → 405µs**.
+
+**A card's keywords as one list per state** (`keywordsOf` in
+`selectors.ts`). Timing `playerView`'s pieces on real states put the
+keyword column first by a distance: 93µs of a view pair's 160µs was
+`KEYWORDS.filter(hasKeyword)` over a hundred cards — four questions per
+card, each a definition lookup, a modifier scan and two memo lookups —
+against 16µs for `getPower` and 6µs each for the sort, `knows` and the
+spread. The written keywords (printed plus modifier grants) are now one
+set per card per state, `keywordsOf` is that plus the static grants in
+`KEYWORDS` order, memoized like `staticGrantsFor`; `hasKeyword` reads the
+list on a frozen state and the view reads it directly. On a draft nothing
+is memoized — a draft is mutated within its recipe, and a state-identity
+memo is exact only for a state that is replaced rather than changed.
+`playerView` per seat **86 → 70µs** mean (p50 82 → 57); the view pair with
+warm memos, standalone, **160 → 92µs**.
+
+## What was not, and the number that left it alone
+
+- **Skipping the no-priority seat's view when nothing it sees changed.**
+  0 of 7,562 emissions carried a view byte-identical to the seat's previous
+  one — every accepted action changes something both seats see (the
+  priority, the DON!!, the log-derived `turn`). There is nothing to skip.
+- **`legalActions` recomputation.** 2.1µs per seat, of 327 per action:
+  0.6%. Not worth a memo.
+- **The `[...journal]` / `[...actions]` copies in `handleAction`.** With
+  `applyAction`, two views, two affordance lists and two redaction folds
+  accounted for, the whole of `handleAction` is within 4µs of the sum of
+  its pieces — the copies are inside the noise. O(n) per action, n a few
+  hundred, and n × a pointer copy is a microsecond.
+- **immer in the server.** There is none: `packages/server/package.json`
+  depends on `ws` and the two workspace packages, and `handleAction`
+  spreads plain objects.
+- **The log inside the `produce`.** `emit` pushes every event into
+  `draft.log`, so immer copies and re-walks a growing array on every
+  action: measured at **7µs per action at action 50 and 59µs at action
+  500** of the longest game (mean 28µs over seeds 6 and 34 — 13% of
+  `applyAction` there, about 5% of an action end to end over the sweep).
+  Taking the log out of the recipe touches `emit`, the four ids derived
+  from `draft.log.length` (`choice-`, `mod-`, `leg-`) and the freezing in
+  `applyAction`, with the risk of an event carrying a revoked draft. That
+  is a change with its own proof, not a line in this one; it is the next
+  thing to do if a longer format ever makes `applyAction`'s growth matter.
+- **The rest of `playerView`.** 70µs per seat to describe a hundred cards,
+  with `liveStatics`, `staticGrantsFor` and `zoneIndex` already memoized
+  per state; the sort, `knows` and the spread are 6µs each. Honest work.
+- **The transport's stringify.** 43µs per seat and 11 KiB per update; the
+  protocol chose snapshots over diffs for correctness, and a diff-based
+  wire is out of scope by that decision.
+
+## Budgets
+
+`packages/server/tests/budgets.test.ts` and
+`packages/client/tests/bundleBudget.test.ts`, on the harness's own
+functions. Each is the measurement with stated air; a feature that earns
+the bytes moves the number in the same commit, with the reason.
+
+| budget | measured | limit | margin |
+| --- | --- | --- | --- |
+| `applyAction` p95, ability seeds 1–3 | 424–444µs (three runs) | 2,000µs | ×4.5, for a two-core runner under load |
+| `update` mean, seed 6 | 12.1 KiB | 19 KiB | ×1.5, rounded up |
+| `update` max, seed 6 | 23.1 KiB | 35 KiB | ×1.5, rounded up |
+| `joined` at game end, seed 6 | 70.5 KiB | 106 KiB | ×1.5, rounded up |
+| board growth, action 50 → end, seed 6 | ×1.01 | ×1.5 | the histories are asserted to grow |
+| client bundle, gzip total | 108.7 KiB | 140 KiB | ×1.25, rounded up |
+
+## The bundle verdict
+
+108.7 KiB gzip, of which react is 41%, the app 22%, the engine 16%, the
+card data 7%, the two locales 7%, the CSS 6%. Nothing avoidable at the
+10% bar: `i18n` is 7.9 KiB for **both** languages, so lazy-loading `es`
+would save about 4 KiB (3.6%) and buy a fetch on the language switch;
+there are no sourcemaps and no duplicated data (`cards` is 8.1 KiB
+gzipped for the whole starter set). Left as it is, with the number.
+
+## Memory per match and `MAX_MATCHES`
+
+A finished ability-sweep match at rest — state with its log, action log,
+two journals — is **224 KiB of heap** (256 held at once: 56 MiB over a
+16 MiB baseline; 126 KiB serialized). `MAX_MATCHES` stays at **256**: that
+is 56 MiB of matches on the smallest host the server is meant for, with
+the reconnection window (`MATCH_IDLE_TTL_MS`) bounding how long a finished
+one stays. 1,024 would be 224 MiB, which is a decision about the host, not
+about the game; the number to raise it from is here.

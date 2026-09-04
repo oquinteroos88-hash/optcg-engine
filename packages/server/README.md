@@ -53,7 +53,7 @@ next to it in the source.
 | `MAX_MESSAGE_BYTES` | 16 KiB | A frame (`ws` `maxPayload`, close 1009) and the parsed string. The largest legitimate client message measured 166 bytes. |
 | `MAX_JSON_DEPTH` | 8 | Nesting, root counted as one. The deepest legitimate message is four. |
 | `MAX_ID_LENGTH` | 64 | `matchId`, `token`, deck ids. A UUID is 36. |
-| `MAX_MATCHES` | 256 | Live matches per process; over it, `create` is `serverFull`. Provisional until the perf PR measures a match at rest. |
+| `MAX_MATCHES` | 256 | Live matches per process; over it, `create` is `serverFull`. A finished match at rest is 224 KiB of heap, so the cap is 56 MiB of matches. |
 | `MAX_CONNECTIONS` | 512 | Open sockets; over it, the upgrade is a 503. |
 | `MAX_AUTH_FAILURES` | 5 | `unknownMatch` + `badToken` per socket before it is closed. |
 | `MATCH_IDLE_TTL_MS` | 30 min | How long a match with no socket lives — the reconnection window. |

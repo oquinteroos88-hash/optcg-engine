@@ -42,10 +42,13 @@ export const MAX_JSON_DEPTH = 8;
 export const MAX_ID_LENGTH = 64;
 
 /**
- * M5 — live matches per process. Provisional: the perf PR measures the
- * memory of a match at rest (state, action log, two journals) and sets this
- * from the host's budget. Until then, 256 is a number that keeps a
- * `create` loop from being the cheapest way to fill the heap.
+ * M5 — live matches per process. A finished ability-sweep match at rest —
+ * state, action log, two journals — costs **224 KiB of heap** (256 of them
+ * held at once: 56 MiB over a 16 MiB baseline, `docs/performance.md`), so
+ * this cap is 56 MiB of matches on the smallest host the server is meant
+ * for, and a `create` loop is still not the cheapest way to fill the heap.
+ * Sized from the measurement, not raised past it: 1,024 would be 224 MiB,
+ * which is a decision about the host, not about the game.
  */
 export const MAX_MATCHES = 256;
 

@@ -3,7 +3,7 @@ import type { Decklist } from '@optcg/engine';
 import { REASONS } from '@optcg/engine';
 import { ABIL_DECK } from '@optcg/engine/testdata/abilityDecks';
 import { DEFAULT_LIMITS } from '../src/limits.js';
-import { PROTOCOL_VERSION, SERVER_ERRORS } from '../src/protocol.js';
+import { PROTOCOL_VERSION, SERVER_ERRORS, UPGRADE_REFUSALS } from '../src/protocol.js';
 import type { GameServer, ServerLogEntry } from '../src/transport.js';
 import { startServer } from '../src/transport.js';
 import { TestClient } from './wsHelpers.js';
@@ -223,7 +223,10 @@ describe('the transport', () => {
     const a = await TestClient.connect(own.port);
     const b = await TestClient.connect(own.port);
     expect(own.stats().connections).toBe(2);
-    await expect(TestClient.connect(own.port)).rejects.toThrow('Unexpected server response: 503');
+    await expect(TestClient.connect(own.port)).rejects.toMatchObject({
+      status: 503,
+      reason: UPGRADE_REFUSALS.serverFull,
+    });
     expect(own.stats().connections).toBe(2);
     // A seat freed is a seat available: the cap counts live sockets.
     a.close();
@@ -239,9 +242,10 @@ describe('the transport', () => {
     // M9: the header is the browser's word for where the page came from.
     const own = await startServer({ port: 0, allowedOrigins: ['https://play.example'] });
     const fromPage = await TestClient.connect(own.port, { origin: 'https://play.example' });
+    // Exactly the word, and never the origin it refused.
     await expect(
       TestClient.connect(own.port, { origin: 'https://evil.example' }),
-    ).rejects.toThrow('Unexpected server response: 403');
+    ).rejects.toMatchObject({ status: 403, reason: UPGRADE_REFUSALS.originRefused });
     // No header is not a browser: a Node client, a test, a bot — the attack
     // needs a page, and a page always says where it is from.
     const headless = await TestClient.connect(own.port);

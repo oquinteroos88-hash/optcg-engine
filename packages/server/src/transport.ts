@@ -5,7 +5,7 @@ import type { Decklist, PlayerId } from '@optcg/engine';
 import type { ServerLimits } from './limits.js';
 import { DEFAULT_LIMITS } from './limits.js';
 import type { ClientMessage, ServerErrorCode, ServerToClient } from './protocol.js';
-import { PROTOCOL_VERSION, SERVER_ERRORS } from './protocol.js';
+import { PROTOCOL_VERSION, SERVER_ERRORS, UPGRADE_REFUSALS } from './protocol.js';
 import type { MatchState } from './session.js';
 import { createMatch, handleAction, rejoinPayload } from './session.js';
 import { parseClientMessage } from './validate.js';
@@ -179,14 +179,14 @@ export function startServer(opts: {
     // the same tick may both pass — the cap is a bound, not an exact count.
     verifyClient(info, done) {
       if (wss.clients.size >= limits.MAX_CONNECTIONS) {
-        done(false, 503, SERVER_ERRORS.serverFull);
+        done(false, 503, UPGRADE_REFUSALS.serverFull);
         return;
       }
       // M9: `info.origin` is the header verbatim, or undefined when the
       // client sent none — `ws` types it as a string, the wire does not.
       const origin = info.origin as string | undefined;
       if (allowedOrigins !== null && origin !== undefined && !allowedOrigins.has(origin)) {
-        done(false, 403, 'originRefused');
+        done(false, 403, UPGRADE_REFUSALS.originRefused);
         return;
       }
       done(true);

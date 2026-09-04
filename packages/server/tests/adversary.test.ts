@@ -3,7 +3,7 @@ import type { Action, GameState } from '@optcg/engine';
 import { legalActions, REASONS } from '@optcg/engine';
 import { ABIL_DECK } from '@optcg/engine/testdata/abilityDecks';
 import { DEFAULT_LIMITS } from '../src/limits.js';
-import { PROTOCOL_VERSION, SERVER_ERRORS } from '../src/protocol.js';
+import { PROTOCOL_VERSION, SERVER_ERRORS, UPGRADE_REFUSALS } from '../src/protocol.js';
 import type { ServerLogEntry } from '../src/transport.js';
 import { startServer } from '../src/transport.js';
 import { playOut } from './wireDrive.js';
@@ -244,7 +244,10 @@ describe('the adversary', () => {
     expect((await a.expect('error')).code).toBe(SERVER_ERRORS.serverFull);
     expect(a.isOpen()).toBe(true);
     const b = await TestClient.connect(server.port);
-    await expect(TestClient.connect(server.port)).rejects.toThrow('Unexpected server response: 503');
+    await expect(TestClient.connect(server.port)).rejects.toMatchObject({
+      status: 503,
+      reason: UPGRADE_REFUSALS.serverFull,
+    });
     expect(server.stats()).toEqual({ matches: 1, connections: 2 });
     a.close();
     b.close();

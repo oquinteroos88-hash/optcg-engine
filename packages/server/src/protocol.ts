@@ -155,3 +155,20 @@ export const SERVER_ERRORS = {
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERRORS)[keyof typeof SERVER_ERRORS];
+
+/**
+ * The words a refused HTTP upgrade carries as its body — the one channel
+ * that speaks before a socket exists, so it can never be an `error` message.
+ * Kept to the same discipline as `SERVER_ERRORS` (bare words, each its own
+ * key) and pinned by the wire arbiter for the same reason: a refusal that
+ * quoted the offending origin would be telling a probe what the list looks
+ * like (M9, M12).
+ */
+export const UPGRADE_REFUSALS = {
+  /** `MAX_CONNECTIONS` reached: HTTP 503 (M5). */
+  serverFull: 'serverFull',
+  /** An `Origin` header outside the allowlist: HTTP 403 (M9). */
+  originRefused: 'originRefused',
+} as const;
+
+export type UpgradeRefusal = (typeof UPGRADE_REFUSALS)[keyof typeof UPGRADE_REFUSALS];

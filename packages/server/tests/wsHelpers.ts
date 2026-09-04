@@ -3,6 +3,17 @@ import type { ClientOptions } from 'ws';
 import type { ServerToClient } from '../src/protocol.js';
 import { PROTOCOL_VERSION } from '../src/protocol.js';
 
+/** A refused HTTP upgrade: the status and the body, which is the reason. */
+export class UpgradeRefused extends Error {
+  constructor(
+    readonly status: number,
+    readonly reason: string,
+  ) {
+    super(`Unexpected server response: ${status}`);
+    this.name = 'UpgradeRefused';
+  }
+}
+
 /**
  * A minimal test client: connects, queues everything the server sends, and
  * hands messages back one promise at a time so a test reads the conversation
@@ -40,13 +51,22 @@ export class TestClient {
    * `options` reach `ws`'s client verbatim: `origin` sets the header the
    * origin allowlist reads, `autoPong: false` makes a client that never
    * answers a ping — the half-open peer the heartbeat exists to detect.
-   * A refused upgrade rejects with `ws`'s "Unexpected server response: NNN".
+   * A refused upgrade rejects with an `UpgradeRefused`: `ws`'s own message
+   * plus the status and the body the server wrote, so a test can hold the
+   * refusal to the vocabulary rather than only to a number.
    */
   static connect(port: number, options: ClientOptions = {}): Promise<TestClient> {
     return new Promise((resolve, reject) => {
       const socket = new WebSocket(`ws://127.0.0.1:${port}`, options);
       socket.once('open', () => resolve(new TestClient(socket)));
       socket.once('error', reject);
+      socket.once('unexpected-response', (_request, response) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () =>
+          reject(new UpgradeRefused(response.statusCode ?? 0, Buffer.concat(chunks).toString())),
+        );
+      });
     });
   }
 

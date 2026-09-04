@@ -62,6 +62,13 @@ interface MatchEntry {
   match: MatchState;
   tokens: Record<PlayerId, string>;
   sockets: Partial<Record<PlayerId, WebSocket>>;
+  /**
+   * The last moment somebody was provably at the table: a socket attached or
+   * detached, an action accepted. With no socket attached, this plus
+   * `MATCH_IDLE_TTL_MS` is when the match is freed (M6) — the reconnection
+   * window, and the only clock the transport keeps.
+   */
+  lastSeen: number;
 }
 
 /** What the transport remembers about one socket, and nothing about the
@@ -70,6 +77,9 @@ interface Peer {
   /** `unknownMatch` and `badToken` so far; the `MAX_AUTH_FAILURES`-th closes
    * the socket (M4). A guesser gets five tries per TCP handshake. */
   authFailures: number;
+  /** Flipped false by every heartbeat ping and back by the pong; a socket
+   * found false at the next tick is terminated (M7). */
+  isAlive: boolean;
 }
 
 /**
@@ -100,6 +110,10 @@ export interface GameServer {
   }): void;
   /** Read access for tests and tooling; the wire never carries this. */
   getMatch(matchId: string): MatchState | undefined;
+  /** What the caps count right now, for tests and operators; never on the
+   * wire. `connections` is `ws`'s own client set, which the heartbeat keeps
+   * honest (M5, M7). */
+  stats(): { matches: number; connections: number };
   close(): Promise<void>;
 }
 
@@ -139,12 +153,70 @@ export function startServer(opts: {
   const seatsBySocket = new Map<WebSocket, { matchId: string; seat: PlayerId }>();
   const peers = new Map<WebSocket, Peer>();
   const decks: Record<string, Decklist> = opts.decks ?? {};
-  // M2: `ws` refuses a frame over the limit before assembling it, closing
-  // with 1009 on its own; the parser applies the same number to the string.
-  const wss = new WebSocketServer({ port: opts.port, maxPayload: limits.MAX_MESSAGE_BYTES });
+  const wss = new WebSocketServer({
+    port: opts.port,
+    // M2: `ws` refuses a frame over the limit before assembling it, closing
+    // with 1009 on its own; the parser applies the same number to the string.
+    maxPayload: limits.MAX_MESSAGE_BYTES,
+    // M5: the connection cap is enforced at the HTTP upgrade, so a refused
+    // connection is a 503 and never a `WebSocket` with listeners and buffers.
+    // `clients` counts sockets that completed the upgrade, so two arriving in
+    // the same tick may both pass — the cap is a bound, not an exact count.
+    verifyClient(info, done) {
+      if (wss.clients.size >= limits.MAX_CONNECTIONS) {
+        done(false, 503, SERVER_ERRORS.serverFull);
+        return;
+      }
+      done(true);
+    },
+  });
+
+  // M6: the sweep. A match with no socket attached and nobody seen for the
+  // idle window is freed, and with it the reconnection promise for that
+  // match — the trade `multiplayer-protocol.md` states.
+  const sweeper = setInterval(() => {
+    const now = Date.now();
+    for (const [matchId, entry] of matches) {
+      if (
+        Object.keys(entry.sockets).length === 0 &&
+        now - entry.lastSeen > limits.MATCH_IDLE_TTL_MS
+      ) {
+        matches.delete(matchId);
+      }
+    }
+  }, limits.MATCH_SWEEP_INTERVAL_MS);
+  // M7: the heartbeat. Every socket is pinged; one that did not answer the
+  // previous ping is terminated — no close handshake, because the other end
+  // is not there to complete one. This is what lets `clients.size` and a
+  // match's socket set mean "someone is there" rather than "a TCP connection
+  // once existed".
+  const heartbeat = setInterval(() => {
+    for (const socket of wss.clients) {
+      const peer = peers.get(socket);
+      if (peer === undefined) {
+        continue;
+      }
+      if (!peer.isAlive) {
+        socket.terminate();
+        continue;
+      }
+      peer.isAlive = false;
+      socket.ping();
+    }
+  }, limits.HEARTBEAT_INTERVAL_MS);
+  // Neither timer keeps the process up on its own: a server with no sockets
+  // and no matches should let the process exit when its caller is done.
+  sweeper.unref();
+  heartbeat.unref();
 
   wss.on('connection', (socket) => {
-    peers.set(socket, { authFailures: 0 });
+    peers.set(socket, { authFailures: 0, isAlive: true });
+    socket.on('pong', () => {
+      const peer = peers.get(socket);
+      if (peer !== undefined) {
+        peer.isAlive = true;
+      }
+    });
     socket.on('message', (data) => {
       // M3: the whole per-message path under one try/catch. A throw is one
       // log line, one `internalError`, one closed socket — and the process,
@@ -173,6 +245,8 @@ export function startServer(opts: {
         const entry = matches.get(seat.matchId);
         if (entry !== undefined && entry.sockets[seat.seat] === socket) {
           delete entry.sockets[seat.seat];
+          // The window opens now: the leaving is the last thing seen.
+          entry.lastSeen = Date.now();
         }
       }
     });
@@ -226,6 +300,12 @@ export function startServer(opts: {
       refuse(socket, SERVER_ERRORS.unknownDeck);
       return;
     }
+    // M5: the match cap. The socket is kept — the client may join a match
+    // that exists, or try again once the sweep has freed one.
+    if (matches.size >= limits.MAX_MATCHES) {
+      refuse(socket, SERVER_ERRORS.serverFull);
+      return;
+    }
     // The two things this server invents. Neither is game state: they name a
     // match and its seats, and the game's only randomness is still the seed
     // the creator chose — which is what keeps `seed + actions = the match`
@@ -236,6 +316,7 @@ export function startServer(opts: {
       match: createMatch(message.seed, { p1, p2 }),
       tokens,
       sockets: {},
+      lastSeen: Date.now(),
     });
     send(socket, { type: 'created', protocol: PROTOCOL_VERSION, matchId, tokens });
   }
@@ -264,6 +345,7 @@ export function startServer(opts: {
       previous.close();
     }
     entry.sockets[seat] = socket;
+    entry.lastSeen = Date.now();
     seatsBySocket.set(socket, { matchId: message.matchId, seat });
     send(socket, rejoinPayload(entry.match, seat));
   }
@@ -296,6 +378,7 @@ export function startServer(opts: {
       return;
     }
     entry.match = result.match;
+    entry.lastSeen = Date.now();
     for (const [player, payload] of Object.entries(result.emitted) as [
       PlayerId,
       (typeof result.emitted)[PlayerId],
@@ -319,12 +402,22 @@ export function startServer(opts: {
         port: address.port,
         decks,
         createMatch({ matchId, seed, decklists, tokens }) {
-          matches.set(matchId, { match: createMatch(seed, decklists), tokens, sockets: {} });
+          matches.set(matchId, {
+            match: createMatch(seed, decklists),
+            tokens,
+            sockets: {},
+            lastSeen: Date.now(),
+          });
         },
         getMatch(matchId) {
           return matches.get(matchId)?.match;
         },
+        stats() {
+          return { matches: matches.size, connections: wss.clients.size };
+        },
         close() {
+          clearInterval(sweeper);
+          clearInterval(heartbeat);
           return new Promise<void>((done) => {
             for (const client of wss.clients) {
               client.close();

@@ -2,6 +2,7 @@ import { deepStrictEqual } from 'node:assert';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ViewEvent } from '@optcg/engine';
 import { ABIL_DECK } from '@optcg/engine/testdata/abilityDecks';
+import { SERVER_ERRORS } from '../src/protocol.js';
 import { createMatch } from '../src/session.js';
 import type { GameServer } from '../src/transport.js';
 import { startServer } from '../src/transport.js';
@@ -137,5 +138,75 @@ describe('reconnection mid-choice', () => {
 
     c1.close();
     c2back.close();
+  });
+});
+
+/**
+ * The reconnection window (M6): a token re-authenticates while the match
+ * lives, and a match lives while a socket is attached or for
+ * `MATCH_IDLE_TTL_MS` after the last one left. Fifty milliseconds here, so
+ * the test sees the whole window and not a description of it.
+ */
+describe('match expiry', () => {
+  it('frees a match with no socket after the idle window, and keeps one with a player at the table', async () => {
+    const server = await startServer({
+      port: 0,
+      limits: { MATCH_IDLE_TTL_MS: 50, MATCH_SWEEP_INTERVAL_MS: 10 },
+    });
+    server.createMatch({ matchId: 'empty', seed: 1, decklists: decks, tokens: { p1: 'a', p2: 'b' } });
+    server.createMatch({ matchId: 'held', seed: 2, decklists: decks, tokens: { p1: 'a', p2: 'b' } });
+    const holder = await TestClient.connect(server.port);
+    holder.join('held', 'a');
+    await holder.expect('joined');
+    expect(server.stats().matches).toBe(2);
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(server.getMatch('empty')).toBeUndefined();
+    expect(server.getMatch('held')).toBeDefined();
+    expect(server.stats().matches).toBe(1);
+
+    // A freed match is gone for good: the token that named a seat in it
+    // names nothing now, and the answer is the same as for a match that
+    // never existed — the wire learns nothing about what was.
+    const late = await TestClient.connect(server.port);
+    late.join('empty', 'a');
+    expect((await late.expect('error')).code).toBe(SERVER_ERRORS.unknownMatch);
+
+    // The window opens when the last socket leaves, not when it joined.
+    holder.close();
+    await holder.closed;
+    expect(server.getMatch('held')).toBeDefined();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(server.getMatch('held')).toBeUndefined();
+    expect(server.stats().matches).toBe(0);
+    late.close();
+    await server.close();
+  });
+});
+
+/**
+ * The heartbeat (M7): a client that stops answering pings is terminated and
+ * stops counting as connected — the half-open peer that would otherwise
+ * hold a seat and a slot under the cap forever. `autoPong: false` is `ws`'s
+ * own switch for a client that never answers, so nothing is monkeypatched.
+ */
+describe('heartbeat', () => {
+  it('terminates a socket that does not answer a ping, and keeps one that does', async () => {
+    const server = await startServer({ port: 0, limits: { HEARTBEAT_INTERVAL_MS: 30 } });
+    const mute = await TestClient.connect(server.port, { autoPong: false });
+    const alive = await TestClient.connect(server.port);
+    expect(server.stats().connections).toBe(2);
+
+    // Ping at the first tick, judgement at the second: gone within two
+    // intervals, with no close frame because nobody was there to answer one.
+    const ended = await mute.closed;
+    expect(ended.code).toBe(1006);
+    // The client sees the TCP end a tick before the server's own close
+    // event takes the socket out of its set.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(server.stats().connections).toBe(1);
+    expect(alive.isOpen()).toBe(true);
+    alive.close();
+    await server.close();
   });
 });

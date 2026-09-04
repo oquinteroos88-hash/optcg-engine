@@ -183,6 +183,43 @@ describe('the transport', () => {
     expect(await guesser.closed).toEqual({ code: 1008, reason: SERVER_ERRORS.badToken });
   });
 
+  it('refuses a create over MAX_MATCHES with serverFull, and keeps the socket', async () => {
+    // M5, with the cap within reach: two matches, then the word.
+    const own = await startServer({ port: 0, decks: { abil: ABIL_DECK }, limits: { MAX_MATCHES: 2 } });
+    const client = await TestClient.connect(own.port);
+    const create = { type: 'create', protocol: PROTOCOL_VERSION, seed: 1, deckIdP1: 'abil', deckIdP2: 'abil' };
+    client.send(create);
+    const first = await client.expect('created');
+    client.send(create);
+    await client.expect('created');
+    expect(own.stats().matches).toBe(2);
+    client.send(create);
+    expect((await client.expect('error')).code).toBe(SERVER_ERRORS.serverFull);
+    expect(own.stats().matches).toBe(2);
+    // Kept: the same socket may still take a seat in a match that exists.
+    client.join(first.matchId, first.tokens.p1);
+    expect((await client.expect('joined')).seat).toBe('p1');
+    client.close();
+    await own.close();
+  });
+
+  it('refuses the upgrade over MAX_CONNECTIONS with a 503, before a socket exists', async () => {
+    const own = await startServer({ port: 0, limits: { MAX_CONNECTIONS: 2 } });
+    const a = await TestClient.connect(own.port);
+    const b = await TestClient.connect(own.port);
+    expect(own.stats().connections).toBe(2);
+    await expect(TestClient.connect(own.port)).rejects.toThrow('Unexpected server response: 503');
+    expect(own.stats().connections).toBe(2);
+    // A seat freed is a seat available: the cap counts live sockets.
+    a.close();
+    await a.closed;
+    const c = await TestClient.connect(own.port);
+    expect(own.stats().connections).toBe(2);
+    b.close();
+    c.close();
+    await own.close();
+  });
+
   it('survives a handler that throws: one log line, internalError, 1011, and keeps serving', async () => {
     // M3, provoked honestly: the catalog is the transport's one injected
     // collaborator, and a catalog that throws on lookup is a handler that

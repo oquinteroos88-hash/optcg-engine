@@ -1,3 +1,4 @@
+import { isDraft } from 'immer';
 import type { Ability, AbilityContext, Keyword } from './abilities/dsl.js';
 import { KEYWORDS as KEYWORD_LIST, PRINTED_KEYWORD } from './abilities/dsl.js';
 import type { Lens } from './abilities/query.js';
@@ -59,17 +60,55 @@ export function hasKeywordWithoutStatics(
   id: InstanceId,
   keyword: Keyword,
 ): boolean {
+  return keywordsWithoutStatics(state, id).has(keyword);
+}
+
+const NO_KEYWORDS: ReadonlySet<Keyword> = new Set();
+const writtenKeywordCache = new WeakMap<GameState, Map<InstanceId, ReadonlySet<Keyword>>>();
+
+/**
+ * The printed keywords and the modifier-granted ones as one set per card,
+ * built once per state.
+ *
+ * `hasKeywordWithoutStatics` answered one keyword at a time: a definition
+ * lookup and a scan of the modifiers per question, and `playerView` asks
+ * every keyword of every card it publishes — four scans per card, a hundred
+ * cards, two seats, every action. Measured at 93µs of a view's 160µs for
+ * the pair of seats before this memo. The set is the same answer to all four
+ * questions at once; the question itself is unchanged.
+ *
+ * Memoized on state identity like `staticGrantsFor`, exact because engine
+ * states are frozen and replaced rather than mutated — and for that reason
+ * **not** memoized on a draft, which is mutated: a reducer asking mid-recipe
+ * gets the scan, and the answer it always got.
+ */
+function keywordsWithoutStatics(state: GameState, id: InstanceId): ReadonlySet<Keyword> {
+  let memo: Map<InstanceId, ReadonlySet<Keyword>> | undefined;
+  if (!isDraft(state)) {
+    memo = writtenKeywordCache.get(state);
+    if (memo === undefined) {
+      memo = new Map();
+      writtenKeywordCache.set(state, memo);
+    }
+    const cached = memo.get(id);
+    if (cached !== undefined) {
+      return cached;
+    }
+  }
   const card = state.cards[id];
   if (card === undefined) {
-    return false;
+    return NO_KEYWORDS;
   }
-  if (printedKeywords(card.cardId).has(keyword)) {
-    return true;
+  let granted: Set<Keyword> | null = null;
+  for (const modifier of state.modifiers) {
+    if (modifier.kind === 'grantKeyword' && modifier.target === id) {
+      granted ??= new Set(printedKeywords(card.cardId));
+      granted.add(modifier.keyword);
+    }
   }
-  return state.modifiers.some(
-    (modifier) =>
-      modifier.kind === 'grantKeyword' && modifier.target === id && modifier.keyword === keyword,
-  );
+  const keywords: ReadonlySet<Keyword> = granted ?? printedKeywords(card.cardId);
+  memo?.set(id, keywords);
+  return keywords;
 }
 
 /**
@@ -318,10 +357,51 @@ export function getCost(state: GameState, id: InstanceId): number {
  * has to block, and a check against the printed list alone would not see it.
  */
 export function hasKeyword(state: GameState, id: InstanceId, keyword: Keyword): boolean {
-  return (
-    hasKeywordWithoutStatics(state, id, keyword) ||
-    staticGrantsFor(state, id).keywords.has(keyword)
-  );
+  if (isDraft(state)) {
+    return (
+      hasKeywordWithoutStatics(state, id, keyword) ||
+      staticGrantsFor(state, id).keywords.has(keyword)
+    );
+  }
+  return keywordsOf(state, id).includes(keyword);
+}
+
+const keywordsCache = new WeakMap<GameState, Map<InstanceId, readonly Keyword[]>>();
+
+/**
+ * Every keyword a card has right now, in `KEYWORDS` order — `hasKeyword`'s
+ * answer to all four questions at once, and the same answer: written or
+ * granted by a static, per keyword.
+ *
+ * Exists because `playerView` publishes the keywords of every card it shows,
+ * and asked them one at a time: four questions per card, each a pair of memo
+ * lookups, a hundred cards, two seats, every action — 70µs of a view pair's
+ * 146µs. One list per card per state, and the four questions are one lookup.
+ * `hasKeyword` reads the same list on a frozen state, so the rule stays in
+ * one place; on a draft it asks the two questions directly, because a draft
+ * is mutated and a memo on it would answer for the recipe's past.
+ */
+export function keywordsOf(state: GameState, id: InstanceId): readonly Keyword[] {
+  const compute = (): Keyword[] => {
+    const written = keywordsWithoutStatics(state, id);
+    const granted = staticGrantsFor(state, id).keywords;
+    return KEYWORD_LIST.filter((keyword) => written.has(keyword) || granted.has(keyword));
+  };
+  if (isDraft(state)) {
+    return compute();
+  }
+  let perState = keywordsCache.get(state);
+  if (perState === undefined) {
+    perState = new Map();
+    keywordsCache.set(state, perState);
+  }
+  const cached = perState.get(id);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const keywords = compute();
+  perState.set(id, keywords);
+  return keywords;
 }
 
 /**

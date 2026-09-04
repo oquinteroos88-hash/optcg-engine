@@ -148,6 +148,15 @@ export function startServer(opts: {
   decks?: Record<string, Decklist>;
   /** Overrides for `limits.ts`, for tests that want a cap within reach. */
   limits?: Partial<ServerLimits>;
+  /**
+   * M9: the origins a browser may open a socket from. When given, an upgrade
+   * carrying an `Origin` header outside the list is refused with a 403 before
+   * a socket exists; an upgrade with no `Origin` passes, because the attack
+   * is a page in somebody's browser and a non-browser client sends none.
+   * Absent means no check — the local-development default, which the runnable
+   * server logs at startup so a deploy cannot forget it silently.
+   */
+  allowedOrigins?: string[];
   /** Where the transport reports; silent by default, because a library has
    * no business writing to a console it was not given. */
   log?: ServerLogger;
@@ -158,6 +167,7 @@ export function startServer(opts: {
   const seatsBySocket = new Map<WebSocket, { matchId: string; seat: PlayerId }>();
   const peers = new Map<WebSocket, Peer>();
   const decks: Record<string, Decklist> = opts.decks ?? {};
+  const allowedOrigins = opts.allowedOrigins === undefined ? null : new Set(opts.allowedOrigins);
   const wss = new WebSocketServer({
     port: opts.port,
     // M2: `ws` refuses a frame over the limit before assembling it, closing
@@ -170,6 +180,13 @@ export function startServer(opts: {
     verifyClient(info, done) {
       if (wss.clients.size >= limits.MAX_CONNECTIONS) {
         done(false, 503, SERVER_ERRORS.serverFull);
+        return;
+      }
+      // M9: `info.origin` is the header verbatim, or undefined when the
+      // client sent none — `ws` types it as a string, the wire does not.
+      const origin = info.origin as string | undefined;
+      if (allowedOrigins !== null && origin !== undefined && !allowedOrigins.has(origin)) {
+        done(false, 403, 'originRefused');
         return;
       }
       done(true);

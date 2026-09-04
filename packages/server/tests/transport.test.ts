@@ -235,6 +235,29 @@ describe('the transport', () => {
     await own.close();
   });
 
+  it('refuses an upgrade from an origin outside the allowlist with a 403, and only then', async () => {
+    // M9: the header is the browser's word for where the page came from.
+    const own = await startServer({ port: 0, allowedOrigins: ['https://play.example'] });
+    const fromPage = await TestClient.connect(own.port, { origin: 'https://play.example' });
+    await expect(
+      TestClient.connect(own.port, { origin: 'https://evil.example' }),
+    ).rejects.toThrow('Unexpected server response: 403');
+    // No header is not a browser: a Node client, a test, a bot — the attack
+    // needs a page, and a page always says where it is from.
+    const headless = await TestClient.connect(own.port);
+    expect(own.stats().connections).toBe(2);
+    fromPage.close();
+    headless.close();
+    await own.close();
+
+    // And with no list there is no check: the local-development default.
+    const open = await startServer({ port: 0 });
+    const anywhere = await TestClient.connect(open.port, { origin: 'https://evil.example' });
+    expect(anywhere.isOpen()).toBe(true);
+    anywhere.close();
+    await open.close();
+  });
+
   it('survives a handler that throws: one log line, internalError, 1011, and keeps serving', async () => {
     // M3, provoked honestly: the catalog is the transport's one injected
     // collaborator, and a catalog that throws on lookup is a handler that

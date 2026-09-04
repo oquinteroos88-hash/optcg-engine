@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws';
+import type { ClientOptions } from 'ws';
 import type { ServerToClient } from '../src/protocol.js';
 import { PROTOCOL_VERSION } from '../src/protocol.js';
 
@@ -7,11 +8,17 @@ import { PROTOCOL_VERSION } from '../src/protocol.js';
  * hands messages back one promise at a time so a test reads the conversation
  * in order. A missing message fails with a timeout instead of hanging the
  * suite.
+ *
+ * It also records how the conversation ended: `closed` resolves with the
+ * close code and reason the server sent, which is how the close policy in
+ * `transport.ts` gets asserted rather than described.
  */
 export class TestClient {
   private readonly socket: WebSocket;
   private readonly queue: ServerToClient[] = [];
   private readonly waiters: ((message: ServerToClient) => void)[] = [];
+  /** The server's close frame, or the abrupt end, whichever came. */
+  readonly closed: Promise<{ code: number; reason: string }>;
 
   private constructor(socket: WebSocket) {
     this.socket = socket;
@@ -24,11 +31,20 @@ export class TestClient {
         this.queue.push(message);
       }
     });
+    this.closed = new Promise((resolve) => {
+      socket.once('close', (code, reason) => resolve({ code, reason: reason.toString() }));
+    });
   }
 
-  static connect(port: number): Promise<TestClient> {
+  /**
+   * `options` reach `ws`'s client verbatim: `origin` sets the header the
+   * origin allowlist reads, `autoPong: false` makes a client that never
+   * answers a ping — the half-open peer the heartbeat exists to detect.
+   * A refused upgrade rejects with `ws`'s "Unexpected server response: NNN".
+   */
+  static connect(port: number, options: ClientOptions = {}): Promise<TestClient> {
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+      const socket = new WebSocket(`ws://127.0.0.1:${port}`, options);
       socket.once('open', () => resolve(new TestClient(socket)));
       socket.once('error', reject);
     });
@@ -68,6 +84,12 @@ export class TestClient {
       throw new Error(`expected ${type}, got ${message.type}: ${JSON.stringify(message).slice(0, 200)}`);
     }
     return message as Extract<ServerToClient, { type: T }>;
+  }
+
+  /** Whether the socket is still open from this side — the kept-socket half
+   * of the close policy is a fact about this, not about a message. */
+  isOpen(): boolean {
+    return this.socket.readyState === WebSocket.OPEN;
   }
 
   close(): void {

@@ -2,10 +2,13 @@ import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Decklist, PlayerId } from '@optcg/engine';
-import type { ClientMessage, ServerToClient } from './protocol.js';
+import type { ServerLimits } from './limits.js';
+import { DEFAULT_LIMITS } from './limits.js';
+import type { ClientMessage, ServerErrorCode, ServerToClient } from './protocol.js';
 import { PROTOCOL_VERSION, SERVER_ERRORS } from './protocol.js';
 import type { MatchState } from './session.js';
 import { createMatch, handleAction, rejoinPayload } from './session.js';
+import { parseClientMessage } from './validate.js';
 
 /**
  * The transport: a thin WebSocket skin over the pure session. It parses,
@@ -27,6 +30,32 @@ import { createMatch, handleAction, rejoinPayload } from './session.js';
  * a reconnection: it takes the seat, the old socket is closed, and the
  * journal is re-emitted — the minimum that lets a dropped player return
  * mid-choice and keep playing.
+ *
+ * **The perimeter.** This is also the only module that faces the open
+ * internet, so every mitigation in `docs/threat-model.md` that is not a test
+ * lives here or in `validate.ts`, each marked with its item. The rule that
+ * organises them: a socket that sends something the protocol cannot name is
+ * told once and closed; a socket that sends a well-formed thing the server
+ * cannot honour is told and kept, because the next message may be the right
+ * one. The table:
+ *
+ * | code               | after sending it                                  |
+ * | ------------------ | ------------------------------------------------- |
+ * | `malformedMessage` | close 1008, reason = the code                     |
+ * | `oversizedMessage` | close 1008                                        |
+ * | `protocolMismatch` | close 1008                                        |
+ * | `rateLimited`      | close 1008                                        |
+ * | `internalError`    | close 1011                                        |
+ * | `unknownMatch`     | keep; counts as an authentication failure (M4)    |
+ * | `badToken`         | keep; counts as an authentication failure (M4)    |
+ * | `unknownDeck`      | keep                                              |
+ * | `notJoined`        | keep                                              |
+ * | `seatMismatch`     | keep                                              |
+ * | `serverFull`       | keep                                              |
+ *
+ * A close reason is always exactly the code and never anything else: it is
+ * the one channel that bypasses `send`, and the wire arbiter (M12) holds it to
+ * the same vocabulary.
  */
 
 interface MatchEntry {
@@ -34,6 +63,20 @@ interface MatchEntry {
   tokens: Record<PlayerId, string>;
   sockets: Partial<Record<PlayerId, WebSocket>>;
 }
+
+/**
+ * What the transport tells its operator, and the whole of it. `error` is an
+ * `Error.name`, never a message and never a stack; `type` is the message type
+ * being handled when it is known. No field ever carries a payload, a token,
+ * an id or a reason — a log line is another wire (M3, M12).
+ */
+export interface ServerLogEntry {
+  event: 'handlerError' | 'socketError' | 'serverError';
+  type?: string;
+  error: string;
+}
+
+export type ServerLogger = (entry: ServerLogEntry) => void;
 
 export interface GameServer {
   /** The bound port — pass 0 at start to get an ephemeral one. */
@@ -52,37 +95,66 @@ export interface GameServer {
   close(): Promise<void>;
 }
 
+/**
+ * The codes that end the conversation, with the close code each one earns:
+ * 1008 (policy violation) for a sender that broke the protocol, 1011
+ * (internal error) for the one case where the server did. Everything not
+ * listed keeps the socket.
+ */
+const CLOSE_AFTER: Partial<Record<ServerErrorCode, number>> = {
+  [SERVER_ERRORS.malformedMessage]: 1008,
+  [SERVER_ERRORS.oversizedMessage]: 1008,
+  [SERVER_ERRORS.protocolMismatch]: 1008,
+  [SERVER_ERRORS.rateLimited]: 1008,
+  [SERVER_ERRORS.internalError]: 1011,
+};
+
 export function startServer(opts: {
   port: number;
   /**
    * The deck catalog a `create` may name. Injected rather than imported: the
    * library holds no card data, which is what keeps `@optcg/engine` its only
-   * game dependency. The runnable entry point supplies the real set.
+   * game dependency. The runnable entry point supplies the real set. Held by
+   * reference, so the catalog stays whatever the caller handed over — a test
+   * may hand over one that throws, to prove the handler path survives it.
    */
   decks?: Record<string, Decklist>;
+  /** Overrides for `limits.ts`, for tests that want a cap within reach. */
+  limits?: Partial<ServerLimits>;
+  /** Where the transport reports; silent by default, because a library has
+   * no business writing to a console it was not given. */
+  log?: ServerLogger;
 }): Promise<GameServer> {
+  const limits: ServerLimits = { ...DEFAULT_LIMITS, ...opts.limits };
+  const log: ServerLogger = opts.log ?? (() => undefined);
   const matches = new Map<string, MatchEntry>();
   const seatsBySocket = new Map<WebSocket, { matchId: string; seat: PlayerId }>();
-  const decks: Record<string, Decklist> = { ...opts.decks };
-  const wss = new WebSocketServer({ port: opts.port });
+  const decks: Record<string, Decklist> = opts.decks ?? {};
+  // M2: `ws` refuses a frame over the limit before assembling it, closing
+  // with 1009 on its own; the parser applies the same number to the string.
+  const wss = new WebSocketServer({ port: opts.port, maxPayload: limits.MAX_MESSAGE_BYTES });
 
   wss.on('connection', (socket) => {
     socket.on('message', (data) => {
-      const message = parseMessage(String(data));
-      if (message === null) {
-        send(socket, { type: 'error', code: SERVER_ERRORS.malformedMessage });
-        return;
+      // M3: the whole per-message path under one try/catch. A throw is one
+      // log line, one `internalError`, one closed socket — and the process,
+      // with every other match on it, keeps going.
+      let type = 'unparsed';
+      try {
+        const parsed = parseClientMessage(String(data), limits);
+        if (!parsed.ok) {
+          refuse(socket, parsed.code);
+          return;
+        }
+        type = parsed.message.type;
+        dispatch(socket, parsed.message);
+      } catch (error) {
+        log({ event: 'handlerError', type, error: errorName(error) });
+        refuse(socket, SERVER_ERRORS.internalError);
       }
-      if (message.type === 'create') {
-        handleCreate(socket, message);
-        return;
-      }
-      if (message.type === 'join') {
-        handleJoin(socket, message);
-        return;
-      }
-      handleActionMessage(socket, message);
     });
+    // M3: an `error` an emitter has no listener for is a throw.
+    socket.on('error', (error) => log({ event: 'socketError', error: errorName(error) }));
     socket.on('close', () => {
       const seat = seatsBySocket.get(socket);
       seatsBySocket.delete(socket);
@@ -95,18 +167,39 @@ export function startServer(opts: {
     });
   });
 
+  function dispatch(socket: WebSocket, message: ClientMessage): void {
+    if (message.type === 'create') {
+      handleCreate(socket, message);
+      return;
+    }
+    if (message.type === 'join') {
+      handleJoin(socket, message);
+      return;
+    }
+    handleActionMessage(socket, message);
+  }
+
+  /** The error channel, and the close policy in the table above. */
+  function refuse(socket: WebSocket, code: ServerErrorCode): void {
+    send(socket, { type: 'error', code });
+    const closeCode = CLOSE_AFTER[code];
+    if (closeCode !== undefined) {
+      socket.close(closeCode, code);
+    }
+  }
+
   function handleCreate(
     socket: WebSocket,
     message: Extract<ClientMessage, { type: 'create' }>,
   ): void {
     if (message.protocol !== PROTOCOL_VERSION) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.protocolMismatch });
+      refuse(socket, SERVER_ERRORS.protocolMismatch);
       return;
     }
     const p1 = decks[message.deckIdP1];
     const p2 = decks[message.deckIdP2];
     if (p1 === undefined || p2 === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.unknownDeck });
+      refuse(socket, SERVER_ERRORS.unknownDeck);
       return;
     }
     // The two things this server invents. Neither is game state: they name a
@@ -125,17 +218,17 @@ export function startServer(opts: {
 
   function handleJoin(socket: WebSocket, message: Extract<ClientMessage, { type: 'join' }>): void {
     if (message.protocol !== PROTOCOL_VERSION) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.protocolMismatch });
+      refuse(socket, SERVER_ERRORS.protocolMismatch);
       return;
     }
     const entry = matches.get(message.matchId);
     if (entry === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.unknownMatch });
+      refuse(socket, SERVER_ERRORS.unknownMatch);
       return;
     }
     const seat = seatForToken(entry, message.token);
     if (seat === null) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.badToken });
+      refuse(socket, SERVER_ERRORS.badToken);
       return;
     }
     // Reconnection: the token re-authenticates, the newcomer takes the seat,
@@ -157,22 +250,18 @@ export function startServer(opts: {
   ): void {
     const seatInfo = seatsBySocket.get(socket);
     if (seatInfo === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.notJoined });
+      refuse(socket, SERVER_ERRORS.notJoined);
       return;
     }
     const entry = matches.get(seatInfo.matchId);
     if (entry === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.unknownMatch });
+      refuse(socket, SERVER_ERRORS.unknownMatch);
       return;
     }
     // The engine validates whose turn it is; only this validates who is
     // talking. Without it a seat could submit the opponent's legal move.
-    if (
-      typeof message.action !== 'object' ||
-      message.action === null ||
-      message.action.player !== seatInfo.seat
-    ) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.seatMismatch });
+    if (message.action.player !== seatInfo.seat) {
+      refuse(socket, SERVER_ERRORS.seatMismatch);
       return;
     }
     const result = handleAction(entry.match, seatInfo.seat, message.action);
@@ -199,6 +288,8 @@ export function startServer(opts: {
   return new Promise((resolve, reject) => {
     wss.once('error', reject);
     wss.once('listening', () => {
+      // M3: after startup the server's own errors are reported, not thrown.
+      wss.on('error', (error) => log({ event: 'serverError', error: errorName(error) }));
       const address = wss.address() as AddressInfo;
       resolve({
         port: address.port,
@@ -232,42 +323,10 @@ function seatForToken(entry: MatchEntry, token: string): PlayerId | null {
   return null;
 }
 
-/** Parses without trusting: a shape this cannot name is `malformedMessage`. */
-function parseMessage(raw: string): ClientMessage | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== 'object' || parsed === null) {
-    return null;
-  }
-  const message = parsed as Record<string, unknown>;
-  if (message['type'] === 'create') {
-    return typeof message['protocol'] === 'number' &&
-      typeof message['seed'] === 'number' &&
-      typeof message['deckIdP1'] === 'string' &&
-      typeof message['deckIdP2'] === 'string'
-      ? (parsed as ClientMessage)
-      : null;
-  }
-  if (message['type'] === 'join') {
-    return typeof message['protocol'] === 'number' &&
-      typeof message['matchId'] === 'string' &&
-      typeof message['token'] === 'string'
-      ? (parsed as ClientMessage)
-      : null;
-  }
-  if (message['type'] === 'action') {
-    // The action itself is untrusted JSON too — and stays that way: the
-    // engine's own structural validation is the authority on its shape, and
-    // rejects with its own reasons.
-    return typeof message['action'] === 'object' && message['action'] !== null
-      ? (parsed as ClientMessage)
-      : null;
-  }
-  return null;
+/** The name and only the name: a message can quote the payload that caused
+ * it, and a log line is a wire like any other. */
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
 }
 
 function send(socket: WebSocket, payload: ServerToClient): void {

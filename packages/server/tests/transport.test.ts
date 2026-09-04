@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Decklist } from '@optcg/engine';
 import { REASONS } from '@optcg/engine';
 import { ABIL_DECK } from '@optcg/engine/testdata/abilityDecks';
-import { SERVER_ERRORS } from '../src/protocol.js';
-import type { GameServer } from '../src/transport.js';
+import { DEFAULT_LIMITS } from '../src/limits.js';
+import { PROTOCOL_VERSION, SERVER_ERRORS } from '../src/protocol.js';
+import type { GameServer, ServerLogEntry } from '../src/transport.js';
 import { startServer } from '../src/transport.js';
 import { TestClient } from './wsHelpers.js';
 
@@ -89,17 +91,42 @@ describe('the transport', () => {
     c2.close();
   });
 
-  it('produces every transport error code on purpose', async () => {
+  it('produces every transport error code on purpose, and closes exactly when the table says', async () => {
     server.createMatch({
       matchId: 'smoke-3',
       seed: 5,
       decklists: decks,
       tokens: { p1: 'a', p2: 'b' },
     });
-    const client = await TestClient.connect(server.port);
 
-    client.join('smoke-3', 'a', 99);
-    expect((await client.expect('error')).code).toBe(SERVER_ERRORS.protocolMismatch);
+    // The closing codes, each on a fresh socket: the word, then the door,
+    // with the code as the whole of the close reason (M3's table).
+    const mismatched = await TestClient.connect(server.port);
+    mismatched.join('smoke-3', 'a', 99);
+    expect((await mismatched.expect('error')).code).toBe(SERVER_ERRORS.protocolMismatch);
+    expect(await mismatched.closed).toEqual({ code: 1008, reason: SERVER_ERRORS.protocolMismatch });
+
+    const garbled = await TestClient.connect(server.port);
+    garbled.send('this is not json');
+    expect((await garbled.expect('error')).code).toBe(SERVER_ERRORS.malformedMessage);
+    expect(await garbled.closed).toEqual({ code: 1008, reason: SERVER_ERRORS.malformedMessage });
+
+    const deep = await TestClient.connect(server.port);
+    const nesting = DEFAULT_LIMITS.MAX_JSON_DEPTH + 1;
+    deep.send(
+      `{"type":"action","action":{"type":"END_TURN","player":"p1","deep":${'['.repeat(nesting)}${']'.repeat(nesting)}}}`,
+    );
+    expect((await deep.expect('error')).code).toBe(SERVER_ERRORS.oversizedMessage);
+    expect(await deep.closed).toEqual({ code: 1008, reason: SERVER_ERRORS.oversizedMessage });
+
+    // Over the byte limit `ws` itself refuses the frame (M2's `maxPayload`)
+    // before the parser sees a string: no error message, close 1009.
+    const huge = await TestClient.connect(server.port);
+    huge.send('x'.repeat(DEFAULT_LIMITS.MAX_MESSAGE_BYTES + 1));
+    expect((await huge.closed).code).toBe(1009);
+
+    // The kept codes, all on one socket that stays open through every one.
+    const client = await TestClient.connect(server.port);
 
     client.join('nowhere', 'a');
     expect((await client.expect('error')).code).toBe(SERVER_ERRORS.unknownMatch);
@@ -110,9 +137,6 @@ describe('the transport', () => {
     client.send({ type: 'action', action: { type: 'CONCEDE', player: 'p1' } });
     expect((await client.expect('error')).code).toBe(SERVER_ERRORS.notJoined);
 
-    client.send('this is not json');
-    expect((await client.expect('error')).code).toBe(SERVER_ERRORS.malformedMessage);
-
     client.join('smoke-3', 'a');
     await client.expect('joined');
     // The seat check: the socket authenticated as p1 may not speak as p2 —
@@ -120,6 +144,49 @@ describe('the transport', () => {
     client.send({ type: 'action', action: { type: 'CONCEDE', player: 'p2' } });
     expect((await client.expect('error')).code).toBe(SERVER_ERRORS.seatMismatch);
 
+    // A garbage payload inside a well-formed action is the engine's to
+    // refuse, with its reason, and the socket is still a player's.
+    client.send({ type: 'action', action: { type: 'NOT_A_THING', player: 'p1', x: [1] } });
+    expect((await client.expect('rejected')).reason).toBe(REASONS.malformedAction);
+    expect(client.isOpen()).toBe(true);
+
     client.close();
+  });
+
+  it('survives a handler that throws: one log line, internalError, 1011, and keeps serving', async () => {
+    // M3, provoked honestly: the catalog is the transport's one injected
+    // collaborator, and a catalog that throws on lookup is a handler that
+    // throws mid-message. Nothing in the message path is stubbed.
+    const entries: ServerLogEntry[] = [];
+    const catalog = new Proxy<Record<string, Decklist>>(
+      {},
+      {
+        get(_target, key) {
+          if (key === 'boom') {
+            throw new TypeError('the catalog exploded on boom');
+          }
+          return undefined;
+        },
+      },
+    );
+    const own = await startServer({ port: 0, decks: catalog, log: (entry) => entries.push(entry) });
+    const client = await TestClient.connect(own.port);
+    client.send({ type: 'create', protocol: PROTOCOL_VERSION, seed: 1, deckIdP1: 'boom', deckIdP2: 'boom' });
+    expect((await client.expect('error')).code).toBe(SERVER_ERRORS.internalError);
+    expect(await client.closed).toEqual({ code: 1011, reason: SERVER_ERRORS.internalError });
+
+    // The log line is the event, the message type and the error's name —
+    // and nothing that was in the message or the error (M12).
+    expect(entries).toEqual([{ event: 'handlerError', type: 'create', error: 'TypeError' }]);
+    expect(JSON.stringify(entries)).not.toContain('boom');
+    expect(JSON.stringify(entries)).not.toContain('exploded');
+
+    // The process is fine and so is the server: a match plays afterwards.
+    own.createMatch({ matchId: 'after', seed: 6, decklists: decks, tokens: { p1: 'a', p2: 'b' } });
+    const survivor = await TestClient.connect(own.port);
+    survivor.join('after', 'a');
+    expect((await survivor.expect('joined')).seat).toBe('p1');
+    survivor.close();
+    await own.close();
   });
 });

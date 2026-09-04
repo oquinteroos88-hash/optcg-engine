@@ -44,10 +44,23 @@ Server → client:
 | `{ type: 'rejected', reason }` | To the actor **alone**, with the engine's reason verbatim. The other seat never learns the attempt existed. Rejections are request/response, not history: never journaled. |
 | `{ type: 'error', code }` | Transport-level failure; `code` is a server code, never an engine reason. |
 
+**The shapes are exact.** Each client message has the keys in its row and no
+others: an unknown field, a missing field or a wrong primitive type is
+`malformedMessage`, the same as bytes that are not JSON. `protocol` is an
+integer, `seed` a non-negative safe integer, and every id string is bounded.
+The inner `action` is checked for being a plain object with a string `type`
+and a string `player`; its full shape is the engine's business, refused with
+the engine's reasons (`docs/threat-model.md`, M1).
+
 The two error vocabularies never mix. Engine reasons answer game questions
 (`notYourPriority`, `choiceHandleOutOfRange`, …); server codes answer "who are
 you and what did you send": `protocolMismatch`, `unknownMatch`, `unknownDeck`,
-`badToken`, `seatMismatch`, `notJoined`, `malformedMessage`.
+`badToken`, `seatMismatch`, `notJoined`, `malformedMessage` — and, since the
+hardening, `oversizedMessage`, `rateLimited`, `serverFull`, `internalError`.
+Those four are additive (an old client shows a code it does not know, which
+is failing loudly), so `PROTOCOL_VERSION` did not move for them. Every code is
+a bare word that is its own key, and the wire arbiter holds the close channel
+to the same vocabulary.
 
 ## The affordances travel
 
@@ -133,6 +146,58 @@ A reconnecting token takes the seat; whatever socket held it is closed. A
 disconnected seat misses nothing: every emission is journaled whether or not
 a socket was listening. No deadlines, no auto-forfeit — PR 3's concerns.
 
+## Limits, expiry and the reconnection window
+
+The server on the open internet (`docs/threat-model.md`) changed one promise
+and added a perimeter around the rest. The numbers live in
+`packages/server/src/limits.ts`, each with the measurement behind it.
+
+**The trade.** A seat token re-authenticates *while the match lives*, and a
+match lives while a socket is attached to it or for `MATCH_IDLE_TTL_MS`
+(thirty minutes) after the last one left. A match nobody is at for longer
+than that is freed, and a token for it then names nothing: the join is
+answered `unknownMatch`, the same word as for a match that never existed. The
+reconnection window is therefore thirty minutes of nobody at the table —
+a phone call, a reboot, a walk to the router — rather than forever, because
+forever was also how long an abandoned match would have held its memory.
+
+**Heartbeat.** The server pings every socket every `HEARTBEAT_INTERVAL_MS`
+(thirty seconds) and terminates one that has not answered the previous ping —
+no close frame, since the other end is not there to receive one. A half-open
+connection therefore stops counting as a player within two intervals, which
+is what lets "a socket is attached" mean what it says. Browsers answer pings
+on their own; a client written by hand must too.
+
+**Close codes.** A socket that sends something the protocol cannot name is
+told once and closed; one that sends a well-formed thing the server cannot
+honour is told and kept, because the next message may be the right one. The
+close reason is always exactly the code and nothing else.
+
+| Code | After sending it |
+| --- | --- |
+| `malformedMessage`, `oversizedMessage`, `protocolMismatch`, `rateLimited` | close 1008, reason = the code |
+| `internalError` | close 1011, reason = the code |
+| `unknownMatch`, `badToken` | keep; each counts as an authentication failure, and the `MAX_AUTH_FAILURES`-th (five) closes with 1008 `badToken` |
+| `unknownDeck`, `notJoined`, `seatMismatch`, `serverFull` | keep |
+| a frame over `MAX_MESSAGE_BYTES` (16 KiB) | `ws` refuses it before the parser: close 1009, no message |
+| a second socket presenting a seat's token | the first socket is closed with no code and no reason — the reconnection rule above |
+
+**Rate.** `MAX_MESSAGES_PER_WINDOW` (twenty) frames per `RATE_WINDOW_MS`
+(one second) per socket, counted before parsing; over it is `rateLimited` and
+the close. The sweep averages 243 actions per *game*, and a human with
+drag-to-play issues at most about three a second in a burst.
+
+**Caps.** `MAX_MATCHES` (256, provisional until the perf PR measures a match
+at rest) live matches per process — a `create` over it is `serverFull`, socket
+kept — and `MAX_CONNECTIONS` (512) open sockets, refused at the HTTP upgrade
+with a 503 so a refused connection never becomes a socket.
+
+**Origin.** When the runnable server is started with `OPTCG_ALLOWED_ORIGINS`,
+an upgrade whose `Origin` header is not on the list is refused with a 403
+before a socket exists. An upgrade with no `Origin` passes: the attack is a
+page in a browser, and a page always says where it is from. Unset means no
+check, which is the local-development default and is said at startup.
+
 ## Replay
 
 `seed + action log = the match`. The session persists every accepted action
@@ -162,4 +227,5 @@ revert — the arbiter bites.
 Accounts, room lists, spectators, deadlines and abandonment, diffs, and
 persistence beyond process memory. The invitation is a seat code somebody
 sends somebody, and that is deliberate: it is the least machinery that lets
-two people play.
+two people play. (Abandonment now has one consequence — the idle expiry
+above — but no forfeit: an abandoned match is freed, not decided.)

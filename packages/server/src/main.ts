@@ -12,6 +12,12 @@ import { startServer } from './transport.js';
  * registered and where the deck ids a `create` may name come from, and
  * `tests/imports.test.ts` allows it here and nowhere else.
  *
+ * It is also where the perimeter meets the environment (`docs/threat-model.md`):
+ *
+ *   PORT                    the port, unless one is given as the argument
+ *   OPTCG_ALLOWED_ORIGINS   comma-separated origins a browser may connect
+ *                           from (M9); unset means no check, and says so
+ *
  *   node packages/server/dist/main.js [port]
  */
 
@@ -24,8 +30,34 @@ for (const deck of starterDecklists) {
 
 const port = Number(process.argv[2] ?? process.env['PORT'] ?? 8787);
 
-const server = await startServer({ port, decks });
+const originsEnv = process.env['OPTCG_ALLOWED_ORIGINS'];
+const allowedOrigins =
+  originsEnv === undefined || originsEnv.trim() === ''
+    ? undefined
+    : originsEnv
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin !== '');
+
+const server = await startServer({
+  port,
+  decks,
+  ...(allowedOrigins === undefined ? {} : { allowedOrigins }),
+  // M3: one JSON line per event on stderr — an event name, a message type
+  // and an error name, never a payload. What the transport gives is all
+  // there is to print.
+  log: (entry) => {
+    // eslint-disable-next-line no-console
+    console.error(JSON.stringify(entry));
+  },
+});
 // eslint-disable-next-line no-console
 console.log(
   `OPTCG server listening on ws://localhost:${server.port} — decks: ${Object.keys(decks).join(', ')}`,
+);
+// eslint-disable-next-line no-console
+console.log(
+  allowedOrigins === undefined
+    ? 'origin check disabled (OPTCG_ALLOWED_ORIGINS unset)'
+    : `allowed origins: ${allowedOrigins.join(', ')}`,
 );

@@ -119,6 +119,13 @@ export interface UpdatePayload {
  * The transport's own vocabulary: authentication and message shape, nothing
  * about the game. Engine reasons answer game questions; these answer "who are
  * you and what did you send".
+ *
+ * Every value is a bare camelCase word, and that is a rule rather than a
+ * habit: these codes also serve as WebSocket close reasons, and the wire
+ * arbiter checks that no card, no id and no internal path can ride in one
+ * (threat model M12). The four codes added by the hardening PR are additive —
+ * an old client that does not know them still gets a `code` string it can
+ * show — which is why `PROTOCOL_VERSION` did not move for them.
  */
 export const SERVER_ERRORS = {
   protocolMismatch: 'protocolMismatch',
@@ -128,7 +135,40 @@ export const SERVER_ERRORS = {
   badToken: 'badToken',
   seatMismatch: 'seatMismatch',
   notJoined: 'notJoined',
+  /** Not JSON, not a plain object, an unknown `type`, a missing or unknown
+   * key, a wrong primitive type, a forbidden key name — the strict parser's
+   * one answer to everything it cannot name (M1). */
   malformedMessage: 'malformedMessage',
+  /** Too many bytes or too many levels of nesting for the limits in
+   * `limits.ts` (M2). A frame `ws` itself refuses never reaches the parser;
+   * the socket closes with 1009 instead of hearing this. */
+  oversizedMessage: 'oversizedMessage',
+  /** More messages in one window than `MAX_MESSAGES_PER_WINDOW` allows (M8).
+   * Always followed by a close. */
+  rateLimited: 'rateLimited',
+  /** A `create` while `MAX_MATCHES` matches are live (M5). The socket stays
+   * open: the client may try again later, or join a match that exists. */
+  serverFull: 'serverFull',
+  /** A handler threw. The client learns that and nothing else — no message,
+   * no stack — and the socket is closed with 1011 (M3). */
+  internalError: 'internalError',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERRORS)[keyof typeof SERVER_ERRORS];
+
+/**
+ * The words a refused HTTP upgrade carries as its body — the one channel
+ * that speaks before a socket exists, so it can never be an `error` message.
+ * Kept to the same discipline as `SERVER_ERRORS` (bare words, each its own
+ * key) and pinned by the wire arbiter for the same reason: a refusal that
+ * quoted the offending origin would be telling a probe what the list looks
+ * like (M9, M12).
+ */
+export const UPGRADE_REFUSALS = {
+  /** `MAX_CONNECTIONS` reached: HTTP 503 (M5). */
+  serverFull: 'serverFull',
+  /** An `Origin` header outside the allowlist: HTTP 403 (M9). */
+  originRefused: 'originRefused',
+} as const;
+
+export type UpgradeRefusal = (typeof UPGRADE_REFUSALS)[keyof typeof UPGRADE_REFUSALS];

@@ -476,6 +476,10 @@ export const en = {
     seatMismatch: 'That move belonged to the other seat.',
     notJoined: 'You have not joined the match yet.',
     malformedMessage: 'The server did not understand the message.',
+    oversizedMessage: 'The message was too large for the server.',
+    rateLimited: 'Too many messages at once. The server closed the connection.',
+    serverFull: 'The server has no room for another match right now.',
+    internalError: 'Something went wrong on the server.',
   } satisfies Record<ServerErrorCode, string>,
 };
 

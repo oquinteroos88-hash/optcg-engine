@@ -1,11 +1,14 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Decklist, PlayerId } from '@optcg/engine';
-import type { ClientMessage, ServerToClient } from './protocol.js';
-import { PROTOCOL_VERSION, SERVER_ERRORS } from './protocol.js';
+import type { ServerLimits } from './limits.js';
+import { DEFAULT_LIMITS } from './limits.js';
+import type { ClientMessage, ServerErrorCode, ServerToClient } from './protocol.js';
+import { PROTOCOL_VERSION, SERVER_ERRORS, UPGRADE_REFUSALS } from './protocol.js';
 import type { MatchState } from './session.js';
 import { createMatch, handleAction, rejoinPayload } from './session.js';
+import { parseClientMessage } from './validate.js';
 
 /**
  * The transport: a thin WebSocket skin over the pure session. It parses,
@@ -27,13 +30,78 @@ import { createMatch, handleAction, rejoinPayload } from './session.js';
  * a reconnection: it takes the seat, the old socket is closed, and the
  * journal is re-emitted — the minimum that lets a dropped player return
  * mid-choice and keep playing.
+ *
+ * **The perimeter.** This is also the only module that faces the open
+ * internet, so every mitigation in `docs/threat-model.md` that is not a test
+ * lives here or in `validate.ts`, each marked with its item. The rule that
+ * organises them: a socket that sends something the protocol cannot name is
+ * told once and closed; a socket that sends a well-formed thing the server
+ * cannot honour is told and kept, because the next message may be the right
+ * one. The table:
+ *
+ * | code               | after sending it                                  |
+ * | ------------------ | ------------------------------------------------- |
+ * | `malformedMessage` | close 1008, reason = the code                     |
+ * | `oversizedMessage` | close 1008                                        |
+ * | `protocolMismatch` | close 1008                                        |
+ * | `rateLimited`      | close 1008                                        |
+ * | `internalError`    | close 1011                                        |
+ * | `unknownMatch`     | keep; counts as an authentication failure (M4)    |
+ * | `badToken`         | keep; counts as an authentication failure (M4)    |
+ * | `unknownDeck`      | keep                                              |
+ * | `notJoined`        | keep                                              |
+ * | `seatMismatch`     | keep                                              |
+ * | `serverFull`       | keep                                              |
+ *
+ * A close reason is always exactly the code and never anything else: it is
+ * the one channel that bypasses `send`, and the wire arbiter (M12) holds it to
+ * the same vocabulary.
  */
 
 interface MatchEntry {
   match: MatchState;
   tokens: Record<PlayerId, string>;
   sockets: Partial<Record<PlayerId, WebSocket>>;
+  /**
+   * The last moment somebody was provably at the table: a socket attached or
+   * detached, an action accepted. With no socket attached, this plus
+   * `MATCH_IDLE_TTL_MS` is when the match is freed (M6) — the reconnection
+   * window, and the only clock the transport keeps.
+   */
+  lastSeen: number;
 }
+
+/** What the transport remembers about one socket, and nothing about the
+ * person behind it: the perimeter's counters, kept off the match. */
+interface Peer {
+  /** `unknownMatch` and `badToken` since the last successful join; the
+   * `MAX_AUTH_FAILURES`-th closes the socket (M4). A successful join resets
+   * it, so a player who typed a seat code wrong four times and then right
+   * is not one slip from the door for the rest of the match. */
+  authFailures: number;
+  /** Flipped false by every heartbeat ping and back by the pong; a socket
+   * found false at the next tick is terminated (M7). */
+  isAlive: boolean;
+  /** The fixed window of the rate limit (M8): when it opened and how many
+   * frames arrived in it. Counted before parsing, so a flood of garbage costs
+   * the same as a flood of actions — a counter increment. */
+  windowStart: number;
+  count: number;
+}
+
+/**
+ * What the transport tells its operator, and the whole of it. `error` is an
+ * `Error.name`, never a message and never a stack; `type` is the message type
+ * being handled when it is known. No field ever carries a payload, a token,
+ * an id or a reason — a log line is another wire (M3, M12).
+ */
+export interface ServerLogEntry {
+  event: 'handlerError' | 'socketError' | 'serverError';
+  type?: string;
+  error: string;
+}
+
+export type ServerLogger = (entry: ServerLogEntry) => void;
 
 export interface GameServer {
   /** The bound port — pass 0 at start to get an ephemeral one. */
@@ -49,64 +117,231 @@ export interface GameServer {
   }): void;
   /** Read access for tests and tooling; the wire never carries this. */
   getMatch(matchId: string): MatchState | undefined;
+  /** What the caps count right now, for tests and operators; never on the
+   * wire. `connections` is `ws`'s own client set, which the heartbeat keeps
+   * honest (M5, M7). */
+  stats(): { matches: number; connections: number };
   close(): Promise<void>;
 }
+
+/**
+ * The codes that end the conversation, with the close code each one earns:
+ * 1008 (policy violation) for a sender that broke the protocol, 1011
+ * (internal error) for the one case where the server did. Everything not
+ * listed keeps the socket.
+ */
+const CLOSE_AFTER: Partial<Record<ServerErrorCode, number>> = {
+  [SERVER_ERRORS.malformedMessage]: 1008,
+  [SERVER_ERRORS.oversizedMessage]: 1008,
+  [SERVER_ERRORS.protocolMismatch]: 1008,
+  [SERVER_ERRORS.rateLimited]: 1008,
+  [SERVER_ERRORS.internalError]: 1011,
+};
 
 export function startServer(opts: {
   port: number;
   /**
    * The deck catalog a `create` may name. Injected rather than imported: the
    * library holds no card data, which is what keeps `@optcg/engine` its only
-   * game dependency. The runnable entry point supplies the real set.
+   * game dependency. The runnable entry point supplies the real set. Held by
+   * reference, so the catalog stays whatever the caller handed over — a test
+   * may hand over one that throws, to prove the handler path survives it.
    */
   decks?: Record<string, Decklist>;
+  /** Overrides for `limits.ts`, for tests that want a cap within reach. */
+  limits?: Partial<ServerLimits>;
+  /**
+   * M9: the origins a browser may open a socket from. When given, an upgrade
+   * carrying an `Origin` header outside the list is refused with a 403 before
+   * a socket exists; an upgrade with no `Origin` passes, because the attack
+   * is a page in somebody's browser and a non-browser client sends none.
+   * Absent means no check — the local-development default, which the runnable
+   * server logs at startup so a deploy cannot forget it silently.
+   */
+  allowedOrigins?: string[];
+  /** Where the transport reports; silent by default, because a library has
+   * no business writing to a console it was not given. */
+  log?: ServerLogger;
 }): Promise<GameServer> {
+  const limits: ServerLimits = { ...DEFAULT_LIMITS, ...opts.limits };
+  const log: ServerLogger = opts.log ?? (() => undefined);
   const matches = new Map<string, MatchEntry>();
   const seatsBySocket = new Map<WebSocket, { matchId: string; seat: PlayerId }>();
-  const decks: Record<string, Decklist> = { ...opts.decks };
-  const wss = new WebSocketServer({ port: opts.port });
+  const peers = new Map<WebSocket, Peer>();
+  const decks: Record<string, Decklist> = opts.decks ?? {};
+  const allowedOrigins = opts.allowedOrigins === undefined ? null : new Set(opts.allowedOrigins);
+  const wss = new WebSocketServer({
+    port: opts.port,
+    // M2: `ws` refuses a frame over the limit before assembling it, closing
+    // with 1009 on its own; the parser applies the same number to the string.
+    maxPayload: limits.MAX_MESSAGE_BYTES,
+    // M5: the connection cap is enforced at the HTTP upgrade, so a refused
+    // connection is a 503 and never a `WebSocket` with listeners and buffers.
+    // `clients` counts sockets that completed the upgrade, so two arriving in
+    // the same tick may both pass — the cap is a bound, not an exact count.
+    verifyClient(info, done) {
+      if (wss.clients.size >= limits.MAX_CONNECTIONS) {
+        done(false, 503, UPGRADE_REFUSALS.serverFull);
+        return;
+      }
+      // M9: `info.origin` is the header verbatim, or undefined when the
+      // client sent none — `ws` types it as a string, the wire does not.
+      const origin = info.origin as string | undefined;
+      if (allowedOrigins !== null && origin !== undefined && !allowedOrigins.has(origin)) {
+        done(false, 403, UPGRADE_REFUSALS.originRefused);
+        return;
+      }
+      done(true);
+    },
+  });
+
+  // M6: the sweep. A match with no socket attached and nobody seen for the
+  // idle window is freed, and with it the reconnection promise for that
+  // match — the trade `multiplayer-protocol.md` states.
+  const sweeper = setInterval(() => {
+    const now = Date.now();
+    for (const [matchId, entry] of matches) {
+      if (
+        Object.keys(entry.sockets).length === 0 &&
+        now - entry.lastSeen > limits.MATCH_IDLE_TTL_MS
+      ) {
+        matches.delete(matchId);
+      }
+    }
+  }, limits.MATCH_SWEEP_INTERVAL_MS);
+  // M7: the heartbeat. Every socket is pinged; one that did not answer the
+  // previous ping is terminated — no close handshake, because the other end
+  // is not there to complete one. This is what lets `clients.size` and a
+  // match's socket set mean "someone is there" rather than "a TCP connection
+  // once existed".
+  const heartbeat = setInterval(() => {
+    for (const socket of wss.clients) {
+      const peer = peers.get(socket);
+      if (peer === undefined) {
+        continue;
+      }
+      if (!peer.isAlive) {
+        socket.terminate();
+        continue;
+      }
+      peer.isAlive = false;
+      socket.ping();
+    }
+  }, limits.HEARTBEAT_INTERVAL_MS);
+  // Neither timer keeps the process up on its own: a server with no sockets
+  // and no matches should let the process exit when its caller is done.
+  sweeper.unref();
+  heartbeat.unref();
 
   wss.on('connection', (socket) => {
-    socket.on('message', (data) => {
-      const message = parseMessage(String(data));
-      if (message === null) {
-        send(socket, { type: 'error', code: SERVER_ERRORS.malformedMessage });
-        return;
+    const peer: Peer = { authFailures: 0, isAlive: true, windowStart: Date.now(), count: 0 };
+    peers.set(socket, peer);
+    socket.on('pong', () => {
+      const peer = peers.get(socket);
+      if (peer !== undefined) {
+        peer.isAlive = true;
       }
-      if (message.type === 'create') {
-        handleCreate(socket, message);
-        return;
-      }
-      if (message.type === 'join') {
-        handleJoin(socket, message);
-        return;
-      }
-      handleActionMessage(socket, message);
     });
+    socket.on('message', (data) => {
+      // M8: the rate limit, before the frame costs anything. The window is
+      // fixed rather than sliding because a fast human is at three messages a
+      // second against a limit of twenty; nothing finer is being measured.
+      const now = Date.now();
+      if (now - peer.windowStart >= limits.RATE_WINDOW_MS) {
+        peer.windowStart = now;
+        peer.count = 0;
+      }
+      peer.count += 1;
+      if (peer.count > limits.MAX_MESSAGES_PER_WINDOW) {
+        refuse(socket, SERVER_ERRORS.rateLimited);
+        return;
+      }
+      // M3: the whole per-message path under one try/catch. A throw is one
+      // log line, one `internalError`, one closed socket — and the process,
+      // with every other match on it, keeps going.
+      let type = 'unparsed';
+      try {
+        const parsed = parseClientMessage(String(data), limits);
+        if (!parsed.ok) {
+          refuse(socket, parsed.code);
+          return;
+        }
+        type = parsed.message.type;
+        dispatch(socket, parsed.message);
+      } catch (error) {
+        log({ event: 'handlerError', type, error: errorName(error) });
+        refuse(socket, SERVER_ERRORS.internalError);
+      }
+    });
+    // M3: an `error` an emitter has no listener for is a throw.
+    socket.on('error', (error) => log({ event: 'socketError', error: errorName(error) }));
     socket.on('close', () => {
+      peers.delete(socket);
       const seat = seatsBySocket.get(socket);
       seatsBySocket.delete(socket);
       if (seat !== undefined) {
         const entry = matches.get(seat.matchId);
         if (entry !== undefined && entry.sockets[seat.seat] === socket) {
           delete entry.sockets[seat.seat];
+          // The window opens now: the leaving is the last thing seen.
+          entry.lastSeen = Date.now();
         }
       }
     });
   });
+
+  function dispatch(socket: WebSocket, message: ClientMessage): void {
+    if (message.type === 'create') {
+      handleCreate(socket, message);
+      return;
+    }
+    if (message.type === 'join') {
+      handleJoin(socket, message);
+      return;
+    }
+    handleActionMessage(socket, message);
+  }
+
+  /** The error channel, and the close policy in the table above. */
+  function refuse(socket: WebSocket, code: ServerErrorCode): void {
+    send(socket, { type: 'error', code });
+    const closeCode = CLOSE_AFTER[code];
+    if (closeCode !== undefined) {
+      socket.close(closeCode, code);
+      return;
+    }
+    // M4: a wrong match id or a wrong token is a guess, and the socket gets
+    // a bounded number of them. A player who mistyped a seat code has several
+    // tries; a guesser has the same several, against 122 bits per try.
+    if (code === SERVER_ERRORS.unknownMatch || code === SERVER_ERRORS.badToken) {
+      const peer = peers.get(socket);
+      if (peer !== undefined) {
+        peer.authFailures += 1;
+        if (peer.authFailures >= limits.MAX_AUTH_FAILURES) {
+          socket.close(1008, SERVER_ERRORS.badToken);
+        }
+      }
+    }
+  }
 
   function handleCreate(
     socket: WebSocket,
     message: Extract<ClientMessage, { type: 'create' }>,
   ): void {
     if (message.protocol !== PROTOCOL_VERSION) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.protocolMismatch });
+      refuse(socket, SERVER_ERRORS.protocolMismatch);
       return;
     }
     const p1 = decks[message.deckIdP1];
     const p2 = decks[message.deckIdP2];
     if (p1 === undefined || p2 === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.unknownDeck });
+      refuse(socket, SERVER_ERRORS.unknownDeck);
+      return;
+    }
+    // M5: the match cap. The socket is kept — the client may join a match
+    // that exists, or try again once the sweep has freed one.
+    if (matches.size >= limits.MAX_MATCHES) {
+      refuse(socket, SERVER_ERRORS.serverFull);
       return;
     }
     // The two things this server invents. Neither is game state: they name a
@@ -119,23 +354,24 @@ export function startServer(opts: {
       match: createMatch(message.seed, { p1, p2 }),
       tokens,
       sockets: {},
+      lastSeen: Date.now(),
     });
     send(socket, { type: 'created', protocol: PROTOCOL_VERSION, matchId, tokens });
   }
 
   function handleJoin(socket: WebSocket, message: Extract<ClientMessage, { type: 'join' }>): void {
     if (message.protocol !== PROTOCOL_VERSION) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.protocolMismatch });
+      refuse(socket, SERVER_ERRORS.protocolMismatch);
       return;
     }
     const entry = matches.get(message.matchId);
     if (entry === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.unknownMatch });
+      refuse(socket, SERVER_ERRORS.unknownMatch);
       return;
     }
     const seat = seatForToken(entry, message.token);
     if (seat === null) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.badToken });
+      refuse(socket, SERVER_ERRORS.badToken);
       return;
     }
     // Reconnection: the token re-authenticates, the newcomer takes the seat,
@@ -147,7 +383,12 @@ export function startServer(opts: {
       previous.close();
     }
     entry.sockets[seat] = socket;
+    entry.lastSeen = Date.now();
     seatsBySocket.set(socket, { matchId: message.matchId, seat });
+    const peer = peers.get(socket);
+    if (peer !== undefined) {
+      peer.authFailures = 0;
+    }
     send(socket, rejoinPayload(entry.match, seat));
   }
 
@@ -157,22 +398,18 @@ export function startServer(opts: {
   ): void {
     const seatInfo = seatsBySocket.get(socket);
     if (seatInfo === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.notJoined });
+      refuse(socket, SERVER_ERRORS.notJoined);
       return;
     }
     const entry = matches.get(seatInfo.matchId);
     if (entry === undefined) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.unknownMatch });
+      refuse(socket, SERVER_ERRORS.unknownMatch);
       return;
     }
     // The engine validates whose turn it is; only this validates who is
     // talking. Without it a seat could submit the opponent's legal move.
-    if (
-      typeof message.action !== 'object' ||
-      message.action === null ||
-      message.action.player !== seatInfo.seat
-    ) {
-      send(socket, { type: 'error', code: SERVER_ERRORS.seatMismatch });
+    if (message.action.player !== seatInfo.seat) {
+      refuse(socket, SERVER_ERRORS.seatMismatch);
       return;
     }
     const result = handleAction(entry.match, seatInfo.seat, message.action);
@@ -183,6 +420,7 @@ export function startServer(opts: {
       return;
     }
     entry.match = result.match;
+    entry.lastSeen = Date.now();
     for (const [player, payload] of Object.entries(result.emitted) as [
       PlayerId,
       (typeof result.emitted)[PlayerId],
@@ -199,17 +437,29 @@ export function startServer(opts: {
   return new Promise((resolve, reject) => {
     wss.once('error', reject);
     wss.once('listening', () => {
+      // M3: after startup the server's own errors are reported, not thrown.
+      wss.on('error', (error) => log({ event: 'serverError', error: errorName(error) }));
       const address = wss.address() as AddressInfo;
       resolve({
         port: address.port,
         decks,
         createMatch({ matchId, seed, decklists, tokens }) {
-          matches.set(matchId, { match: createMatch(seed, decklists), tokens, sockets: {} });
+          matches.set(matchId, {
+            match: createMatch(seed, decklists),
+            tokens,
+            sockets: {},
+            lastSeen: Date.now(),
+          });
         },
         getMatch(matchId) {
           return matches.get(matchId)?.match;
         },
+        stats() {
+          return { matches: matches.size, connections: wss.clients.size };
+        },
         close() {
+          clearInterval(sweeper);
+          clearInterval(heartbeat);
           return new Promise<void>((done) => {
             for (const client of wss.clients) {
               client.close();
@@ -222,52 +472,32 @@ export function startServer(opts: {
   });
 }
 
+/**
+ * M4: the comparison takes the same time whether the guess shares no
+ * character with the token or all but the last. `timingSafeEqual` needs equal
+ * lengths, so the length is compared first — the length of a UUID is not a
+ * secret, and a candidate of another length is wrong before any byte is read.
+ */
 function seatForToken(entry: MatchEntry, token: string): PlayerId | null {
-  if (entry.tokens.p1 === token) {
+  const candidate = Buffer.from(token);
+  if (sameToken(candidate, entry.tokens.p1)) {
     return 'p1';
   }
-  if (entry.tokens.p2 === token) {
+  if (sameToken(candidate, entry.tokens.p2)) {
     return 'p2';
   }
   return null;
 }
 
-/** Parses without trusting: a shape this cannot name is `malformedMessage`. */
-function parseMessage(raw: string): ClientMessage | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== 'object' || parsed === null) {
-    return null;
-  }
-  const message = parsed as Record<string, unknown>;
-  if (message['type'] === 'create') {
-    return typeof message['protocol'] === 'number' &&
-      typeof message['seed'] === 'number' &&
-      typeof message['deckIdP1'] === 'string' &&
-      typeof message['deckIdP2'] === 'string'
-      ? (parsed as ClientMessage)
-      : null;
-  }
-  if (message['type'] === 'join') {
-    return typeof message['protocol'] === 'number' &&
-      typeof message['matchId'] === 'string' &&
-      typeof message['token'] === 'string'
-      ? (parsed as ClientMessage)
-      : null;
-  }
-  if (message['type'] === 'action') {
-    // The action itself is untrusted JSON too — and stays that way: the
-    // engine's own structural validation is the authority on its shape, and
-    // rejects with its own reasons.
-    return typeof message['action'] === 'object' && message['action'] !== null
-      ? (parsed as ClientMessage)
-      : null;
-  }
-  return null;
+function sameToken(candidate: Buffer, token: string): boolean {
+  const expected = Buffer.from(token);
+  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+}
+
+/** The name and only the name: a message can quote the payload that caused
+ * it, and a log line is a wire like any other. */
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
 }
 
 function send(socket: WebSocket, payload: ServerToClient): void {

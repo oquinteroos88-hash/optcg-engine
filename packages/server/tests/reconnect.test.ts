@@ -160,10 +160,11 @@ describe('match expiry', () => {
     await holder.expect('joined');
     expect(server.stats().matches).toBe(2);
 
-    await new Promise((resolve) => setTimeout(resolve, 120));
+    // Wait for the sweep to act, not for the clock to have probably passed:
+    // the positive case resolves, and the negative case is asserted after it.
+    await until(() => server.stats().matches === 1);
     expect(server.getMatch('empty')).toBeUndefined();
     expect(server.getMatch('held')).toBeDefined();
-    expect(server.stats().matches).toBe(1);
 
     // A freed match is gone for good: the token that named a seat in it
     // names nothing now, and the answer is the same as for a match that
@@ -176,13 +177,23 @@ describe('match expiry', () => {
     holder.close();
     await holder.closed;
     expect(server.getMatch('held')).toBeDefined();
-    await new Promise((resolve) => setTimeout(resolve, 120));
+    await until(() => server.stats().matches === 0);
     expect(server.getMatch('held')).toBeUndefined();
-    expect(server.stats().matches).toBe(0);
     late.close();
     await server.close();
   });
 });
+
+/** Polls every 5ms until `condition` holds, or fails after `timeoutMs`. */
+async function until(condition: () => boolean, timeoutMs = 2_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error(`condition not met within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
 
 /**
  * The heartbeat (M7): a client that stops answering pings is terminated and
@@ -199,13 +210,15 @@ describe('heartbeat', () => {
 
     // Ping at the first tick, judgement at the second: gone within two
     // intervals, with no close frame because nobody was there to answer one.
+    // The server's own count is what is waited for — the client sees the
+    // TCP end a tick before `ws` takes the socket out of its set.
+    await until(() => server.stats().connections === 1);
     const ended = await mute.closed;
     expect(ended.code).toBe(1006);
-    // The client sees the TCP end a tick before the server's own close
-    // event takes the socket out of its set.
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(server.stats().connections).toBe(1);
+    // The negative case, asserted once the positive one has resolved: two
+    // intervals have passed, and the socket that answered is still there.
     expect(alive.isOpen()).toBe(true);
+    expect(server.stats().connections).toBe(1);
     alive.close();
     await server.close();
   });

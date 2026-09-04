@@ -53,13 +53,27 @@ next to it in the source.
 | `MAX_MESSAGE_BYTES` | 16 KiB | A frame (`ws` `maxPayload`, close 1009) and the parsed string. The largest legitimate client message measured 166 bytes. |
 | `MAX_JSON_DEPTH` | 8 | Nesting, root counted as one. The deepest legitimate message is four. |
 | `MAX_ID_LENGTH` | 64 | `matchId`, `token`, deck ids. A UUID is 36. |
-| `MAX_MATCHES` | 256 | Live matches per process; over it, `create` is `serverFull`. Provisional until the perf PR measures a match at rest. |
+| `MAX_MATCHES` | 256 | Live matches per process; over it, `create` is `serverFull`. A finished match at rest is 224 KiB of heap, so the cap is 56 MiB of matches. |
 | `MAX_CONNECTIONS` | 512 | Open sockets; over it, the upgrade is a 503. |
 | `MAX_AUTH_FAILURES` | 5 | `unknownMatch` + `badToken` per socket before it is closed. |
 | `MATCH_IDLE_TTL_MS` | 30 min | How long a match with no socket lives — the reconnection window. |
 | `MATCH_SWEEP_INTERVAL_MS` | 60 s | How often expiry runs. |
 | `HEARTBEAT_INTERVAL_MS` | 30 s | Ping interval; a socket silent for two is terminated. |
 | `RATE_WINDOW_MS` / `MAX_MESSAGES_PER_WINDOW` | 1 s / 20 | Frames per socket per window, counted before parsing. A fast human is at three. |
+
+## Measuring it
+
+```
+pnpm --filter @optcg/server run bench
+```
+
+`bench/` is the harness behind [`docs/performance.md`](../../docs/performance.md):
+`applyAction` per action and per action type, what the session pays above
+it per seat, `update` and `joined` bytes on the wire, a match at rest and
+256 of them on the heap, growth over the longest game, and the client
+bundle raw and gzipped. `--no-heap` and `--no-bundle` skip the slow parts.
+`tests/budgets.test.ts` asserts on the same functions with the margins the
+document states, so a regression fails a test before it reaches a table.
 
 ## Dependencies
 

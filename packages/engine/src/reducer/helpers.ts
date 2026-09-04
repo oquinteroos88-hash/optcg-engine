@@ -1,3 +1,4 @@
+import { current, isDraft } from 'immer';
 import type { Duration } from '../abilities/dsl.js';
 import { KO_BY_BATTLE, KO_CAUSE_VAR } from '../abilities/dsl.js';
 import { fieldIds } from '../abilities/query.js';
@@ -15,6 +16,29 @@ export const BOARD_LIMIT = 5;
 export function emit(draft: GameState, events: GameEvent[], event: GameEvent): void {
   draft.log.push(event);
   events.push(event);
+}
+
+/**
+ * The card table as it stands at this point in the recipe, readable without
+ * drafting it.
+ *
+ * Reading a child through an immer draft manufactures a proxy for it and
+ * marks its parent copied, and `finalize` then walks every proxy it made. A
+ * loop that *looks at* every card in order to change a few of them was
+ * therefore paying for a proxy per card instance, about a hundred and twenty
+ * of them — measured on the ability sweep as END_TURN, the one action that
+ * looks at every card, costing 806µs against a 150µs median for the rest,
+ * with immer's `finalizeProperty` alone at 29% of it.
+ *
+ * `current` returns the same data with every write the recipe has already
+ * made, and no proxies. Writes still go through the draft, which is what
+ * keeps this a read-side change: the state that comes out is byte for byte
+ * the state that came out before, and `packages/server/tests/replay.test.ts`
+ * is the proof. Outside a recipe (a scenario builder's plain object) the
+ * table is returned as is.
+ */
+export function peekCards(draft: GameState): Readonly<Record<InstanceId, CardInstance>> {
+  return isDraft(draft.cards) ? current(draft.cards) : draft.cards;
 }
 
 // Validation ran before produce, so a missing instance here is an engine bug.

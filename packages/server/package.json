@@ -8,6 +8,7 @@
     "./protocol": "./dist/protocol.js"
   },
   "scripts": {
+    "bench": "tsc -p tsconfig.bench.json && node --expose-gc bench/dist/bench/run.js",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "test": "vitest run",

@@ -1,6 +1,5 @@
 import type { Keyword } from './abilities/dsl.js';
-import { KEYWORDS } from './abilities/dsl.js';
-import { getPower, getPowerWithoutStatics, hasKeyword } from './selectors.js';
+import { getPower, getPowerWithoutStatics, keywordsOf } from './selectors.js';
 import type {
   Battle,
   CardInstance,
@@ -209,7 +208,7 @@ export function playerView(state: GameState, viewer: PlayerId): PlayerView {
         ...(state.cards[id] as CardInstance),
         power: getPower(state, id),
         powerWithoutStatics: getPowerWithoutStatics(state, id),
-        keywords: KEYWORDS.filter((keyword) => hasKeyword(state, id, keyword)),
+        keywords: [...keywordsOf(state, id)],
       };
     }
   }

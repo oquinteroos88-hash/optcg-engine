@@ -3,7 +3,7 @@ import type { GameEvent } from '../events.js';
 import { mark } from '../instrument.js';
 import { getOpponent } from '../selectors.js';
 import type { GameState, PlayerId } from '../types.js';
-import { emit, expireEndOfTurnModifiers } from './helpers.js';
+import { emit, expireEndOfTurnModifiers, mustGetCard, peekCards } from './helpers.js';
 import { startTurn } from './startTurn.js';
 
 /**
@@ -32,9 +32,10 @@ export function finishTurn(draft: GameState, player: PlayerId, events: GameEvent
   // The Refresh Phase of the next turn (6-6-1-4 → 6-2) comes after, so a rule
   // that expires here is gone before anybody un-rests anything.
   expireEndOfTurnModifiers(draft, player);
-  for (const card of Object.values(draft.cards)) {
+  // Read the whole table, draft only the cards that change: see `peekCards`.
+  for (const [id, card] of Object.entries(peekCards(draft))) {
     if (card.usedThisTurn.length > 0) {
-      card.usedThisTurn = [];
+      mustGetCard(draft, id).usedThisTurn = [];
     }
   }
   mark('turn.ended');

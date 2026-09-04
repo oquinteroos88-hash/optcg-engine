@@ -54,6 +54,11 @@ export class TestClient {
     this.socket.send(typeof message === 'string' ? message : JSON.stringify(message));
   }
 
+  /** Bytes as a binary frame, for the fuzzer: what a non-client sends. */
+  sendRaw(bytes: Buffer): void {
+    this.socket.send(bytes);
+  }
+
   join(matchId: string, token: string, protocol = PROTOCOL_VERSION): void {
     this.send({ type: 'join', protocol, matchId, token });
   }
